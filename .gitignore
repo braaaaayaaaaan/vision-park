@@ -1,0 +1,46 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Frontend
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# ANPR datasets and footage
+data/videos/
+data/datasets/
+
+# Machine learning model weights
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Training outputs
+runs/
+wandb/
+
+# IDE and operating system
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
