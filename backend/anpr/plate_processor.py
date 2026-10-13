@@ -1,9 +1,12 @@
-from dataclasses import dataclass
-from typing import List
+from __future__ import annotations
 
-from backend.anpr.vehicle_tracker import TrackedVehicle
-from backend.anpr.plate_detector import PlateDetector
-from backend.anpr.ocr import OCR
+from dataclasses import dataclass
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.anpr.vehicle_tracker import TrackedVehicle
+    from backend.anpr.plate_detector import PlateDetector
+    from backend.anpr.ocr import OCR
 
 @dataclass
 class ProcessedPlate:
