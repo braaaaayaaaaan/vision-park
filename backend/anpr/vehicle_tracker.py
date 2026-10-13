@@ -80,5 +80,16 @@ class VehicleTracker:
 
         return tracked_vehicles
 
+    def retained_track_ids(self) -> set[int]:
+        """Keep active and temporarily lost ByteTrack IDs until retirement."""
+        predictor = self.model.predictor
+        if predictor is None or not hasattr(predictor, "trackers"):
+            raise RuntimeError("ByteTrack has not been initialised by update()")
+        return {
+            track.track_id
+            for tracker in predictor.trackers
+            for track in (*tracker.tracked_stracks, *tracker.lost_stracks)
+        }
+
     def reset(self) -> None:
         self.model = YOLO(self.model_path)
