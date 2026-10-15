@@ -147,3 +147,12 @@ def confirm_session(session_id: str, vehicle_id: str) -> dict:
     if not isinstance(result, dict) or "status" not in result:
         raise DatabaseError("Confirmation RPC returned an invalid response.")
     return result
+
+
+def close_session(session_id: str, vehicle_id: str) -> dict:
+    result = _execute(get_supabase().rpc("close_parking_session", {
+        "p_session_id": session_id, "p_vehicle_id": vehicle_id,
+    })).data
+    if not isinstance(result, dict) or "status" not in result:
+        raise DatabaseError("Closure RPC returned an invalid response.")
+    return result
