@@ -43,7 +43,7 @@ def _execute(query):
         return query.execute()
     except APIError as error:
         if error.code == "PGRST202":
-            raise DatabaseError("Reservation RPC unavailable. Review and apply the reservation migration first.") from None
+            raise DatabaseError("Database RPC unavailable. Review and apply the relevant SQL migration first.") from None
         raise DatabaseError("Supabase query failed; check table access, schema and backend credentials.") from None
     except HTTPError:
         raise DatabaseError("Supabase is unreachable; check connectivity and project availability.") from None
@@ -137,4 +137,13 @@ def reserve_zone(vehicle_id: str, zone_id: str) -> dict:
     })).data
     if not isinstance(result, dict) or "status" not in result:
         raise DatabaseError("Reservation RPC returned an invalid response.")
+    return result
+
+
+def confirm_session(session_id: str, vehicle_id: str) -> dict:
+    result = _execute(get_supabase().rpc("confirm_parking_session", {
+        "p_session_id": session_id, "p_vehicle_id": vehicle_id,
+    })).data
+    if not isinstance(result, dict) or "status" not in result:
+        raise DatabaseError("Confirmation RPC returned an invalid response.")
     return result
