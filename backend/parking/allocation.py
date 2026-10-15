@@ -50,7 +50,7 @@ def rank_zones(tenant_id: str, permissions: list[dict], zones: list[dict],
 
 
 def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
-    """Called explicitly by the protected endpoint; not connected to ANPR yet."""
+    """Shared by the protected allocation endpoint and entrance ANPR consumer."""
     vehicle = db.get_vehicle(plate_number)
     if vehicle is None:
         raise AllocationError("unknown_vehicle", "The plate is not registered.", 404)
