@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.database import DatabaseError
 from backend.parking.allocation import AllocationError, allocate_parking
+from backend.parking.sessions import ConfirmationResult, SessionError, confirm_parking
 
 router = APIRouter()
 allocation_key = APIKeyHeader(name="X-Allocation-Token", auto_error=False)
@@ -58,6 +59,23 @@ def allocate(request: AllocationRequest):
     try:
         return allocate_parking(request.plate_number, str(request.entrance_node_id))
     except AllocationError as error:
+        raise HTTPException(error.status_code, {"code": error.code, "message": str(error)}) from None
+    except DatabaseError as error:
+        raise HTTPException(503, {"code": "database_unavailable", "message": str(error)}) from None
+
+
+class ConfirmationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    vehicle_id: UUID
+
+
+@router.post("/sessions/{session_id}/confirm", response_model=ConfirmationResult,
+             dependencies=[Depends(require_allocation_access)])
+def confirm(session_id: UUID, request: ConfirmationRequest):
+    """Development-only confirmation; repeats return the original confirmation."""
+    try:
+        return confirm_parking(str(session_id), str(request.vehicle_id))
+    except SessionError as error:
         raise HTTPException(error.status_code, {"code": error.code, "message": str(error)}) from None
     except DatabaseError as error:
         raise HTTPException(503, {"code": "database_unavailable", "message": str(error)}) from None
