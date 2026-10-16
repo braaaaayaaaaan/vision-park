@@ -39,12 +39,20 @@ class _AppShellState extends State<AppShell> {
         bottom: false,
         child: IndexedStack(
           index: _selectedIndex,
-          children: const [
-            HomeScreen(),
-            NavigationScreen(),
-            VehiclesScreen(),
-            HistoryScreen(),
-            AccountScreen(),
+          children: [
+            HomeScreen(
+              onTabSelected: (index) {
+                setState(() => _selectedIndex = index);
+              },
+            ),
+            const NavigationScreen(),
+            const VehiclesScreen(),
+            const HistoryScreen(),
+            AccountScreen(
+              onVehiclesSelected: () {
+                setState(() => _selectedIndex = 2);
+              },
+            ),
           ],
         ),
       ),

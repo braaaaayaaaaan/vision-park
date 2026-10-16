@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+/// Reserved for parking occupancy, not general application or session status.
+abstract final class OccupancyColours {
+  static const available = Color(0xFF25804B);
+  static const nearlyFull = Color(0xFFE0B326);
+  static const full = Color(0xFFC53D3D);
+}
+
 abstract final class AppSpacing {
   static const small = 8.0;
   static const medium = 16.0;
