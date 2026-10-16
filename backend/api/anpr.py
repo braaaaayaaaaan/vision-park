@@ -37,7 +37,7 @@ def run_entrance(request: EntranceRunRequest):
     """
     handler = EntranceEventHandler({"recorded-entrance": str(request.entrance_node_id)})
     pipeline = ANPRPipeline(
-        source="data/videos/entrance.mp4",
+        source="data/videos/inti_entrance.mp4",
         camera_id="recorded-entrance", camera_role="entrance",
     )
     with closing(pipeline.run()) as events:
@@ -52,7 +52,7 @@ def run_exit():
     pipeline = None
     try:
         pipeline = ANPRPipeline(
-            source="data/videos/exit.mp4",
+            source="data/videos/inti_exit.mp4",
             camera_id="recorded-exit", camera_role="exit",
         )
         with closing(pipeline.run()) as events:
