@@ -8,8 +8,8 @@ void main() {
   ) async {
     await tester.pumpWidget(const VisionParkApp());
 
-    expect(find.text('Welcome to VisionPark'), findsOneWidget);
-    expect(find.text('Your Parking Overview'), findsOneWidget);
+    expect(find.textContaining('Good '), findsOneWidget);
+    expect(find.text('Parking Availability'), findsOneWidget);
     expect(find.byType(NavigationDestination), findsNWidgets(5));
     expect(find.byType(FloatingActionButton), findsNothing);
 
@@ -18,7 +18,7 @@ void main() {
       'Vehicles': 'Your Vehicles Will Appear Here',
       'History': 'Your Visits Will Appear Here',
       'Account': 'Your Profile Will Appear Here',
-      'Home': 'Your Parking Overview',
+      'Home': 'Parking Availability',
     };
 
     for (final destination in destinations.entries) {
@@ -30,7 +30,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text(destination.value), findsOneWidget);
-      expect(find.textContaining('Not Connected'), findsOneWidget);
+      expect(find.textContaining('Not Connected'), findsWidgets);
       expect(tester.takeException(), isNull);
     }
   });

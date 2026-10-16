@@ -42,5 +42,26 @@ abstract final class MalaysianDateTime {
     return '$day $month ${local.year}, $hour:$minute MYT';
   }
 
+  static String greeting(DateTime instant) {
+    final hour = instant.toUtc().add(_offset).hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  /// UTC instant of midnight in Kuala Lumpur for the supplied local day.
+  static DateTime startOfDayUtc(DateTime instant) {
+    final local = instant.toUtc().add(_offset);
+    return DateTime.utc(local.year, local.month, local.day).subtract(_offset);
+  }
+
+  static String formatDuration(Duration duration) {
+    if (duration.isNegative) return 'Unavailable';
+    if (duration.inSeconds < 60) return 'Less Than 1 Min';
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    return hours == 0 ? '$minutes Min' : '$hours Hr $minutes Min';
+  }
+
   static String _twoDigits(int value) => value.toString().padLeft(2, '0');
 }

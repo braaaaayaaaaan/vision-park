@@ -1,9 +1,22 @@
 /// Client-side models, independent of widgets and future API transport details.
 class DriverProfile {
-  const DriverProfile({required this.id, this.tenantName});
+  const DriverProfile({
+    required this.id,
+    this.tenantName,
+    this.fullName,
+    this.email,
+    this.isActive,
+  });
 
   final String id;
   final String? tenantName;
+
+  /// Null personal fields on a successful profile read mean not provided.
+  final String? fullName;
+  final String? email;
+
+  /// Null means status is unavailable, not inactive.
+  final bool? isActive;
 }
 
 class DriverVehicle {
@@ -11,11 +24,37 @@ class DriverVehicle {
     required this.id,
     required this.plateNumber,
     required this.registrationStatus,
+    this.lastRecognitionAt,
+    this.activeSession,
+    this.sessionInformationAvailable = false,
+    this.removalPermitted = false,
   });
 
   final String id;
   final String plateNumber;
   final String registrationStatus;
+  final DateTime? lastRecognitionAt;
+  final ParkingSession? activeSession;
+
+  /// False means unknown, not a confirmed absence of an active session.
+  final bool sessionInformationAvailable;
+
+  /// Future server-authorised permission; the server must recheck on removal.
+  final bool removalPermitted;
+
+  String get approvalLabel => switch (registrationStatus) {
+    'approved' => 'Approved',
+    'pending' => 'Pending Approval',
+    'rejected' => 'Rejected',
+    _ => 'Approval Status Unavailable',
+  };
+
+  bool get hasActiveSession =>
+      activeSession?.status == ParkingSessionStatus.allocated ||
+      activeSession?.status == ParkingSessionStatus.occupied;
+
+  bool get canRemove =>
+      removalPermitted && sessionInformationAvailable && !hasActiveSession;
 }
 
 enum ParkingSessionStatus { allocated, occupied, completed }
@@ -29,6 +68,9 @@ class ParkingSession {
     required this.entryTime,
     this.confirmedAt,
     this.exitTime,
+    this.plateNumber,
+    this.zoneName,
+    this.levelName,
   });
 
   final String id;
@@ -40,6 +82,11 @@ class ParkingSession {
   final DateTime entryTime;
   final DateTime? confirmedAt;
   final DateTime? exitTime;
+
+  /// Optional historical display values, independent of current registrations.
+  final String? plateNumber;
+  final String? zoneName;
+  final String? levelName;
 }
 
 class ParkingZone {
@@ -66,12 +113,16 @@ class RouteNode {
     required this.levelId,
     required this.x,
     required this.y,
+    this.label,
+    this.nodeType,
   });
 
   final String id;
   final String levelId;
   final double x;
   final double y;
+  final String? label;
+  final String? nodeType;
 }
 
 class ParkingRoute {
