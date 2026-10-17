@@ -10,10 +10,12 @@ class AccountScreen extends StatefulWidget {
   const AccountScreen({
     required this.onVehiclesSelected,
     this.controller,
+    this.onSignOut,
     super.key,
   });
   final VoidCallback onVehiclesSelected;
   final AccountController? controller;
+  final VoidCallback? onSignOut;
 
   @override
   State<AccountScreen> createState() => _AccountScreenState();
@@ -147,6 +149,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     const SizedBox(height: AppSpacing.large),
                     AccountSettingsCard(
+                      onSignOut: widget.onSignOut,
                       profile: ready ? profile : null,
                       onVehiclesSelected: widget.onVehiclesSelected,
                     ),

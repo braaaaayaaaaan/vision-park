@@ -79,11 +79,52 @@ def get_user(user_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def get_auth_profile(user_id: str) -> dict | None:
+    rows = _execute(get_supabase().table("users").select(
+        "id,full_name,role,approval_status,is_active,tenant_id"
+    ).eq("id", user_id).limit(1)).data
+    return rows[0] if rows else None
+
+
 def get_tenant(tenant_id: str) -> dict | None:
     rows = _execute(get_supabase().table("tenants").select(
         "id,name,is_active"
     ).eq("id", tenant_id).limit(1)).data
     return rows[0] if rows else None
+
+
+def get_registration_companies() -> list[dict]:
+    return _all_rows(lambda: get_supabase().table("tenants").select(
+        "id,name"
+    ).eq("is_active", True))
+
+
+def get_pending_driver_registrations(limit: int, offset: int) -> list[dict]:
+    return _execute(get_supabase().table("users").select(
+        "id,full_name,approval_status,is_active,requested_tenant_id,"
+        "requested_company:tenants!requested_tenant_id(id,name,is_active)"
+    ).eq("role", "driver").eq("approval_status", "pending")
+        .order("id").range(offset, offset + limit - 1)).data
+
+
+def decide_driver_registration(admin_id: str, user_id: str, decision: str, tenant_id: str | None) -> dict:
+    result = _execute(get_supabase().rpc("decide_driver_registration", {
+        "p_admin_id": admin_id, "p_user_id": user_id,
+        "p_decision": decision, "p_tenant_id": tenant_id,
+    })).data
+    if not isinstance(result, dict) or "status" not in result:
+        raise DatabaseError("Registration decision RPC returned an invalid response.")
+    return result
+
+
+def insert_pending_driver(user_id: str, full_name: str, requested_tenant_id: str):
+    # ON CONFLICT DO NOTHING makes concurrent retries safe; never merge into an
+    # existing account. In particular, never overwrite an administrator profile.
+    _execute(get_supabase().table("users").upsert({
+        "id": user_id, "full_name": full_name, "role": "driver",
+        "approval_status": "pending", "is_active": False, "tenant_id": None,
+        "requested_tenant_id": requested_tenant_id,
+    }, on_conflict="id", ignore_duplicates=True))
 
 
 def get_permissions(tenant_id: str) -> list[dict]:

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:visionpark_mobile/app/app_theme.dart';
-import 'package:visionpark_mobile/app/vision_park_app.dart';
+import 'package:visionpark_mobile/app/app_shell.dart';
 import 'package:visionpark_mobile/data/models/driver_models.dart';
 import 'package:visionpark_mobile/data/repositories/driver_repository.dart';
 import 'package:visionpark_mobile/features/account/account_controller.dart';
@@ -127,7 +127,9 @@ void main() {
   testWidgets('My Vehicles navigates within the existing shell', (
     tester,
   ) async {
-    await tester.pumpWidget(const VisionParkApp());
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const AppShell()),
+    );
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),

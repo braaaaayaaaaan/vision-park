@@ -8,11 +8,13 @@ class AccountSettingsCard extends StatelessWidget {
   const AccountSettingsCard({
     required this.profile,
     required this.onVehiclesSelected,
+    this.onSignOut,
     super.key,
   });
 
   final DriverProfile? profile;
   final VoidCallback onVehiclesSelected;
+  final VoidCallback? onSignOut;
 
   void _show(BuildContext context, String title, Widget content) {
     showDialog<void>(
@@ -71,12 +73,12 @@ class AccountSettingsCard extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.lock_outline),
               title: const Text('Security'),
-              subtitle: const Text('Authentication Not Connected'),
+              subtitle: const Text('Password Settings Unavailable'),
               onTap: () => _show(
                 context,
                 'Security Unavailable',
                 const Text(
-                  'Authentication is not connected in this version. Password changes and security settings are unavailable. No account changes have been made.',
+                  'Password changes and security settings are unavailable in this version. No account changes have been made.',
                 ),
               ),
             ),
@@ -90,13 +92,15 @@ class AccountSettingsCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.medium),
             OutlinedButton.icon(
-              onPressed: () => _show(
-                context,
-                'Sign Out Unavailable',
-                const Text(
-                  'Authentication is not connected, so this app cannot sign you out. No authentication session has been changed.',
-                ),
-              ),
+              onPressed:
+                  onSignOut ??
+                  () => _show(
+                    context,
+                    'Sign Out Unavailable',
+                    const Text(
+                      'Authentication is not connected, so this app cannot sign you out. No authentication session has been changed.',
+                    ),
+                  ),
               icon: const Icon(Icons.logout),
               label: const Text('Sign Out'),
             ),

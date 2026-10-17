@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:visionpark_mobile/app/app_theme.dart';
-import 'package:visionpark_mobile/app/vision_park_app.dart';
+import 'package:visionpark_mobile/app/app_shell.dart';
 import 'package:visionpark_mobile/data/models/dashboard_models.dart';
 import 'package:visionpark_mobile/data/models/driver_models.dart';
 import 'package:visionpark_mobile/data/repositories/dashboard_repository.dart';
@@ -240,7 +240,9 @@ void main() {
   testWidgets('quick access and profile shortcut switch existing tabs', (
     tester,
   ) async {
-    await tester.pumpWidget(const VisionParkApp());
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const AppShell()),
+    );
     await tester.tap(find.byTooltip('Open Account'));
     await tester.pumpAndSettle();
     expect(find.text('Your Profile Will Appear Here'), findsOneWidget);

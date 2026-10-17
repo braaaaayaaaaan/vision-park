@@ -10,7 +10,9 @@ import 'app_theme.dart';
 import 'driver_bottom_navigation.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({this.onSignOut, super.key});
+
+  final VoidCallback? onSignOut;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -49,6 +51,7 @@ class _AppShellState extends State<AppShell> {
             const VehiclesScreen(),
             const HistoryScreen(),
             AccountScreen(
+              onSignOut: widget.onSignOut,
               onVehiclesSelected: () {
                 setState(() => _selectedIndex = 2);
               },

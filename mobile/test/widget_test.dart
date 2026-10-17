@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:visionpark_mobile/app/vision_park_app.dart';
+import 'package:visionpark_mobile/app/app_shell.dart';
+import 'package:visionpark_mobile/app/app_theme.dart';
 
 void main() {
   testWidgets('opens Home and switches between all five driver tabs', (
     tester,
   ) async {
-    await tester.pumpWidget(const VisionParkApp());
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const AppShell()),
+    );
 
     expect(find.textContaining('Good '), findsOneWidget);
     expect(find.text('Parking Availability'), findsOneWidget);
@@ -50,7 +53,9 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      await tester.pumpWidget(const VisionParkApp());
+      await tester.pumpWidget(
+        MaterialApp(theme: AppTheme.light, home: const AppShell()),
+      );
       for (final label in [
         'Home',
         'Navigate',
