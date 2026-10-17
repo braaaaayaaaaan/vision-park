@@ -1,3 +1,5 @@
+import '../../data/repositories/history_repository.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,7 +12,14 @@ import 'widgets/history_session_card.dart';
 import 'widgets/history_summary.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({this.controller, super.key});
+  const HistoryScreen({
+    this.controller,
+    this.historyRepository,
+    this.isVisible = true,
+    super.key,
+  });
+  final HistoryRepository? historyRepository;
+  final bool isVisible;
   final HistoryController? controller;
 
   @override
@@ -26,17 +35,26 @@ class _HistoryScreenState extends State<HistoryScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _controller = widget.controller ?? HistoryController();
-    _controller.load();
-    _timer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _controller.refreshPeriod(),
-    );
+    _controller =
+        widget.controller ??
+        HistoryController(historyRepository: widget.historyRepository);
+    if (widget.isVisible) _controller.load();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (widget.isVisible) _controller.refreshPeriod();
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _controller.refreshPeriod();
+    if (state == AppLifecycleState.resumed && widget.isVisible) {
+      _controller.load();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isVisible && !oldWidget.isVisible) _controller.load();
   }
 
   @override
@@ -74,9 +92,21 @@ class _HistoryScreenState extends State<HistoryScreen>
                     ),
                     const SizedBox(height: AppSpacing.small),
                     const Text('Review Your Parking Visits'),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _controller.status == HistoryStatus.loading
+                            ? null
+                            : _controller.load,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.large),
                     HistorySummary(
-                      total: ready ? '${sessions.length}' : 'Unavailable',
+                      total: ready
+                          ? '${_controller.totalSessions}'
+                          : 'Unavailable',
                       average: ready && average != null
                           ? MalaysianDateTime.formatDuration(average)
                           : 'Unavailable',
@@ -138,10 +168,10 @@ class _HistoryScreenState extends State<HistoryScreen>
                       const SizedBox(height: AppSpacing.medium),
                       const Text('Loading Parking History'),
                     ] else if (_controller.status == HistoryStatus.error) ...[
-                      const EmptyStateCard(
+                      EmptyStateCard(
                         icon: Icons.info_outline,
                         title: 'Unable to Load Parking History',
-                        message: 'Your history could not be confirmed. Please try again.',
+                        message: _controller.message ?? 'Your history could not be confirmed. Please try again.',
                       ),
                       TextButton(
                         onPressed: _controller.load,
@@ -171,6 +201,21 @@ class _HistoryScreenState extends State<HistoryScreen>
                             plate: _controller.plateFor(session),
                           ),
                         ),
+                    if (ready && _controller.nextCursor != null) ...[
+                      const Text(
+                        'Load all sessions to calculate the average duration for this period.',
+                      ),
+                      TextButton(
+                        onPressed: _controller.loadingMore
+                            ? null
+                            : _controller.loadMore,
+                        child: Text(
+                          _controller.loadingMore
+                              ? 'Loading More'
+                              : 'Load More',
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import '../../data/repositories/vehicle_repository.dart';
 import '../../shared/widgets/empty_state_card.dart';
 import 'vehicles_controller.dart';
 import 'widgets/registration_dialog.dart';
 import 'widgets/vehicle_card.dart';
 
 class VehiclesScreen extends StatefulWidget {
-  const VehiclesScreen({this.controller, super.key});
+  const VehiclesScreen({
+    this.controller,
+    this.vehicleRepository,
+    this.isVisible = true,
+    super.key,
+  });
   final VehiclesController? controller;
+  final VehicleRepository? vehicleRepository;
+  final bool isVisible;
 
   @override
   State<VehiclesScreen> createState() => _VehiclesScreenState();
@@ -20,8 +28,18 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? VehiclesController();
-    _controller.load();
+    _controller =
+        widget.controller ??
+        VehiclesController(vehicleRepository: widget.vehicleRepository);
+    if (widget.isVisible) _controller.load();
+  }
+
+  @override
+  void didUpdateWidget(covariant VehiclesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isVisible && !oldWidget.isVisible && !_controller.submitting) {
+      _controller.load();
+    }
   }
 
   @override
@@ -53,6 +71,24 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     Text('My Vehicles', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: AppSpacing.small),
                     const Text('Manage Your Registered Vehicles'),
+                    if (_controller.vehicleRepository != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          tooltip: 'Refresh Vehicles',
+                          onPressed:
+                              _controller.submitting ||
+                                  _controller.status == VehiclesStatus.loading
+                              ? null
+                              : _controller.load,
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ),
+                    if (_controller.notice != null) Text(_controller.notice!),
+                    if (_controller.submitting)
+                      const LinearProgressIndicator(
+                        semanticsLabel: 'Saving Vehicle',
+                      ),
                     const SizedBox(height: AppSpacing.large),
                     Card(
                       child: Padding(
@@ -74,10 +110,23 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                             ),
                             const SizedBox(height: AppSpacing.large),
                             FilledButton(
-                              onPressed: () => showDialog<void>(
-                                context: context,
-                                builder: (_) => const RegistrationDialog(),
-                              ),
+                              onPressed:
+                                  _controller.submitting ||
+                                      _controller.status ==
+                                          VehiclesStatus.loading
+                                  ? null
+                                  : () => showDialog<void>(
+                                      context: context,
+                                      barrierDismissible:
+                                          _controller.vehicleRepository == null,
+                                      builder: (_) => RegistrationDialog(
+                                        onRegister:
+                                            _controller.vehicleRepository ==
+                                                null
+                                            ? null
+                                            : _controller.register,
+                                      ),
+                                    ),
                               child: const Text('Register New Vehicle'),
                             ),
                           ],
@@ -111,10 +160,10 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                       const SizedBox(height: AppSpacing.medium),
                       const Text('Loading Vehicles'),
                     ] else if (_controller.status == VehiclesStatus.error) ...[
-                      const EmptyStateCard(
+                      EmptyStateCard(
                         icon: Icons.info_outline,
                         title: 'Unable to Load Vehicles',
-                        message: 'Vehicle information could not be confirmed. Please try again.',
+                        message: _controller.message ?? 'Vehicle information could not be confirmed. Please try again.',
                       ),
                       TextButton(
                         onPressed: _controller.load,
@@ -145,6 +194,10 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                           child: VehicleCard(
                             key: ValueKey(vehicle.id),
                             vehicle: vehicle,
+                            busy: _controller.submitting,
+                            onRemove: _controller.vehicleRepository == null
+                                ? null
+                                : () => _controller.remove(vehicle.id),
                           ),
                         ),
                   ],

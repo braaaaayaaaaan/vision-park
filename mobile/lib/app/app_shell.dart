@@ -1,4 +1,11 @@
+import '../data/repositories/history_repository.dart';
+import '../data/repositories/vehicle_repository.dart';
+import '../data/repositories/assigned_route_repository.dart';
+import '../data/repositories/availability_repository.dart';
+
 import 'package:flutter/material.dart';
+
+import '../data/repositories/active_session_repository.dart';
 
 import '../features/account/account_screen.dart';
 import '../features/history/history_screen.dart';
@@ -10,9 +17,22 @@ import 'app_theme.dart';
 import 'driver_bottom_navigation.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({this.onSignOut, super.key});
+  const AppShell({
+    this.onSignOut,
+    this.activeSessionRepository,
+    this.availabilityRepository,
+    this.routeRepository,
+    this.vehicleRepository,
+    this.historyRepository,
+    super.key,
+  });
 
   final VoidCallback? onSignOut;
+  final ActiveSessionRepository? activeSessionRepository;
+  final AvailabilityRepository? availabilityRepository;
+  final AssignedRouteRepository? routeRepository;
+  final VehicleRepository? vehicleRepository;
+  final HistoryRepository? historyRepository;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -20,6 +40,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  int _parkingRevision = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -43,13 +64,28 @@ class _AppShellState extends State<AppShell> {
           index: _selectedIndex,
           children: [
             HomeScreen(
+              refreshRevision: _parkingRevision,
+              activeSessionRepository: widget.activeSessionRepository,
+              availabilityRepository: widget.availabilityRepository,
+              isVisible: _selectedIndex == 0,
+              onSignOut: widget.onSignOut,
               onTabSelected: (index) {
                 setState(() => _selectedIndex = index);
               },
             ),
-            const NavigationScreen(),
-            const VehiclesScreen(),
-            const HistoryScreen(),
+            NavigationScreen(
+              onParkingConfirmed: () => setState(() => _parkingRevision++),
+              routeRepository: widget.routeRepository,
+              isVisible: _selectedIndex == 1,
+            ),
+            VehiclesScreen(
+              vehicleRepository: widget.vehicleRepository,
+              isVisible: _selectedIndex == 2,
+            ),
+            HistoryScreen(
+              historyRepository: widget.historyRepository,
+              isVisible: _selectedIndex == 3,
+            ),
             AccountScreen(
               onSignOut: widget.onSignOut,
               onVehiclesSelected: () {

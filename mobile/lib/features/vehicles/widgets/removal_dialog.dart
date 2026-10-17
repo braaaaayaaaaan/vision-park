@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/driver_models.dart';
+import '../../../data/repositories/auth_repository.dart';
 
 Future<void> showVehicleRemovalDialog(
   BuildContext context,
-  DriverVehicle vehicle,
-) async {
+  DriverVehicle vehicle, {
+  Future<void> Function()? onRemove,
+}) async {
   if (!vehicle.canRemove) return;
   final confirmed = await showDialog<bool>(
     context: context,
@@ -15,7 +17,7 @@ Future<void> showVehicleRemovalDialog(
       content: Text(
         'Remove ${vehicle.plateNumber} from your registered vehicles? '
         'Removal would withdraw its parking registration. '
-        'Vehicles with an allocated or occupied session cannot be removed.',
+        'Vehicles with parking sessions or ANPR records cannot be removed.',
       ),
       actions: [
         TextButton(
@@ -30,6 +32,27 @@ Future<void> showVehicleRemovalDialog(
     ),
   );
   if (confirmed != true || !context.mounted) return;
+  if (onRemove != null) {
+    try {
+      await onRemove();
+    } on AuthFailure catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Removal could not be verified. Refresh your vehicles.',
+            ),
+          ),
+        );
+      }
+    }
+    return;
+  }
   await showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(

@@ -1,8 +1,14 @@
+import '../../data/repositories/history_repository.dart';
+import '../../data/repositories/vehicle_repository.dart';
+import '../../data/repositories/assigned_route_repository.dart';
+import '../../data/repositories/availability_repository.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/active_session_repository.dart';
 import 'auth_controller.dart';
 import 'login_screen.dart';
 import 'registration_screen.dart';
@@ -13,9 +19,19 @@ class AuthGate extends StatefulWidget {
   const AuthGate({
     required this.repository,
     this.startWithRegistration = false,
+    this.activeSessionRepository,
+    this.availabilityRepository,
+    this.routeRepository,
+    this.vehicleRepository,
+    this.historyRepository,
     super.key,
   });
   final AuthRepository repository;
+  final ActiveSessionRepository? activeSessionRepository;
+  final AvailabilityRepository? availabilityRepository;
+  final AssignedRouteRepository? routeRepository;
+  final VehicleRepository? vehicleRepository;
+  final HistoryRepository? historyRepository;
   final bool startWithRegistration;
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -60,7 +76,14 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             child: LinearProgressIndicator(),
           );
         case AuthStatus.approved:
-          return AppShell(onSignOut: _controller.signOut);
+          return AppShell(
+            onSignOut: _controller.signOut,
+            activeSessionRepository: widget.activeSessionRepository,
+            availabilityRepository: widget.availabilityRepository,
+            routeRepository: widget.routeRepository,
+            vehicleRepository: widget.vehicleRepository,
+            historyRepository: widget.historyRepository,
+          );
         case AuthStatus.signedOut:
           if (_registering) {
             return PopScope<void>(

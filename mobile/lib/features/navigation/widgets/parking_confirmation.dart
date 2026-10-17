@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 Future<void> showParkingConfirmation(
   BuildContext context,
-  String zoneName,
-) async {
+  String zoneName, {
+  Future<void> Function()? onConfirm,
+}) async {
   final confirm = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -11,7 +12,7 @@ Future<void> showParkingConfirmation(
       title: const Text('Confirm Parking?'),
       content: Text(
         'You are confirming that you have parked in your allocated zone: $zoneName. '
-        'Confirmation services are not connected yet.',
+        '${onConfirm == null ? 'Confirmation services are not connected yet.' : 'Confirm only after parking your vehicle.'}',
       ),
       actions: [
         TextButton(
@@ -26,6 +27,10 @@ Future<void> showParkingConfirmation(
     ),
   );
   if (confirm != true || !context.mounted) return;
+  if (onConfirm != null) {
+    await onConfirm();
+    return;
+  }
   await showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(

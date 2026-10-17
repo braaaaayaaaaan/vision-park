@@ -1,6 +1,12 @@
+import '../data/repositories/history_repository.dart';
+import '../data/repositories/vehicle_repository.dart';
+import '../data/repositories/assigned_route_repository.dart';
+import '../data/repositories/availability_repository.dart';
+
 import 'package:flutter/material.dart';
 
 import '../data/repositories/auth_repository.dart';
+import '../data/repositories/active_session_repository.dart';
 import '../features/auth/auth_gate.dart';
 import '../features/auth/widgets/auth_layout.dart';
 
@@ -10,12 +16,22 @@ import 'app_theme.dart';
 class VisionParkApp extends StatelessWidget {
   const VisionParkApp({
     this.repository,
+    this.activeSessionRepository,
+    this.availabilityRepository,
+    this.routeRepository,
+    this.vehicleRepository,
+    this.historyRepository,
     this.startupError,
     this.initialRoute,
     super.key,
   });
 
   final AuthRepository? repository;
+  final ActiveSessionRepository? activeSessionRepository;
+  final AvailabilityRepository? availabilityRepository;
+  final AssignedRouteRepository? routeRepository;
+  final VehicleRepository? vehicleRepository;
+  final HistoryRepository? historyRepository;
   final String? startupError;
   final String? initialRoute;
 
@@ -42,6 +58,11 @@ class VisionParkApp extends StatelessWidget {
           )
         : AuthGate(
             repository: repository!,
+            activeSessionRepository: activeSessionRepository,
+            availabilityRepository: availabilityRepository,
+            routeRepository: routeRepository,
+            vehicleRepository: vehicleRepository,
+            historyRepository: historyRepository,
             startWithRegistration: name == '/register',
           ),
   );

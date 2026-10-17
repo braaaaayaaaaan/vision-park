@@ -39,6 +39,7 @@ class NavigationData {
     required this.parking,
     this.graph,
     this.confirmationAllowed = false,
+    this.destinationNodeId,
     List<String> instructions = const [],
   }) : instructions = List.unmodifiable(instructions);
 
@@ -46,5 +47,6 @@ class NavigationData {
   final ActiveParking? parking;
   final ParkingGraph? graph;
   final bool confirmationAllowed;
+  final String? destinationNodeId;
   final List<String> instructions;
 }
