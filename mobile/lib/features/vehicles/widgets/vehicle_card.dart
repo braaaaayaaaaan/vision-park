@@ -6,8 +6,15 @@ import '../../../shared/formatting/malaysian_date_time.dart';
 import 'removal_dialog.dart';
 
 class VehicleCard extends StatefulWidget {
-  const VehicleCard({required this.vehicle, super.key});
+  const VehicleCard({
+    required this.vehicle,
+    this.onRemove,
+    this.busy = false,
+    super.key,
+  });
   final DriverVehicle vehicle;
+  final Future<void> Function()? onRemove;
+  final bool busy;
 
   @override
   State<VehicleCard> createState() => _VehicleCardState();
@@ -15,6 +22,20 @@ class VehicleCard extends StatefulWidget {
 
 class _VehicleCardState extends State<VehicleCard> {
   bool _expanded = false;
+  bool _removing = false;
+  Future<void> _remove() async {
+    if (_removing || widget.busy) return;
+    setState(() => _removing = true);
+    try {
+      await showVehicleRemovalDialog(
+        context,
+        widget.vehicle,
+        onRemove: widget.onRemove,
+      );
+    } finally {
+      if (mounted) setState(() => _removing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +80,8 @@ class _VehicleCardState extends State<VehicleCard> {
                   label: Text(_expanded ? 'Hide Details' : 'View Details'),
                 ),
                 OutlinedButton(
-                  onPressed: vehicle.canRemove
-                      ? () => showVehicleRemovalDialog(context, vehicle)
+                  onPressed: vehicle.canRemove && !widget.busy && !_removing
+                      ? _remove
                       : null,
                   child: const Text('Remove Vehicle'),
                 ),
@@ -70,7 +91,7 @@ class _VehicleCardState extends State<VehicleCard> {
               Text(
                 vehicle.hasActiveSession
                     ? 'Removal is unavailable while a parking session is allocated or occupied.'
-                    : 'Removal permission or current session information is unavailable.',
+                    : vehicle.removalReason ?? 'Removal permission or current session information is unavailable.',
               ),
             if (_expanded) ...[
               const SizedBox(height: AppSpacing.medium),

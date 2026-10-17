@@ -68,7 +68,9 @@ class AvailabilityCard extends StatelessWidget {
                   children: [
                     Text(item.zone.name, style: theme.textTheme.titleSmall),
                     Text(
-                      '${item.zone.availableCapacity} / ${item.totalSpaces} Spaces Available',
+                      item.zone.availableCapacity == null
+                          ? 'Available Spaces Unavailable'
+                          : '${item.zone.availableCapacity} / ${item.totalSpaces} Spaces Available',
                     ),
                     const SizedBox(height: AppSpacing.small),
                     OccupancyIndicator(

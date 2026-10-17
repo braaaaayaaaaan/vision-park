@@ -28,6 +28,7 @@ class DriverVehicle {
     this.activeSession,
     this.sessionInformationAvailable = false,
     this.removalPermitted = false,
+    this.removalReason,
   });
 
   final String id;
@@ -41,6 +42,7 @@ class DriverVehicle {
 
   /// Future server-authorised permission; the server must recheck on removal.
   final bool removalPermitted;
+  final String? removalReason;
 
   String get approvalLabel => switch (registrationStatus) {
     'approved' => 'Approved',
@@ -95,7 +97,7 @@ class ParkingZone {
     required this.name,
     required this.levelId,
     required this.levelName,
-    required this.availableCapacity,
+    this.availableCapacity,
   });
 
   final String id;
@@ -103,8 +105,8 @@ class ParkingZone {
   final String levelId;
   final String levelName;
 
-  /// Supplied by the backend, not recalculated from partial client records.
-  final int availableCapacity;
+  /// Supplied by the backend; null when the read does not include capacity.
+  final int? availableCapacity;
 }
 
 class RouteNode {

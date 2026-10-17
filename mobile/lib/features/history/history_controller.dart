@@ -2,15 +2,29 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/models/driver_models.dart';
 import '../../data/repositories/driver_repository.dart';
+import '../../data/repositories/history_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../shared/formatting/malaysian_date_time.dart';
 
 enum HistoryStatus { disconnected, loading, ready, error }
 
 class HistoryController extends ChangeNotifier {
-  HistoryController({this.repository, DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+  HistoryController({
+    this.repository,
+    this.historyRepository,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final DriverRepository? repository;
+  final HistoryRepository? historyRepository;
+  String? nextCursor;
+  String? message;
+  bool loadingMore = false;
+  int? _total;
+  int _request = 0;
+  DateTime? _loadedDay;
+  int get totalSessions => _total ?? filteredSessions.length;
+  bool get summaryComplete => nextCursor == null && !loadingMore;
   final DateTime Function() _clock;
   HistoryStatus status = HistoryStatus.disconnected;
   List<ParkingSession> sessions = const [];
@@ -20,6 +34,7 @@ class HistoryController extends ChangeNotifier {
   bool _disposed = false;
 
   List<ParkingSession> get filteredSessions {
+    if (historyRepository != null) return sessions;
     final today = MalaysianDateTime.startOfDayUtc(_clock());
     final start = today.subtract(Duration(days: days - 1));
     final end = today.add(const Duration(days: 1));
@@ -45,6 +60,7 @@ class HistoryController extends ChangeNotifier {
   }
 
   Duration? get averageDuration {
+    if (!summaryComplete) return null;
     final durations = filteredSessions
         .where((session) => session.status == ParkingSessionStatus.completed)
         .map(durationOf)
@@ -71,20 +87,37 @@ class HistoryController extends ChangeNotifier {
   void selectDays(int value) {
     if (![1, 3, 7].contains(value)) return;
     days = value;
+    if (historyRepository != null) {
+      load();
+      return;
+    }
     notifyListeners();
   }
 
   void selectVehicle(String? value) {
     vehicleId = value;
+    if (historyRepository != null) {
+      load();
+      return;
+    }
     notifyListeners();
   }
 
   /// Re-evaluates the calendar window at midnight or after app resumption.
   void refreshPeriod() {
+    if (historyRepository != null &&
+        _loadedDay != MalaysianDateTime.startOfDayUtc(_clock())) {
+      load();
+      return;
+    }
     if (!_disposed) notifyListeners();
   }
 
   Future<void> load() async {
+    if (historyRepository != null) {
+      await _loadRemote();
+      return;
+    }
     final repository = this.repository;
     if (repository == null || _disposed || status == HistoryStatus.loading) {
       return;
@@ -114,6 +147,72 @@ class HistoryController extends ChangeNotifier {
       if (_disposed) return;
       status = HistoryStatus.error;
     }
+    notifyListeners();
+  }
+
+  Future<void> loadMore() async {
+    if (nextCursor == null || loadingMore || status != HistoryStatus.ready) {
+      return;
+    }
+    await _loadRemote(more: true);
+  }
+
+  Future<void> _loadRemote({bool more = false}) async {
+    if (_disposed) return;
+    final request = ++_request;
+    final cursor = more ? nextCursor : null;
+    message = null;
+    loadingMore = more;
+    if (!more) {
+      status = HistoryStatus.loading;
+      sessions = const [];
+      nextCursor = null;
+      _total = null;
+    }
+    notifyListeners();
+    try {
+      final page = await historyRepository!.getHistory(
+        days: days,
+        vehicleId: vehicleId,
+        cursor: cursor,
+      );
+      if (_disposed || request != _request) return;
+      if (vehicleId != null && !page.vehicles.any((v) => v.id == vehicleId)) {
+        vehicleId = null;
+        await load();
+        return;
+      }
+      final combined = more ? [...sessions, ...page.sessions] : page.sessions;
+      final ids = combined.map((s) => s.id).toSet();
+      if (ids.length != combined.length ||
+          (more && _total != page.totalSessions) ||
+          (page.nextCursor != null &&
+              (page.nextCursor == cursor || page.sessions.isEmpty)) ||
+          (page.nextCursor == null && combined.length != page.totalSessions)) {
+        throw const AuthFailure(
+          'History changed while loading. Refresh to view the latest records.',
+        );
+      }
+      sessions = List.unmodifiable(combined);
+      vehicles = page.vehicles;
+      _total = page.totalSessions;
+      nextCursor = page.nextCursor;
+      _loadedDay = MalaysianDateTime.startOfDayUtc(_clock());
+      status = HistoryStatus.ready;
+    } catch (error) {
+      if (_disposed || request != _request) return;
+      // Never retain another page's private records after an authorization failure.
+      sessions = const [];
+      _total = null;
+      nextCursor = null;
+      status = HistoryStatus.error;
+      vehicles = const [];
+      vehicleId = null;
+      message = error is AuthFailure
+          ? error.message
+          : 'Your history could not be loaded. Please try again.';
+    }
+    loadingMore = false;
     notifyListeners();
   }
 

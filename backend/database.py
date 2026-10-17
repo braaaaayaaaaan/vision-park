@@ -1,6 +1,8 @@
 """Small Supabase boundary. Importing this module does not connect to the database."""
 
 import os
+from datetime import datetime, timezone
+from uuid import uuid4
 from pathlib import Path
 from threading import Lock
 
@@ -16,8 +18,105 @@ _client_lock = Lock()
 ACTIVE_STATUSES = ("allocated", "occupied")
 
 
+def get_history_vehicles(user_id: str) -> list[dict]:
+    return _all_rows(lambda: get_supabase().table("vehicles")
+                     .select("id,user_id,plate_number").eq("user_id", user_id))
+
+
+def get_driver_history(user_id, start, end, snapshot, vehicle_id, limit, last_exit=None, last_id=None):
+    """Bounded keyset pages; completed rows sort by exit, then UUID, null exits last.
+
+    The frozen upper bound keeps newly closed sessions out of subsequent pages.
+    Missing entry timestamps cannot belong to an entry-date window.
+    """
+    fields = ("id,user_id,vehicle_id,zone_id,status,entry_time,parking_confirmed_at,exit_time,"
+              "vehicle:vehicles!vehicle_id!inner(id,user_id,plate_number),"
+              "zone:parking_zones!zone_id(id,name,level:parking_levels!level_id(id,name))")
+
+    def query(*, head=False):
+        q = get_supabase().table("parking_sessions").select(fields, count="exact", head=head)
+        q = (q.eq("user_id", user_id).eq("vehicle.user_id", user_id).eq("status", "completed")
+             .gte("entry_time", start).lt("entry_time", end).lte("entry_time", snapshot)
+             .or_(f"exit_time.lte.{snapshot},exit_time.is.null"))
+        return q.eq("vehicle_id", vehicle_id) if vehicle_id else q
+
+    total = _execute(query(head=True)).count
+    q = query()
+    if last_id:
+        if last_exit:
+            q = q.or_(f"exit_time.lt.{last_exit},and(exit_time.eq.{last_exit},id.lt.{last_id}),exit_time.is.null")
+        else:
+            q = q.is_("exit_time", "null").lt("id", last_id)
+    rows = _execute(q.order("exit_time", desc=True, nullsfirst=False)
+                    .order("id", desc=True).limit(limit)).data
+    return rows, total
+
+
 class DatabaseError(RuntimeError):
     """Safe message for callers; never include SDK errors containing credentials."""
+
+
+class DuplicateVehicleError(DatabaseError):
+    pass
+
+
+class VehicleRemovalConflict(DatabaseError):
+    pass
+
+
+def get_owned_vehicle(user_id: str, vehicle_id: str) -> dict | None:
+    rows = _execute(get_supabase().table("vehicles").select("id,user_id,plate_number,registration_status")
+                    .eq("id", vehicle_id).eq("user_id", user_id).limit(1)).data
+    return rows[0] if rows else None
+
+
+def vehicle_has_records(vehicle_id: str) -> bool:
+    for table in ("parking_sessions", "anpr_events"):
+        if _execute(get_supabase().table(table).select("id").eq("vehicle_id", vehicle_id).limit(1)).data:
+            return True
+    return False
+
+
+def remove_driver_vehicle(user_id: str, vehicle_id: str) -> bool:
+    # Existing NO ACTION FKs are the final authority if a reference is inserted
+    # concurrently. Never delete dependent session/ANPR records.
+    try:
+        rows = get_supabase().table("vehicles").delete().eq("id", vehicle_id).eq("user_id", user_id).execute().data
+    except APIError as error:
+        if error.code == "23503":
+            raise VehicleRemovalConflict("This vehicle has parking or ANPR records and cannot be removed.") from None
+        raise DatabaseError("Vehicle removal could not be verified.") from None
+    except HTTPError:
+        raise DatabaseError("Vehicle removal could not be verified. Refresh before retrying.") from None
+    return bool(rows)
+
+
+def get_driver_vehicles(user_id: str) -> list[dict]:
+    return _all_rows(lambda: get_supabase().table("vehicles").select(
+        "id,user_id,plate_number,registration_status,"
+        "sessions:parking_sessions!vehicle_id(id,vehicle_id,zone_id,user_id,status,entry_time,parking_confirmed_at,exit_time)"
+    ).eq("user_id", user_id).eq("sessions.user_id", user_id)
+        .in_("sessions.status", ACTIVE_STATUSES))
+
+
+def register_driver_vehicle(user_id: str, plate_number: str) -> dict:
+    # Company association is through the verified owner (users.tenant_id).
+    # The database's plate uniqueness constraint is authoritative under races.
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        rows = get_supabase().table("vehicles").insert({
+            "id": str(uuid4()), "created_at": now, "updated_at": now,
+            "user_id": user_id, "plate_number": plate_number, "registration_status": "pending",
+        }).execute().data
+    except APIError as error:
+        if error.code == "23505":
+            raise DuplicateVehicleError("This plate is already registered.") from None
+        raise DatabaseError("Vehicle registration could not be saved.") from None
+    except HTTPError:
+        raise DatabaseError("Registration could not be verified. Refresh your vehicles before retrying.") from None
+    if not rows or len(rows) != 1:
+        raise DatabaseError("Registration could not be verified. Refresh your vehicles before retrying.")
+    return rows[0]
 
 
 def get_supabase() -> Client:
@@ -69,6 +168,30 @@ def get_vehicle(plate_number: str) -> dict | None:
     rows = _execute(get_supabase().table("vehicles").select(
         "id,user_id,plate_number,registration_status"
     ).eq("plate_number", plate_number).limit(1)).data
+    return rows[0] if rows else None
+
+
+def get_driver_active_sessions(user_id: str) -> list[dict]:
+    """Read all active sessions with both recorded and current ownership scoped.
+
+    The inner vehicle join makes the ownership filter apply to session rows,
+    rather than merely hiding an embedded vehicle from another driver.
+    """
+    return _all_rows(lambda: get_supabase().table("parking_sessions").select(
+        "id,user_id,vehicle_id,zone_id,status,entry_time,parking_confirmed_at,exit_time,"
+        "vehicle:vehicles!vehicle_id!inner(id,user_id,plate_number,registration_status),"
+        "zone:parking_zones!zone_id(id,code,name,level_id,"
+        "level:parking_levels!level_id(id,name,level_number))"
+    ).eq("user_id", user_id).eq("vehicle.user_id", user_id)
+        .in_("status", list(ACTIVE_STATUSES)))
+
+
+def get_driver_session(user_id: str, session_id: str) -> dict | None:
+    """Ownership-scoped session read, including terminal states for validation."""
+    rows = _execute(get_supabase().table("parking_sessions").select(
+        "id,user_id,vehicle_id,zone_id,status,parking_confirmed_at,exit_time,"
+        "vehicle:vehicles!vehicle_id!inner(id,user_id)"
+    ).eq("id", session_id).eq("user_id", user_id).eq("vehicle.user_id", user_id).limit(1)).data
     return rows[0] if rows else None
 
 
@@ -162,10 +285,12 @@ def get_active_session(vehicle_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def count_active_sessions(zone_id: str) -> int:
+def count_active_sessions(zone_id: str, *, status: str | None = None) -> int:
+    if status is not None and status not in ACTIVE_STATUSES:
+        raise ValueError("Only active session statuses can consume capacity.")
     response = _execute(get_supabase().table("parking_sessions").select(
         "id", count="exact", head=True
-    ).eq("zone_id", zone_id).in_("status", ACTIVE_STATUSES))
+    ).eq("zone_id", zone_id).in_("status", (status,) if status else ACTIVE_STATUSES))
     if response.count is None:
         raise DatabaseError("Supabase did not return the active session count.")
     return response.count

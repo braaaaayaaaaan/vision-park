@@ -185,10 +185,23 @@ class RemoteAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => identity.signOut();
 
+  /// Shares the verified session, refresh-on-401 and safe HTTP handling with
+  /// driver read repositories. Paths are relative to the configured API root.
+  Future<dynamic> getAuthenticated(String path) =>
+      _request(path, protected: true);
+
+  Future<dynamic> postAuthenticated(
+    String path, {
+    Map<String, Object> body = const {},
+  }) => _request(path, body: body, protected: true);
+  Future<dynamic> deleteAuthenticated(String path) =>
+      _request(path, protected: true, method: 'DELETE');
+
   Future<dynamic> _request(
     String path, {
     Map<String, Object>? body,
     bool protected = false,
+    String? method,
   }) async {
     try {
       for (var attempt = 0; attempt < 2; attempt++) {
@@ -202,8 +215,8 @@ class RemoteAuthRepository implements AuthRepository {
         }
         final request =
             http.Request(
-                body == null ? 'GET' : 'POST',
-                baseUrl.resolve('auth/$path'),
+                method ?? (body == null ? 'GET' : 'POST'),
+                baseUrl.resolve(path),
               )
               ..headers.addAll(headers)
               ..followRedirects = false;
@@ -219,7 +232,7 @@ class RemoteAuthRepository implements AuthRepository {
             expired: true,
           );
         }
-        if (response.statusCode == 403 && path == 'me') {
+        if (response.statusCode == 403 && path == 'auth/me') {
           final data = jsonDecode(response.body);
           if (data is Map &&
               data['detail'] == 'Application profile is unavailable.') {
@@ -233,9 +246,27 @@ class RemoteAuthRepository implements AuthRepository {
           throw AuthFailure(switch (response.statusCode) {
             400 => 'Unable to submit. Check your details and select an available company.',
             403 => 'Access was denied. Contact your parking administrator.',
-            422 => 'Check the required fields and password length.',
+            404 =>
+              path.startsWith('vehicles')
+                  ? 'Vehicle not found. Refresh your vehicles.'
+                  : 'This parking session is no longer available. Refresh navigation and try again.',
+            409 =>
+              path == 'vehicles'
+                  ? 'This plate is already registered.'
+                  : path.startsWith('vehicles/')
+                  ? 'This vehicle has parking or ANPR records and cannot be removed. Its history is preserved.'
+                  : path.endsWith('/confirm')
+                  ? 'This session cannot be confirmed. Refresh navigation to check its current status.'
+                  : 'A route is unavailable for this assignment. It may already be occupied, closed or unreachable.',
+            422 =>
+              path.startsWith('vehicles')
+                  ? 'Use 1–32 letters and digits for the number plate, without spaces or punctuation.'
+                  : 'Check the required fields and password length.',
             429 => 'Too many attempts. Please wait and try again.',
-            _ => 'The service is unavailable. Please try again. If registration was submitted, confirm your email and sign in to complete it.',
+            _ =>
+              path.startsWith('auth/register')
+                  ? 'The service is unavailable. Please try again. If registration was submitted, confirm your email and sign in to complete it.'
+                  : 'The service is unavailable. Please try again.',
           });
         }
         return jsonDecode(response.body);
@@ -251,7 +282,7 @@ class RemoteAuthRepository implements AuthRepository {
 
   @override
   Future<AuthProfile> profile() async {
-    final data = await _request('me', protected: true);
+    final data = await _request('auth/me', protected: true);
     if (data is! Map ||
         data['id'] != identity.userId ||
         data['role'] is! String ||
@@ -273,7 +304,7 @@ class RemoteAuthRepository implements AuthRepository {
 
   @override
   Future<List<AuthCompany>> companies() async {
-    final data = await _request('companies');
+    final data = await _request('auth/companies');
     if (data is! List ||
         data.any(
           (row) =>
@@ -295,7 +326,7 @@ class RemoteAuthRepository implements AuthRepository {
     required String companyId,
   }) async {
     final result = await _request(
-      'register',
+      'auth/register',
       body: {
         'full_name': name.trim(),
         'email': email.trim(),
@@ -316,7 +347,7 @@ class RemoteAuthRepository implements AuthRepository {
     required String companyId,
   }) async {
     final result = await _request(
-      'register/complete',
+      'auth/register/complete',
       protected: true,
       body: {'full_name': name.trim(), 'tenant_id': companyId},
     );
