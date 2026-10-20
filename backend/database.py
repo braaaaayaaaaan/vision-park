@@ -18,6 +18,34 @@ _client_lock = Lock()
 ACTIVE_STATUSES = ("allocated", "occupied")
 
 
+def get_admin_parking_sessions(limit, offset, plate, status, level_id, start, end):
+    vehicle = 'vehicle:vehicles!vehicle_id!inner' if plate else 'vehicle:vehicles!vehicle_id'
+    zone = 'zone:parking_zones!zone_id!inner' if level_id else 'zone:parking_zones!zone_id'
+    query = get_supabase().table('parking_sessions').select(
+        'id,vehicle_id,zone_id,status,entry_time,parking_confirmed_at,exit_time,'
+        f'{vehicle}(plate_number,owner:users!user_id(full_name,tenant:tenants!tenant_id(name))),'
+        f'{zone}(name,level_id,level:parking_levels!level_id(name))', count='exact')
+    if plate:
+        query = query.ilike('vehicle.plate_number', f'%{plate}%')
+    if status:
+        query = query.eq('status', status)
+    if level_id:
+        query = query.eq('zone.level_id', level_id)
+    if start is not None:
+        query = query.gte('entry_time', start).lt('entry_time', end)
+    query = query.order('entry_time', desc=True, nullsfirst=False).order('id', desc=True)
+    try:
+        result = _execute(query.range(offset, offset + limit - 1))
+    except DatabaseError:
+        if offset == 0:
+            raise
+        first = _execute(query.range(0, 0))
+        if isinstance(first.count, int) and offset >= first.count:
+            return [], first.count
+        raise
+    return result.data, result.count
+
+
 def get_history_vehicles(user_id: str) -> list[dict]:
     return _all_rows(lambda: get_supabase().table("vehicles")
                      .select("id,user_id,plate_number").eq("user_id", user_id))
@@ -91,6 +119,45 @@ def remove_driver_vehicle(user_id: str, vehicle_id: str) -> bool:
     return bool(rows)
 
 
+def decide_vehicle_registration(admin_id: str, vehicle_id: str, decision: str) -> dict:
+    result = _execute(get_supabase().rpc('decide_vehicle_registration', {
+        'p_admin_id': admin_id, 'p_vehicle_id': vehicle_id, 'p_decision': decision,
+    })).data
+    if not isinstance(result, dict) or 'status' not in result:
+        raise DatabaseError('Vehicle decision RPC returned an invalid response.')
+    return result
+
+
+def get_admin_vehicles(limit, offset, plate, status, tenant_id):
+    owner = 'owner:users!user_id!inner' if tenant_id else 'owner:users!user_id'
+    query = get_supabase().table('vehicles').select(
+        f'id,user_id,plate_number,registration_status,{owner}(full_name,tenant_id,tenant:tenants!tenant_id(id,name))',
+        count='exact')
+    if plate:
+        query = query.ilike('plate_number', f'%{plate}%')
+    if status:
+        query = query.eq('registration_status', status)
+    if tenant_id:
+        query = query.eq('owner.tenant_id', tenant_id)
+    query = query.order('plate_number').order('id')
+    try:
+        result = _execute(query.range(offset, offset + limit - 1))
+    except DatabaseError:
+        if offset == 0:
+            raise
+        # PostgREST can reject a range beyond the matching total. Verify the
+        # filtered count with a first-row request before treating it as empty.
+        first = _execute(query.range(0, 0))
+        if isinstance(first.count, int) and offset >= first.count:
+            return [], first.count
+        raise
+    return result.data, result.count
+
+
+def get_vehicle_companies():
+    return _all_rows(lambda: get_supabase().table('tenants').select('id,name'))
+
+
 def get_driver_vehicles(user_id: str) -> list[dict]:
     return _all_rows(lambda: get_supabase().table("vehicles").select(
         "id,user_id,plate_number,registration_status,"
@@ -162,6 +229,43 @@ def _all_rows(make_query) -> list[dict]:
 def check_connection() -> bool:
     """Minimal read-only query; False means the query worked but no row was visible."""
     return bool(_execute(get_supabase().table("parking_levels").select("id").limit(1)).data)
+
+
+def get_overview_sessions(start: str, end: str) -> list[dict]:
+    """One paginated set for active capacity and either movement timestamp today."""
+    filters = (f"status.in.(allocated,occupied),"
+               f"and(entry_time.gte.{start},entry_time.lt.{end}),"
+               f"and(exit_time.gte.{start},exit_time.lt.{end})")
+    return _all_rows(lambda: get_supabase().table("parking_sessions")
+        .select("id,zone_id,status,entry_time,exit_time")
+        .in_("status", ["allocated", "occupied", "completed"]).or_(filters))
+
+
+def get_analytics_sessions(start: str, end: str, level_id: str | None = None) -> list[dict]:
+    """Read either movement or a confirmed interval overlapping the range."""
+    relation = "zone:parking_zones!zone_id!inner(level_id)" if level_id else "zone:parking_zones!zone_id(level_id)"
+    def query():
+        result = (get_supabase().table("parking_sessions")
+            .select(f"id,zone_id,user_id,status,entry_time,parking_confirmed_at,exit_time,{relation},user:users!user_id(tenant_id)")
+            .in_("status", ["allocated", "occupied", "completed"])
+            .or_(f"and(entry_time.gte.{start},entry_time.lt.{end}),and(exit_time.gte.{start},exit_time.lt.{end}),"
+                 f"and(parking_confirmed_at.lt.{end},or(exit_time.is.null,exit_time.gt.{start}))"))
+        return result.eq("zone.level_id", level_id) if level_id else result
+    return _all_rows(query)
+
+
+def get_analytics_tenants() -> list[dict]:
+    """Include inactive companies so history and zero-activity groups remain visible."""
+    return _all_rows(lambda: get_supabase().table("tenants").select("id,name,is_active"))
+
+
+def get_overview_recent_sessions(snapshot: str) -> list[dict]:
+    """Latest five non-cancelled sessions by entry; left joins preserve missing labels."""
+    return _execute(get_supabase().table("parking_sessions").select(
+        "id,status,entry_time,exit_time,vehicle:vehicles!vehicle_id(plate_number),"
+        "zone:parking_zones!zone_id(name,level:parking_levels!level_id(name))")
+        .in_("status", ["allocated", "occupied", "completed"]).lte("entry_time", snapshot)
+        .order("entry_time", desc=True).order("id", desc=True).limit(5)).data
 
 
 def get_vehicle(plate_number: str) -> dict | None:

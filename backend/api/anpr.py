@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/test")
 def test_anpr():
     pipeline = ANPRPipeline(
-        source="data/videos/inti_entrance.mp4",
+        source="data/videos/inti_ramp.mp4",
         camera_id="test-entrance",
         camera_role="entrance",
     )

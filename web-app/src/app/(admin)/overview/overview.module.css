@@ -1,0 +1,56 @@
+.page { display: grid; gap: 24px; }
+.heading, .sectionHeading { display: flex; align-items: start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.heading h1 { font-size: clamp(26px, 3vw, 36px); margin-bottom: 12px; }
+.muted, .footnote { color: var(--text-muted); font-size: 13px; margin-top: 8px; }
+.refresh { padding: 10px 18px; border: 1px solid var(--border); border-radius: 8px; color: var(--primary); background: var(--surface); cursor: pointer; font-weight: 600; }
+.refresh:hover { background: var(--primary-soft); }
+.refresh:disabled { opacity: 0.6; cursor: wait; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.kpi, .panel { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.kpi h2 { color: var(--text-muted); font-size: 14px; font-weight: 600; }
+.kpi strong { display: block; margin: 12px 0; font-size: 32px; color: var(--primary); }
+.kpi p { color: var(--text-muted); font-size: 12px; }
+.panel h2 { font-size: 20px; }
+.panel a { color: var(--primary); font-weight: 600; text-underline-offset: 4px; }
+.error { color: #a52a2a; margin-bottom: 16px; }
+.empty { padding: 24px 0; color: var(--text-muted); }
+.legend { display: flex; gap: 20px; font-size: 13px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.entryKey, .exitKey { width: 12px; height: 12px; display: inline-block; border-radius: 3px; }
+.entryKey, .entryBar { background: var(--primary); }
+.exitKey, .exitBar { background: #6a7b91; }
+.chartScroll { overflow-x: auto; }
+.chart { min-width: 650px; padding-top: 24px; }
+.axisTitle, .xTitle { font-size: 12px; color: var(--text-muted); }
+.xTitle { text-align: center; margin-top: 32px; }
+.plot { display: flex; height: 220px; margin-top: 20px; margin-bottom: 28px; }
+.yAxis { width: 40px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; color: var(--text-muted); text-align: right; padding-right: 12px; }
+.bars { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, var(--border) 1px, transparent 1px) 0 0 / 100% 50%; }
+.hour { position: relative; border: 0; padding: 0 2px; height: 100%; background: transparent; color: var(--text-muted); font: inherit; cursor: default; min-width: 0; }
+.barPair { height: 100%; display: flex; align-items: end; justify-content: center; gap: 2px; }
+.entryBar, .exitBar { display: block; width: 44%; border-radius: 3px 3px 0 0; }
+.hourLabel { position: absolute; left: 0; right: 0; bottom: -25px; font-size: 10px; }
+.tooltip { display: none; position: absolute; z-index: 2; top: 24px; left: 50%; padding: 8px 10px; background: var(--text); color: white; border-radius: 6px; text-align: left; white-space: nowrap; font-size: 12px; pointer-events: none; }
+.hour:nth-last-child(-n+5) .tooltip { left: auto; right: 50%; }
+.hour:hover .tooltip, .hour:focus .tooltip { display: block; }
+.levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; margin-top: 24px; }
+.level h3 { font-size: 15px; margin: 0; }
+.track { background: var(--background); height: 12px; border-radius: 8px; overflow: hidden; margin: 12px 0; }
+.track span { display: block; height: 100%; border-radius: inherit; }
+.levelDetails { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--text-muted); font-size: 12px; }
+.tableScroll { overflow-x: auto; margin-top: 20px; }
+.table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.table th, .table td { padding: 14px 12px; border-bottom: 1px solid var(--border); }
+.table th { color: var(--text-muted); font-weight: 600; background: var(--background); }
+.table td { white-space: nowrap; }
+.badge { padding: 4px 8px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); }
+.occupancyLegend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; max-width: 720px; margin: 16px 0; padding: 0; list-style: none; }
+.occupancyLegendCard { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--legend-colour) 30%, var(--surface)); border-radius: 8px; background: color-mix(in srgb, var(--legend-colour) 7%, var(--surface)); }
+.occupancyLegendIndicator { flex: 0 0 18px; height: 18px; border-radius: 5px; background: var(--legend-colour); }
+.occupancyLegendLabel { display: block; color: var(--text); font-size: 14px; font-weight: 700; line-height: 1.4; }
+.occupancyLegendRange { display: block; margin-top: 4px; color: var(--text-muted); font-size: 13px; line-height: 1.4; }
+.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; font-size: 13px; color: var(--text-muted); }
+.paginationActions { display: flex; gap: 8px; }
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .levels { grid-template-columns: 1fr; } .panel { padding: 20px 16px; } .kpi { padding: 20px 16px; } .kpi strong { font-size: 28px; } }
+@media (max-width: 360px) { .kpis { grid-template-columns: 1fr; } }
