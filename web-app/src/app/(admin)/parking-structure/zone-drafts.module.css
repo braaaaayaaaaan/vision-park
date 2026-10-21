@@ -1,0 +1,6 @@
+.summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.summary > div { display: grid; gap: 6px; min-width: 165px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.summary span, .summary p { font-size: 13px; color: var(--text-muted); }
+.summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.exampleInput::placeholder { color: var(--text-muted); font-weight: 400; opacity: 1; }
+@media (max-width: 540px) { .summary > div { flex: 1; min-width: 0; } }

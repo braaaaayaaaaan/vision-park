@@ -5,7 +5,8 @@ from uuid import UUID
 from datetime import date, datetime, timezone
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, ValidationError, Field
 
 from backend import database
@@ -13,9 +14,319 @@ from backend.auth import ApplicationUser, require_administrator
 from backend.parking.overview import ParkingOverview, aggregate_overview, reporting_period
 from backend.parking.analytics import ParkingAnalytics, aggregate_analytics, analytics_period
 from backend.parking.admin_sessions import AdminSessionPage, SessionStatus, session_record
+from backend.parking import floor_plans
+from backend.parking import calibration
+from backend.parking import node_drafts
+from backend.parking import edge_drafts
+from backend.parking import cross_level_drafts
+from backend.parking import levels as parking_levels
+from backend.parking import zone_drafts
+from backend.parking import zone_entrances
+from backend.parking import structure_validation
 
 router = APIRouter(dependencies=[Depends(require_administrator)])
 Administrator = Annotated[ApplicationUser, Depends(require_administrator)]
+
+
+@router.post('/parking/structure/validate')
+async def validate_parking_structure(request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON validation scope.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > structure_validation.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Validation scope exceeds 8 KiB.')
+        body.extend(chunk)
+    try:
+        scope = structure_validation.ValidationScope.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Select 1–64 distinct parking level UUIDs.') from None
+    try:
+        return await run_in_threadpool(structure_validation.validate, str(admin.id), scope)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft validation is unavailable. Check validation storage setup and retry.') from None
+
+
+async def zone_draft_request(request, model):
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON draft zone request.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > zone_drafts.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Draft zone request exceeds 32 KiB.')
+        body.extend(chunk)
+    try:
+        return model.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Use readable zone codes/names, valid integer capacities, an intended status and the current edit revision.') from None
+
+
+@router.get('/parking/levels/{level_id}/floor-plan/node-zone-draft')
+def read_node_zone_draft(level_id: UUID, floor_plan_revision: Annotated[int, Query(ge=1, le=2147483646)], response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return zone_entrances.read(str(admin.id), str(level_id), floor_plan_revision)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft zone links are unavailable. Check mapping storage setup.') from None
+
+
+@router.put('/parking/levels/{level_id}/floor-plan/node-zone-draft')
+async def save_node_zone_draft(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON node and zone-link draft.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > zone_entrances.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Node and zone-link draft exceeds 768 KiB.')
+        body.extend(chunk)
+    try:
+        change = zone_entrances.NodeZoneInput.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Use valid draft nodes, zone links and current edit revisions.') from None
+    try:
+        return await run_in_threadpool(zone_entrances.save, str(admin.id), str(level_id), change)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Node and zone-link save could not be confirmed. Reload before retrying.') from None
+
+
+@router.get('/parking/levels/{level_id}/zone-drafts')
+def read_zone_drafts(level_id: UUID, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return zone_drafts.read(str(admin.id), str(level_id))
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft zones are unavailable. Check draft zone storage setup.') from None
+
+
+@router.post('/parking/levels/{level_id}/zone-drafts', status_code=201)
+async def create_zone_draft(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    change = await zone_draft_request(request, zone_drafts.ZoneInput)
+    try:
+        return await run_in_threadpool(zone_drafts.mutate, str(admin.id), str(level_id), 'create', change)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft zone creation could not be confirmed. Refresh before retrying.') from None
+
+
+@router.patch('/parking/levels/{level_id}/zone-drafts/{zone_id}')
+async def edit_zone_draft(level_id: UUID, zone_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    change = await zone_draft_request(request, zone_drafts.ZonePatch)
+    try:
+        return await run_in_threadpool(zone_drafts.mutate, str(admin.id), str(level_id), 'update', change, str(zone_id))
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft zone edit could not be confirmed. Refresh before retrying.') from None
+
+
+@router.delete('/parking/levels/{level_id}/zone-drafts/{zone_id}')
+async def delete_zone_draft(level_id: UUID, zone_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    change = await zone_draft_request(request, zone_drafts.ZoneDelete)
+    try:
+        return await run_in_threadpool(zone_drafts.mutate, str(admin.id), str(level_id), 'delete', change, str(zone_id))
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft zone deletion could not be confirmed. Refresh before retrying.') from None
+
+
+async def level_request(request, model):
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON level request.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > parking_levels.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Level request exceeds 32 KiB.')
+        body.extend(chunk)
+    try:
+        return model.model_validate_json(body)
+    except ValidationError:
+        if model is parking_levels.LevelDelete:
+            raise HTTPException(422, 'Use the expected metadata revision from the current level record.') from None
+        raise HTTPException(422, 'Use integer level numbers, nonempty names of at most 100 characters and an exact edit snapshot.') from None
+
+
+@router.post('/parking/levels', status_code=201)
+async def create_parking_level(request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    item = await level_request(request, parking_levels.LevelInput)
+    try:
+        data = await run_in_threadpool(parking_levels.create, str(admin.id), [item])
+        return {'level': data['levels'][0]}
+    except database.DatabaseError:
+        raise HTTPException(503, 'Level creation could not be confirmed. Refresh before retrying.') from None
+
+
+@router.post('/parking/levels/bulk', status_code=201)
+async def create_multiple_parking_levels(request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    batch = await level_request(request, parking_levels.LevelBulk)
+    try:
+        return await run_in_threadpool(parking_levels.create, str(admin.id), batch.levels)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Bulk creation could not be confirmed. Refresh before retrying.') from None
+
+
+@router.patch('/parking/levels/{level_id}')
+async def edit_parking_level(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    change = await level_request(request, parking_levels.LevelPatch)
+    try:
+        return await run_in_threadpool(parking_levels.update, str(admin.id), str(level_id), change)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Level edit could not be confirmed. Refresh before retrying.') from None
+
+
+@router.delete('/parking/levels/{level_id}')
+async def delete_parking_level(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    change = await level_request(request, parking_levels.LevelDelete)
+    try:
+        return await run_in_threadpool(parking_levels.delete, str(admin.id), str(level_id), change)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Level deletion could not be confirmed. Refresh before retrying.') from None
+
+
+@router.get('/parking/cross-level-draft-edges')
+def read_cross_level_edges(response: Response, admin: Administrator, level_id: UUID | None = None,
+                          limit: Annotated[int, Query(ge=1, le=50)] = 10, offset: Annotated[int, Query(ge=0, le=1000000)] = 0):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return cross_level_drafts.read(str(admin.id), str(level_id) if level_id else None, limit, offset)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Cross-level ramps are unavailable. Check ramp draft storage setup.') from None
+
+
+@router.put('/parking/cross-level-draft-edges')
+async def save_cross_level_edges(request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON ramp connection batch.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > cross_level_drafts.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Ramp connection batch exceeds 32 KiB.')
+        body.extend(chunk)
+    try:
+        batch = cross_level_drafts.RampBatch.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Use distinct ramp endpoints, valid revisions and confirmed calibrated ramp traces.') from None
+    try:
+        return await run_in_threadpool(cross_level_drafts.save, str(admin.id), batch)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Ramp save could not be confirmed. Refresh before retrying.') from None
+
+
+@router.get('/parking/structure')
+def parking_structure(response: Response):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return floor_plans.listing()
+    except database.DatabaseError:
+        raise HTTPException(503, 'Parking structure is unavailable. Check floor-plan setup.') from None
+
+
+@router.put('/parking/levels/{level_id}/floor-plan')
+async def upload_floor_plan(level_id: UUID, request: Request, response: Response,
+                            admin: Administrator,
+                            expected_revision: Annotated[int, Query(ge=0, le=2147483646)]):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() not in ('image/png', 'image/jpeg'):
+        raise HTTPException(415, 'Use a PNG or JPEG image.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > floor_plans.MAX_BYTES:
+            raise floor_plans.size_error('floor_plan_upload_too_large')
+        body.extend(chunk)
+    try:
+        return await run_in_threadpool(floor_plans.upload, str(level_id), str(admin.id), expected_revision, bytes(body))
+    except database.DatabaseError:
+        raise HTTPException(503, 'Floor-plan save is unavailable. Refresh before retrying.') from None
+
+
+@router.get('/parking/levels/{level_id}/floor-plan/graph-draft')
+def read_graph_draft(level_id: UUID, floor_plan_revision: Annotated[int, Query(ge=1, le=2147483646)], response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return edge_drafts.read(str(level_id), str(admin.id), floor_plan_revision)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Connection draft is unavailable. Check edge storage setup.') from None
+
+
+@router.put('/parking/levels/{level_id}/floor-plan/graph-draft')
+async def save_graph_draft(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON connection draft.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > edge_drafts.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Connection draft exceeds 512 KiB.')
+        body.extend(chunk)
+    try:
+        data = edge_drafts.EdgeInput.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Use valid revisions and unique UUID connections between distinct nodes. Distances are calculated by the server.') from None
+    try:
+        return await run_in_threadpool(edge_drafts.save, str(level_id), str(admin.id), data)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Connection save could not be confirmed. Reload before retrying.') from None
+
+
+@router.get('/parking/levels/{level_id}/floor-plan/node-draft')
+def read_node_draft(level_id: UUID, floor_plan_revision: Annotated[int, Query(ge=1)], response: Response):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return node_drafts.read(str(level_id), floor_plan_revision)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Node draft is unavailable. Check draft storage setup.') from None
+
+
+@router.put('/parking/levels/{level_id}/floor-plan/node-draft')
+async def save_node_draft(level_id: UUID, request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0] != 'application/json':
+        raise HTTPException(415, 'Use a JSON node draft.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > node_drafts.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Node draft exceeds 512 KiB.')
+        body.extend(chunk)
+    try:
+        data = node_drafts.DraftInput.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Invalid draft nodes. Use unique nonblank codes, UUIDs, valid types and finite coordinates.') from None
+    try:
+        return await run_in_threadpool(node_drafts.save, str(level_id), str(admin.id), data)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Draft save could not be confirmed. Reload before retrying.') from None
+
+
+@router.get('/parking/levels/{level_id}/floor-plan/calibration')
+def read_calibration(level_id: UUID, floor_plan_revision: Annotated[int, Query(ge=1)], response: Response):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return calibration.read(str(level_id), floor_plan_revision)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Calibration is unavailable. Check calibration setup.') from None
+
+
+@router.put('/parking/levels/{level_id}/floor-plan/calibration')
+def save_calibration(level_id: UUID, measurement: calibration.CalibrationInput, admin: Administrator, response: Response):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return calibration.save(str(level_id), str(admin.id), measurement)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Calibration save could not be confirmed. Refresh before retrying.') from None
+
+
+@router.get('/parking/levels/{level_id}/floor-plan/image')
+def floor_plan_image(level_id: UUID, expected_revision: Annotated[int | None, Query(ge=1)] = None):
+    try:
+        return Response(floor_plans.image_bytes(str(level_id), expected_revision), media_type='image/png',
+                        headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
+    except database.DatabaseError:
+        raise HTTPException(503, 'Floor plan image is unavailable.') from None
 
 
 @router.get('/parking/sessions', response_model=AdminSessionPage)

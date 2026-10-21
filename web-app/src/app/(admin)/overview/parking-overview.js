@@ -33,7 +33,7 @@ export default function ParkingOverview() {
     </div>
     {loading ? <div className={styles.panel} role="status" aria-live="polite">Loading Parking Overview…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={refresh}>Try Again</button></div> : data && <>
       <div className={styles.kpis}>
-        <Kpi title="Occupancy Rate" value={percent(occupancyPercentage(data.totals))} detail={`${number(data.totals.occupied)} Occupied / ${number(data.totals.usable_capacity)} Usable Spaces`} />
+        <Kpi title="Occupancy Rate" value={percent(occupancyPercentage(data.totals))} detail={`${number(data.totals.occupied)} Occupied out of ${number(data.totals.usable_capacity)} Spaces`} />
         <Kpi title="Available Spaces" value={number(data.totals.available)} detail={`${number(data.totals.reserved)} Allocated Spaces`} />
         <Kpi title="Today's Entries" value={number(data.today_entries)} detail="Recorded Entry Timestamps" />
         <Kpi title="Today's Exits" value={number(data.today_exits)} detail="Recorded Exit Timestamps" />

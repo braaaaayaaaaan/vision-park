@@ -77,7 +77,7 @@ export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess
         {submitting && <p role="status">Waiting For Backend Confirmation…</p>}
         <div className={styles.dialogActions}>
           <button type="button" className={styles.secondary} disabled={submitting} onClick={() => onDismiss(uncertain)}>{uncertain ? 'Close And Refresh' : 'Cancel'}</button>
-          <button type="submit" className={approve ? styles.primary : styles.reject} disabled={submitting || uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
+          <button type="submit" className={approve ? styles.approve : styles.reject} disabled={submitting || uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
             {submitting ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}
           </button>
         </div>

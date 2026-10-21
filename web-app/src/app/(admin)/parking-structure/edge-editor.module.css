@@ -1,0 +1,9 @@
+.edge { cursor: pointer; }
+.edge:focus-visible { outline: none; }
+.edge:focus-visible > line:last-child { stroke: var(--chart-comparative); stroke-width: 5; }
+.distanceCard { display: grid; gap: 6px; margin: 0; min-width: 0; color: var(--text); font-size: 13px; font-weight: 600; }
+.distanceCard dd { margin: 0; min-width: 0; min-height: 43px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.deleteAction { border: 1px solid #a52a2a; border-radius: 8px; padding: 9px 14px; background: #fff1f1; color: #a52a2a; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.deleteAction:not(:disabled):hover { background: #ffe0e0; }
+.deleteAction:focus-visible { outline-color: #a52a2a; }
+.deleteAction:disabled { opacity: .5; cursor: not-allowed; }

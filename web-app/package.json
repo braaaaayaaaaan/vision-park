@@ -13,7 +13,8 @@
     "test:overview": "node --test tests/overview.test.mjs",
     "test:analytics": "node --test tests/analytics.test.mjs",
     "test:vehicles": "node --test tests/vehicles.test.mjs",
-    "test:sessions": "node --test tests/sessions.test.mjs"
+    "test:sessions": "node --test tests/sessions.test.mjs",
+    "test:parking-structure": "node --test tests/parking-structure.test.mjs tests/calibration.test.mjs tests/node-drafts.test.mjs tests/edge-drafts.test.mjs tests/cross-level-ramps.test.mjs tests/level-management.test.mjs tests/zone-drafts.test.mjs tests/zone-entrances.test.mjs tests/structure-validation.test.mjs"
   },
   "dependencies": {
     "next": "16.3.5",

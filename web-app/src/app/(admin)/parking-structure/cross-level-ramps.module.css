@@ -1,0 +1,40 @@
+.form { display: grid; gap: 16px; }
+.form h3, .card h3, .card h4 { margin: 0; }
+.endpointGrid, .savedGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.card { display: grid; align-content: start; gap: 14px; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow-wrap: anywhere; }
+.cardHeading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.card h4 { font-size: 15px; }
+.distance { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.distance span { color: var(--text-muted); font-size: 13px; }
+.distance strong { font-size: 24px; font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.measurementDetails { padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.measurementDetails summary { color: var(--text-muted); font-weight: 600; cursor: pointer; }
+.measurementDetails summary:hover { color: var(--primary); }
+.measurementDetails dl { display: grid; gap: 8px; margin: 12px 0 0; }
+.measurementDetails dl div { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.measurementDetails dt { color: var(--text-muted); }
+.measurementDetails dd { margin: 0; text-align: right; }
+.editAction, .deleteAction { border: 1px solid; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.editAction { background: #fff7ed; color: #9a3412; border-color: #c2410c; }
+.deleteAction { background: #fff1f1; color: #a52a2a; border-color: #a52a2a; }
+.editAction:not(:disabled):hover { background: #ffedd5; }
+.deleteAction:not(:disabled):hover { background: #ffe0e0; }
+.editAction:focus-visible { outline-color: #c2410c; }
+.deleteAction:focus-visible { outline-color: #a52a2a; }
+.editAction:disabled, .deleteAction:disabled { opacity: 0.5; cursor: not-allowed; }
+.preview { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--background); }
+.preview svg { display: block; width: 100%; height: auto; max-height: 280px; }
+.checkbox { display: flex; align-items: start; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 14px; line-height: 1.5; cursor: pointer; }
+.checkbox input { flex: 0 0 18px; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--primary); cursor: inherit; }
+.checkbox:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+.checkbox:has(input:disabled) { color: var(--text-muted); background: var(--background); cursor: not-allowed; }
+.direction { padding: 12px 16px; background: var(--primary-soft); border-radius: 8px; font-weight: 600; overflow-wrap: anywhere; }
+.ready, .review { border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; font-size: 12px; }
+.ready { color: #235c39; background: #edf7f0; border-color: #c7e4cf; }
+.review { color: #755114; background: #fff8e8; border-color: #ead7ab; }
+.reasons { margin: 0; padding-left: 20px; font-size: 13px; color: #755114; }
+
+.trace { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; min-width: 0; }
+.zoom { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.zoom output { min-width: 52px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+.trace h4 { color: var(--text); }

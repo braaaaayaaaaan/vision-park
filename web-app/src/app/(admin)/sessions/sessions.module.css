@@ -4,8 +4,24 @@
 .statusBadge { display: inline-block; white-space: nowrap; overflow-wrap: normal; }
 .table .detailsCell { white-space: nowrap; overflow-wrap: normal; padding-right: 24px; }
 .details { display: grid; gap: 20px; }
-.fields { display: grid; gap: 16px; }
+.sessionDialog[open] { width: min(760px, calc(100% - 32px)); }
+.sessionSummary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0 8px; }
+.plate { font-size: 22px; overflow-wrap: anywhere; }
+.detailCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.detailCard { min-width: 0; padding: 20px; background: var(--background); border: 1px solid var(--border); border-radius: 12px; }
+.detailCard h3 { margin: 0 0 16px; font-size: 15px; }
+.activityCard { grid-column: 1 / -1; }
+.activityCard .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.activityCard .note { margin-top: 12px; }
+.fields { display: grid; gap: 16px; margin: 0; }
 .fields div { display: grid; gap: 4px; }
 .fields dt { color: var(--text-muted); font-size: 12px; font-weight: 600; }
 .fields dd { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
 .note { color: var(--text-muted); font-size: 13px; }
+.reference { border-top: 1px solid var(--border); padding-top: 16px; }
+.reference summary { cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+.reference .fields { margin-top: 16px; }
+@media (max-width: 550px) {
+  .detailCards, .activityCard .fields { grid-template-columns: minmax(0, 1fr); }
+  .detailCard { padding: 16px; }
+}

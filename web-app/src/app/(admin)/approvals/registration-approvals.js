@@ -57,8 +57,8 @@ export default function RegistrationApprovals() {
                   <td>{applicant.requested_company?.name || 'Not Provided'}{applicant.requested_company?.is_active === false && <small className={styles.identifier}>Company Inactive</small>}</td>
                   <td><span className={styles.badge}>Pending</span></td>
                   <td><div className={styles.actions}>
-                    <button className={styles.primary} onClick={() => { setNotice(''); setSelection({ applicant, action: 'approve' }); }} aria-label={`Approve ${applicant.full_name || applicant.id}`}>Approve</button>
-                    <button className={styles.secondary} onClick={() => { setNotice(''); setSelection({ applicant, action: 'reject' }); }} aria-label={`Reject ${applicant.full_name || applicant.id}`}>Reject</button>
+                    <button className={styles.approve} onClick={() => { setNotice(''); setSelection({ applicant, action: 'approve' }); }} aria-label={`Approve ${applicant.full_name || applicant.id}`}>Approve</button>
+                    <button className={styles.reject} onClick={() => { setNotice(''); setSelection({ applicant, action: 'reject' }); }} aria-label={`Reject ${applicant.full_name || applicant.id}`}>Reject</button>
                   </div></td>
                 </tr>
               ))}</tbody>

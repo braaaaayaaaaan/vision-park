@@ -41,7 +41,7 @@ export default function RegisteredVehicles() {
     <div className={styles.heading}><div><h1>Registered Vehicles</h1><p>View vehicle registrations, registered owners and their current company associations.</p></div>
       <button className={styles.secondary} disabled={loading || Boolean(selection)} onClick={() => { setNotice(''); reload(); }}>{loading && revision > 0 ? 'Refreshing…' : 'Refresh'}</button></div>
     <form className={filtersStyle.filters} onSubmit={apply}>
-      <label>Search By Number Plate<input type="search" maxLength={32} value={draft.plate} onChange={event => setDraft({ ...draft, plate: event.target.value })} placeholder="Enter Full Or Partial Plate" /></label>
+      <label>Search By Number Plate<input type="search" maxLength={32} value={draft.plate} onChange={event => setDraft({ ...draft, plate: event.target.value })} placeholder="Enter Number Plate" /></label>
       <label>Vehicle Status<select value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="">All Statuses</option>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Company<select value={draft.tenant_id} onChange={event => setDraft({ ...draft, tenant_id: event.target.value })}><option value="">All Companies</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
       <button className={styles.primary} disabled={loading || Boolean(selection)}>Apply Filters</button>
@@ -55,8 +55,8 @@ export default function RegisteredVehicles() {
           <div className={styles.tableScroll} tabIndex={0} aria-label="Scrollable Vehicle Records Table"><table className={styles.table}><caption className={styles.srOnly}>Registered Vehicles</caption>
             <thead><tr><th scope="col">Number Plate</th><th scope="col">Registered Owner</th><th scope="col">Company</th><th scope="col">Vehicle Status</th><th scope="col">Actions</th></tr></thead>
             <tbody>{data?.vehicles.map(vehicle => <tr key={vehicle.id}><td><strong>{vehicle.plate_number}</strong></td><td>{vehicle.owner_name || 'Not Available'}</td><td>{vehicle.tenant_name || 'Not Available'}</td><td><span className={styles.badge}>{labels[vehicle.registration_status]}</span></td><td>{vehicle.registration_status === 'pending' ? <div className={styles.actions}>
-              <button className={styles.primary} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'approve' }); }} aria-label={`Approve ${vehicle.plate_number}`}>Approve</button>
-              <button className={styles.secondary} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'reject' }); }} aria-label={`Reject ${vehicle.plate_number}`}>Reject</button>
+              <button className={styles.approve} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'approve' }); }} aria-label={`Approve ${vehicle.plate_number}`}>Approve</button>
+              <button className={styles.reject} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'reject' }); }} aria-label={`Reject ${vehicle.plate_number}`}>Reject</button>
             </div> : '—'}</td></tr>)}</tbody>
           </table></div>}
       <nav className={styles.pagination} aria-label="Vehicles Pagination"><span>Page {Math.floor(offset / 25) + 1}{data ? ` · ${data.total} Matching Records${data.vehicles.length ? ` · Showing ${offset + 1}–${offset + data.vehicles.length}` : ''}` : ''}</span>

@@ -1,4 +1,4 @@
-.page { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-lg); }
+.page { min-height: var(--viewport-height); display: grid; place-items: center; padding: var(--space-lg); }
 .content { width: 100%; max-width: 600px; }
 .brand { margin-bottom: var(--space-lg); color: var(--primary); font-size: 26px; font-weight: 700; }
 .panel { padding: clamp(24px, 5vw, 48px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
@@ -6,8 +6,9 @@
 .description { color: var(--text-muted); }
 .form { display: grid; gap: 12px; margin-top: var(--space-lg); }
 .form label { font-weight: 600; }
-.form input { width: 100%; min-width: 0; border: 1px solid #a8b8ca; border-radius: 8px; padding: 12px; color: var(--text); background: var(--surface); font: inherit; margin-bottom: 8px; }
+.form input { width: 100%; min-width: 0; border: 1px solid var(--input-border); border-radius: 8px; padding: 12px; color: var(--text); background: var(--surface); font: inherit; margin-bottom: 8px; }
 .form button { border: 0; border-radius: 8px; padding: 12px; color: white; background: var(--primary); font-weight: 600; cursor: pointer; margin-top: 8px; }
 .form button:disabled { opacity: 0.65; cursor: wait; }
+.form button:not(:disabled):hover { background: var(--primary-hover); }
 .error { color: #a52a2a; font-size: 14px; }
 .status { min-height: 24px; color: var(--text-muted); font-size: 13px; }
