@@ -1,0 +1,27 @@
+.section { display: grid; gap: 16px; margin-top: 24px; min-width: 0; }
+.heading, .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.heading h2 { font-size: 20px; }
+.toolbar { justify-content: flex-start; }
+.button { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; background: var(--surface); color: var(--primary); font-weight: 600; cursor: pointer; }
+.button:hover, .button[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary); }
+.button:disabled { opacity: .55; cursor: not-allowed; }
+.primary { background: var(--primary); color: white; }
+.primary:hover { background: var(--primary-hover); }
+.viewport { overflow: auto; max-height: calc(65vh / var(--ui-scale)); border: 1px solid var(--border); border-radius: 12px; background: var(--background); overscroll-behavior: contain; }
+.viewport svg { display: block; height: auto; max-width: none; user-select: none; }
+.pan, .select { touch-action: none; }
+.pan { cursor: grab; }
+.pan:active { cursor: grabbing; }
+.select { cursor: crosshair; }
+.image { cursor: default; }
+.measurement { display: grid; justify-items: start; gap: 12px; background: var(--primary-soft); padding: 16px; border-radius: 12px; }
+.measurement label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.measurement input { padding: 10px 12px; font: inherit; width: min(100%, 260px); min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.note { font-size: 13px; color: var(--text-muted); }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; margin: 0; }
+.summaryCard { min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--primary-soft); }
+.summaryCard dt { margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.summaryCard dd { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.summaryCard dd span { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+.error { color: #a52a2a; }
+.success { color: #235c39; }

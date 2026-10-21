@@ -7,8 +7,8 @@ import UtilisationCharts from './utilisation-charts';
 import styles from '../overview/overview.module.css';
 import filtersStyle from './analytics.module.css';
 
-const movementsSeries = [{ key: 'entries', label: 'Entries', colour: '#2563A9' }, { key: 'exits', label: 'Exits', colour: '#6a7b91' }];
-const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: '#2563A9' }];
+const movementsSeries = [{ key: 'entries', label: 'Entries', colour: 'var(--chart-primary)' }, { key: 'exits', label: 'Exits', colour: 'var(--chart-comparative)' }];
+const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: 'var(--chart-supporting)' }];
 const number = (value) => value.toLocaleString('en-MY');
 const hour = (value) => value === null ? 'N/A' : `${String(value.hour).padStart(2, '0')}:00–${String((value.hour + 1) % 24).padStart(2, '0')}:00`;
 const duration = (seconds) => seconds === null ? 'N/A' : seconds < 60 ? `${Math.round(seconds)} sec` : `${(seconds / 60).toLocaleString('en-MY', { maximumFractionDigits: 1 })} min`;

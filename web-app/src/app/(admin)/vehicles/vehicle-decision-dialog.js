@@ -40,7 +40,7 @@ export default function VehicleDecisionDialog({ vehicle, action, onDismiss, onSu
       {submitting && <p role="status">Waiting For Backend Confirmation…</p>}
       <div className={styles.dialogActions}>
         <button type="button" className={styles.secondary} disabled={submitting} onClick={() => onDismiss(uncertain)}>{uncertain ? 'Close And Refresh' : 'Cancel'}</button>
-        <button type="submit" className={approve ? styles.primary : styles.reject} disabled={submitting || uncertain}>{submitting ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}</button>
+        <button type="submit" className={approve ? styles.approve : styles.reject} disabled={submitting || uncertain}>{submitting ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}</button>
       </div>
     </form>
   </dialog>;

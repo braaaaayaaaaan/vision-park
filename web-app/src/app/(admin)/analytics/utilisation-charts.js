@@ -1,4 +1,7 @@
+'use client';
+import { useEffect, useRef, useState } from 'react';
 import styles from '../overview/overview.module.css';
+import shared from '../approvals/approvals.module.css';
 import local from './analytics.module.css';
 
 const timeFormat = new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'medium' });
@@ -15,7 +18,7 @@ function OccupancyChart({ history }) {
   const stride = Math.max(1, Math.ceil(points.length / 6));
   return <section className={styles.panel} aria-labelledby="historical-occupancy-title">
     <h2 id="historical-occupancy-title">Historical Parking Occupancy</h2>
-    <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints; today uses the refresh time.'} Malaysia Time.</p>
+    <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints; today uses the refresh time.'}</p>
     {points.length === 0 ? <p className={styles.empty}>No Reporting Checkpoints Available</p> : <>
       {points.every((point) => point.occupied === 0) && <p className={styles.empty}>No Eligible Confirmed Sessions At These Checkpoints</p>}
       <div className={styles.chartScroll}><svg className={local.lineChart} viewBox={`0 0 ${width} 290`} aria-label="Historical Confirmed Occupancy Line Chart">
@@ -36,19 +39,47 @@ function OccupancyChart({ history }) {
   </section>;
 }
 
-function ComparisonChart({ rows, unit, empty }) {
+function ComparisonChart({ rows, unit, empty, colour = 'var(--chart-comparative)' }) {
   const maximum = Math.max(1, ...rows.map((row) => row.count));
   return rows.length === 0 ? <p className={styles.empty}>{empty}</p> : <>
     {rows.every((row) => row.count === 0) && <p className={styles.empty}>No Activity In This Selection</p>}
     <p className={local.comparisonUnit}>{unit}</p>
-    <ul className={local.comparisons}>{rows.map((row) => <li key={row.id}>
+    <ul className={local.comparisons} style={{ '--series-colour': colour }}>{rows.map((row) => <li key={row.id}>
       <div className={local.comparisonLabel}><span>{row.name}</span><strong>{row.count.toLocaleString('en-MY')}</strong></div>
       <div className={local.comparisonTrack} role="img" aria-label={`${row.name}: ${row.count} ${unit}`} title={`${row.name}: ${row.count} ${unit}`}><span style={{ width: `${row.count / maximum * 100}%` }} /></div>
     </li>)}</ul>
   </>;
 }
 
+function ZoneBreakdown({ data, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const element = dialog.current;
+    element.showModal();
+    return () => element.close();
+  }, []);
+  return <dialog ref={dialog} className={`${shared.dialog} ${local.zoneDialog}`} aria-labelledby="zone-breakdown-title" aria-describedby="zone-breakdown-description"
+    onCancel={event => { event.preventDefault(); onClose(); }}>
+    <div className={local.zoneDialogContent}>
+      <header>
+        <h2 id="zone-breakdown-title">Zone Breakdown</h2>
+        <p className={styles.muted}>{data.start_date} to {data.end_date} · Malaysia Time</p>
+        <p id="zone-breakdown-description" className={styles.muted}>Parking assignments by zone within each level. Counts represent demand, not occupancy or capacity utilisation.</p>
+      </header>
+      <div className={local.zoneCards}>
+        {data.parking_demand.levels.map(level => <section key={level.id} className={local.zoneCard} aria-label={`${level.name} Zone Breakdown`}>
+          <div className={local.zoneCardHeading}><h3>{level.name}</h3><span>{level.assignments.toLocaleString('en-MY')} Assignments</span></div>
+          <ComparisonChart rows={level.zones.map(zone => ({ ...zone, count: zone.assignments }))} unit="Parking Assignments" empty="No Zones Available" colour="var(--chart-supporting)" />
+        </section>)}
+      </div>
+      {data.parking_demand.unmapped_assignments > 0 && <p className={styles.muted}>{data.parking_demand.unmapped_assignments.toLocaleString('en-MY')} assignments could not be mapped to an existing level/zone and are omitted.</p>}
+      <div className={shared.dialogActions}><button type="button" className={shared.secondary} onClick={onClose}>Close</button></div>
+    </div>
+  </dialog>;
+}
+
 export default function UtilisationCharts({ data }) {
+  const [showZones, setShowZones] = useState(false);
   if (!data.historical_occupancy || !data.parking_demand || !data.tenant_activity) return <p className={styles.muted}>Historical occupancy and demand analytics are unavailable from this backend version.</p>;
   const demand = data.parking_demand;
   const selected = data.level_id !== null;
@@ -56,17 +87,20 @@ export default function UtilisationCharts({ data }) {
   return <>
     <h2 className={local.sectionTitle}>Historical Occupancy and Parking Demand</h2>
     <OccupancyChart history={data.historical_occupancy} />
-    <section className={styles.panel} aria-labelledby="parking-demand-title">
-      <h2 id="parking-demand-title">Parking Demand By Level & Zone</h2>
-      <p className={styles.muted}>{selected ? `Zones In ${demand.levels[0]?.name ?? 'Selected Level'}` : 'Assignments By Parking Level'}. Non-cancelled sessions entering within the selected dates; counts are not occupancy or capacity utilisation.</p>
-      <ComparisonChart rows={rows} unit="Parking Assignments" empty="No Parking Areas Available" />
-      {!selected && demand.levels.length > 0 && <details className={local.zoneDetails}><summary>View Zone Breakdown</summary>{demand.levels.map((level) => <div key={level.id} className={local.zoneGroup}><h3>{level.name}</h3><ComparisonChart rows={level.zones.map((zone) => ({ ...zone, count: zone.assignments }))} unit="Parking Assignments" empty="No Zones Available" /></div>)}</details>}
-      {demand.unmapped_assignments > 0 && <p className={styles.footnote}>{demand.unmapped_assignments} assignments could not be mapped to an existing level/zone and are omitted from these comparisons.</p>}
-    </section>
-    <section className={styles.panel} aria-labelledby="tenant-activity-title">
-      <h2 id="tenant-activity-title">Parking Activity By Tenant</h2>
-      <p className={styles.muted}>Non-cancelled sessions entering within the selected dates and level. Companies are ordered by session count.</p>
-      <ComparisonChart rows={data.tenant_activity.tenants.map((tenant) => ({ ...tenant, count: tenant.sessions }))} unit="Parking Sessions" empty="No Tenant Records Available" />
-    </section>
+    <div className={local.comparisonGrid}>
+      <section className={styles.panel} aria-labelledby="parking-demand-title">
+        <h2 id="parking-demand-title">Parking Demand by Level and Zone</h2>
+        <p className={styles.muted}>{selected ? `Zones In ${demand.levels[0]?.name ?? 'Selected Level'}` : 'Assignments By Parking Level'}.</p>
+        <ComparisonChart rows={rows} unit="Parking Assignments" empty="No Parking Areas Available" colour={selected ? 'var(--chart-supporting)' : 'var(--chart-comparative)'} />
+        {!selected && demand.levels.length > 0 && <div className={local.zoneDetails}><button type="button" className={shared.secondary} aria-haspopup="dialog" onClick={() => setShowZones(true)}>View Zone Breakdown</button></div>}
+        {demand.unmapped_assignments > 0 && <p className={styles.footnote}>{demand.unmapped_assignments} assignments could not be mapped to an existing level/zone and are omitted from these comparisons.</p>}
+      </section>
+      <section className={styles.panel} aria-labelledby="tenant-activity-title">
+        <h2 id="tenant-activity-title">Parking Activity by Tenant</h2>
+        <p className={styles.muted}>Companies are ordered by session count.</p>
+        <ComparisonChart rows={data.tenant_activity.tenants.map((tenant) => ({ ...tenant, count: tenant.sessions }))} unit="Parking Sessions" empty="No Tenant Records Available" colour="var(--chart-additional)" />
+      </section>
+    </div>
+    {showZones && <ZoneBreakdown data={data} onClose={() => setShowZones(false)} />}
   </>;
 }

@@ -368,7 +368,7 @@ def get_zones() -> list[dict]:
 
 def get_levels() -> list[dict]:
     return _all_rows(lambda: get_supabase().table("parking_levels").select(
-        "id,level_number,name,is_active"
+        "id,level_number,name,is_active,updated_at,metadata_revision"
     ))
 
 

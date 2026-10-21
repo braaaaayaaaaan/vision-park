@@ -1,26 +1,32 @@
 .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; }
 .filters label { display: grid; gap: 8px; font-weight: 600; font-size: 13px; min-width: 170px; flex: 1; }
-.filters input, .filters select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #a8b8ca; border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; min-height: 44px; }
+.filters input, .filters select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; min-height: 44px; }
 .filters button { min-height: 44px; }
 @media (max-width: 500px) { .filters label, .filters button { flex-basis: 100%; } }
 .sectionTitle { margin: 8px 0 0; font-size: 22px; }
 .lineChart { display: block; width: 100%; min-width: 700px; margin-top: 24px; overflow: visible; }
 .axisText { font: 12px Arial, sans-serif; fill: var(--text-muted); }
 .gridLine { stroke: var(--border); stroke-width: 1; }
-.occupancyLine { fill: none; stroke: var(--primary); stroke-width: 2.5; }
-.point circle { fill: var(--surface); stroke: var(--primary); stroke-width: 2; }
-.point:hover circle, .point:focus circle { fill: var(--primary); }
+.occupancyLine { fill: none; stroke: var(--chart-primary); stroke-width: 2.5; }
+.point circle { fill: var(--surface); stroke: var(--chart-primary); stroke-width: 2; }
+.point:hover circle, .point:focus circle { fill: var(--chart-primary); }
 .lineTooltip { display: none; pointer-events: none; }
 .lineTooltip rect { fill: var(--text); }
 .lineTooltip text { fill: white; font: 12px Arial, sans-serif; }
 .point:hover .lineTooltip, .point:focus .lineTooltip { display: block; }
 .comparisonUnit { margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+.comparisonGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 24px; align-items: start; min-width: 0; }
 .comparisons { display: grid; gap: 18px; list-style: none; padding: 0; margin: 12px 0 0; }
 .comparisonLabel { display: flex; justify-content: space-between; gap: 20px; font-size: 14px; margin-bottom: 8px; }
 .comparisonLabel span { overflow-wrap: anywhere; }
 .comparisonTrack { background: var(--background); height: 14px; border-radius: 6px; overflow: hidden; }
-.comparisonTrack span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.comparisonTrack span { display: block; height: 100%; background: var(--series-colour, var(--chart-comparative)); border-radius: inherit; }
 .zoneDetails { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 24px; }
-.zoneDetails summary { color: var(--primary); cursor: pointer; font-weight: 600; }
-.zoneGroup { margin-top: 24px; }
-.zoneGroup h3 { font-size: 16px; }
+.zoneDialog[open] { width: min(880px, calc(100% - 32px)); }
+.zoneDialogContent { display: grid; gap: 24px; }
+.zoneCards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; gap: 16px; }
+.zoneCard { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.zoneCardHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.zoneCardHeading h3 { margin: 0; font-size: 16px; }
+.zoneCardHeading span { color: var(--text-muted); font-size: 12px; }
+.zoneCard .comparisonTrack { background: var(--surface); }

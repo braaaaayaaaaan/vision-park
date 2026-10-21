@@ -1,5 +1,5 @@
-import PagePlaceholder from "@/components/page-placeholder";
+import FloorPlans from "./floor-plans";
 export const metadata = { title: "Parking Structure" };
 export default function Page() {
-  return <PagePlaceholder title="Parking Structure">Parking levels and zones will be available here in a future stage. Structure data is not connected yet.</PagePlaceholder>;
+  return <FloorPlans />;
 }

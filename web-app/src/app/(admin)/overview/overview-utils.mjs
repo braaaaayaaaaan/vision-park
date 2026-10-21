@@ -10,7 +10,7 @@ export function occupancyPercentage({ occupied, usable_capacity }) {
   return usable_capacity === 0 ? null : occupied / usable_capacity * 100;
 }
 export function occupancyBand(percentage) {
-  if (percentage === null) return { label: 'No Usable Capacity', colour: '#8794a5' };
+  if (percentage === null) return { label: 'No Usable Capacity', colour: 'var(--chart-secondary)' };
   return occupancyBands[percentage >= 100 ? 2 : percentage > 85 ? 1 : 0];
 }
 export function todaySessionsQuery(offset = 0, now = new Date()) {

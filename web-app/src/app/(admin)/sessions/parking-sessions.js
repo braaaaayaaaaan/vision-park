@@ -43,7 +43,7 @@ export default function ParkingSessions() {
     <div className={styles.heading}><div><h1>Parking Sessions</h1><p>Inspect active, completed and cancelled parking sessions across the building.</p></div>
       <button className={styles.secondary} disabled={unavailable} onClick={() => reload()}>{loading && revision > 0 ? 'Refreshing…' : 'Refresh'}</button></div>
     <form className={filtersStyle.filters} onSubmit={apply}>
-      <label>Number Plate Search<input type="search" maxLength={32} value={draft.plate} onChange={event => setDraft({ ...draft, plate: event.target.value })} placeholder="Enter Full Or Partial Plate" /></label>
+      <label>Number Plate Search<input type="search" maxLength={32} value={draft.plate} onChange={event => setDraft({ ...draft, plate: event.target.value })} placeholder="Enter Number Plate" /></label>
       <label>Session Status<select value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="">All Statuses</option>{Object.entries(sessionLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Parking Level<select value={draft.level_id} onChange={event => setDraft({ ...draft, level_id: event.target.value })}><option value="">All Levels</option>{levels.map(level => <option key={level.id} value={level.id}>{level.name}</option>)}</select></label>
       <label>Start Date<input type="date" min="1982-01-01" max={malaysiaToday()} value={draft.start_date} onChange={event => setDraft({ ...draft, start_date: event.target.value })} /></label>

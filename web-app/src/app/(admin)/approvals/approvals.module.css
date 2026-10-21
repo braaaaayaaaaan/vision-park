@@ -16,20 +16,25 @@
 .identifier { display: block; color: var(--text-muted); font-size: 11px; margin-top: 4px; }
 .badge { color: var(--primary); background: var(--primary-soft); border-radius: 24px; padding: 5px 10px; font-size: 12px; }
 .actions { display: flex; gap: 8px; }
-.primary, .secondary, .reject { border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.primary, .secondary, .approve, .reject { border: 1px solid var(--border); border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .primary { background: var(--primary); color: white; border-color: var(--primary); }
 .secondary { background: var(--surface); color: var(--primary); }
-.reject { background: #a52a2a; color: white; border-color: #a52a2a; }
-.primary:hover, .reject:hover { filter: brightness(0.93); }
+.approve { background: #edf7f0; color: #235c39; border-color: #25804b; }
+.reject { background: #fff1f1; color: #a52a2a; border-color: #a52a2a; }
+.approve:not(:disabled):hover { background: #dcefe2; }
+.reject:not(:disabled):hover { background: #ffe0e0; }
+.approve:focus-visible { outline-color: #25804b; }
+.reject:focus-visible { outline-color: #a52a2a; }
+.primary:hover { filter: brightness(0.93); }
 .secondary:hover { background: var(--primary-soft); }
-.primary:disabled, .secondary:disabled, .reject:disabled { opacity: 0.5; cursor: not-allowed; }
+.primary:disabled, .secondary:disabled, .approve:disabled, .reject:disabled { opacity: 0.5; cursor: not-allowed; }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 24px; color: var(--text-muted); font-size: 13px; }
 .state { padding: 48px 24px; text-align: center; display: grid; justify-items: center; gap: 16px; color: var(--text-muted); }
 .state h2 { color: var(--text); font-size: 20px; }
 .success { background: #edf7f0; color: #235c39; border: 1px solid #c7e4cf; padding: 16px 20px; border-radius: 10px; }
 .error { color: #a52a2a; }
-.dialog { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 32px; width: min(540px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
-.dialog::backdrop { background: rgb(23 43 69 / 45%); }
+.dialog { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 32px; width: min(540px, calc(100% - 32px)); max-height: calc(var(--viewport-height) - 32px); overflow-y: auto; }
+.dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .dialog form { display: grid; gap: 20px; }
 .dialog h2 { font-size: 24px; }
 .dialog p { overflow-wrap: anywhere; }
@@ -38,7 +43,7 @@
 .applicant p { margin-top: 8px; font-size: 14px; }
 .companyField { display: grid; gap: 8px; }
 .companyField label { font-weight: 600; }
-.companyField select { width: 100%; min-width: 0; padding: 12px; border: 1px solid #a8b8ca; border-radius: 8px; font: inherit; color: var(--text); background: var(--surface); }
+.companyField select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--input-border); border-radius: 8px; font: inherit; color: var(--text); background: var(--surface); }
 .dialogActions { display: flex; justify-content: flex-end; gap: 12px; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 650px) {

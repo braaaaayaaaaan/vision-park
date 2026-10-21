@@ -1,17 +1,33 @@
 :root {
   color-scheme: light;
   --primary: #2563a9;
+  --primary-hover: #1d4f87;
   --background: #f4f7fb;
   --surface: #ffffff;
   --text: #172b45;
   --text-muted: #596b80;
   --border: #dde5ef;
+  --input-border: #9baec4;
   --primary-soft: #eaf2fc;
+  --chart-secondary: #888888;
+  --chart-primary: #3B82F6;
+  --chart-comparative: #8B5CF6;
+  --chart-supporting: #14B8A6;
+  --chart-additional: #F59E0B;
   --radius: 20px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+  --ui-scale: 1;
+  --viewport-height: calc(100dvh / var(--ui-scale));
+}
+/* Compact desktop presentation; browser zoom and mobile sizing stay available. */
+@supports (zoom: 1) {
+  @media screen and (min-width: 1024px) {
+    :root { --ui-scale: 0.9; }
+    body { zoom: var(--ui-scale); }
+  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--background); color: var(--text); font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.6; }
@@ -20,4 +36,4 @@ button { font: inherit; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 4px; }
 h1, h2, p { margin: 0; }
 h1, h2 { line-height: 1.25; letter-spacing: -0.025em; }
-::selection { background: var(--primary-soft); color: var(--text); }
+::selection { background: #d1d1d1; color: var(--text); text-shadow: none; }
