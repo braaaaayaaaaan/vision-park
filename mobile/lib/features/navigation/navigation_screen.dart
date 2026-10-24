@@ -5,6 +5,7 @@ import '../../data/repositories/assigned_route_repository.dart';
 import '../../data/models/driver_models.dart';
 import '../../shared/widgets/empty_state_card.dart';
 import 'navigation_controller.dart';
+import 'route_voice_guidance.dart';
 import 'widgets/parking_confirmation.dart';
 import 'widgets/route_panel.dart';
 
@@ -14,12 +15,14 @@ class NavigationScreen extends StatefulWidget {
     this.routeRepository,
     this.isVisible = true,
     this.onParkingConfirmed,
+    this.voiceGuidance,
     super.key,
   });
   final NavigationController? controller;
   final AssignedRouteRepository? routeRepository;
   final bool isVisible;
   final VoidCallback? onParkingConfirmed;
+  final RouteVoiceGuidance? voiceGuidance;
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -27,10 +30,19 @@ class NavigationScreen extends StatefulWidget {
 
 class _NavigationScreenState extends State<NavigationScreen> {
   late final NavigationController _controller;
+  late final RouteVoiceGuidance _voice;
   bool _dialogOpen = false;
+  bool _mapTouchActive = false;
+
+  void _setMapTouchActive(bool active) {
+    if (mounted && _mapTouchActive != active) {
+      setState(() => _mapTouchActive = active);
+    }
+  }
 
   Future<void> _confirmParking() async {
     if (_dialogOpen || !_controller.canConfirm) return;
+    _voice.pause();
     final parking = _controller.data!.parking!;
     setState(() => _dialogOpen = true);
     try {
@@ -54,6 +66,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _voice = widget.voiceGuidance ?? RouteVoiceGuidance();
     _controller =
         widget.controller ??
         NavigationController(routeRepository: widget.routeRepository);
@@ -63,23 +76,50 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void didUpdateWidget(covariant NavigationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.isVisible) _voice.pause();
     if (widget.isVisible && !oldWidget.isVisible) _controller.load();
   }
 
   @override
   void dispose() {
+    _voice.pause();
+    if (widget.voiceGuidance == null) _voice.dispose();
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
+  Widget _parkButton() => FilledButton.icon(
+    onPressed: _controller.canConfirm && !_dialogOpen ? _confirmParking : null,
+    icon: const Icon(Icons.local_parking_rounded, size: 18),
+    label: Text(
+      _controller.confirming ? 'Confirming Parking...' : "I've Parked",
+    ),
+  );
+
+  Widget? _feedback() {
+    if (_controller.confirming) {
+      return const LinearProgressIndicator(
+        semanticsLabel: 'Confirming Parking',
+      );
+    }
+    final message = _controller.confirmationMessage;
+    return message == null ? null : Text(message);
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final theme = Theme.of(context);
         final parking = _controller.data?.parking;
+        final ready =
+            _controller.status == NavigationStatus.ready &&
+            parking != null &&
+            _controller.hasActiveSession;
         return SingleChildScrollView(
+          physics: _mapTouchActive
+              ? const NeverScrollableScrollPhysics()
+              : null,
           key: const PageStorageKey('navigation'),
           child: Align(
             alignment: Alignment.topCenter,
@@ -88,57 +128,61 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 maxWidth: AppTheme.contentWidth,
               ),
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.large),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Route to Your Zone',
-                      style: theme.textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.small),
-                    const Text('Fixed Route Guidance'),
-                    if (_controller.routeRepository != null) ...[
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: IconButton(
-                          tooltip: 'Refresh Navigation',
-                          onPressed:
-                              _controller.confirming ||
-                                  _controller.status == NavigationStatus.loading
-                              ? null
-                              : _controller.load,
-                          icon: const Icon(Icons.refresh_rounded),
-                        ),
-                      ),
-                      if (_controller.sessions.length > 1)
-                        DropdownButtonFormField<String>(
-                          key: ValueKey(_controller.selectedSessionId),
-                          initialValue: _controller.selectedSessionId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Parking Session',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Navigate',
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          items: [
-                            for (final item in _controller.sessions)
-                              DropdownMenuItem(
-                                value: item.session.id,
-                                child: Text(
-                                  '${item.vehicle.plateNumber} · ${item.zone.name}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged:
-                              _controller.confirming ||
-                                  _controller.status == NavigationStatus.loading
-                              ? null
-                              : (id) {
-                                  if (id != null) _controller.selectSession(id);
-                                },
                         ),
+                        if (_controller.routeRepository != null)
+                          IconButton(
+                            tooltip: 'Refresh Navigation',
+                            onPressed:
+                                _controller.confirming ||
+                                    _controller.status ==
+                                        NavigationStatus.loading
+                                ? null
+                                : _controller.load,
+                            icon: const Icon(Icons.refresh_rounded),
+                          ),
+                      ],
+                    ),
+                    if (_controller.sessions.length > 1) ...[
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_controller.selectedSessionId),
+                        initialValue: _controller.selectedSessionId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Parking Session',
+                          isDense: true,
+                        ),
+                        items: [
+                          for (final item in _controller.sessions)
+                            DropdownMenuItem(
+                              value: item.session.id,
+                              child: Text(
+                                '${item.vehicle.plateNumber} · ${item.zone.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged:
+                            _controller.confirming ||
+                                _controller.status == NavigationStatus.loading
+                            ? null
+                            : (id) {
+                                if (id != null) _controller.selectSession(id);
+                              },
+                      ),
+                      const SizedBox(height: 8),
                     ],
-                    const SizedBox(height: AppSpacing.large),
+                    const SizedBox(height: 8),
                     if (_controller.status == NavigationStatus.loading) ...[
                       const LinearProgressIndicator(
                         semanticsLabel: 'Loading Navigation',
@@ -168,64 +212,28 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         title: 'No Active Parking Session',
                         message: 'Navigation requires an active parking allocation. No route is currently available.',
                       )
-                    else if (parking != null) ...[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.large),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                parking.vehicle.plateNumber,
-                                style: theme.textTheme.titleLarge,
-                              ),
-                              Text(
-                                'Session Status: ${parking.session.status == ParkingSessionStatus.allocated ? 'Allocated' : 'Occupied'}',
-                              ),
-                              Text(
-                                parking.anprInformation ??
-                                    'ANPR Recognition Information Unavailable',
-                              ),
-                              const SizedBox(height: AppSpacing.medium),
-                              Text('Allocated Zone: ${parking.zone.name}'),
-                              Text(
-                                'Destination Level: ${parking.zone.levelName}',
-                              ),
-                              Text(
-                                _controller.routeError == null
-                                    ? 'Dijkstra Route Distance: ${parking.route!.distanceMetres.toStringAsFixed(0)} m'
-                                    : 'Route Distance: Unavailable',
-                              ),
-                            ],
-                          ),
-                        ),
+                    else if (ready)
+                      RoutePanel(
+                        controller: _controller,
+                        voiceGuidance: _voice,
+                        maxMapHeight: constraints.hasBoundedHeight
+                            ? constraints.maxHeight * .65
+                            : 440,
+                        onMapTouchChanged: _setMapTouchActive,
+                        previewEnabled:
+                            widget.isVisible &&
+                            !_dialogOpen &&
+                            !_controller.confirming &&
+                            parking.session.status ==
+                                ParkingSessionStatus.allocated,
+                        parkingAction: _parkButton(),
+                        parkingFeedback: _feedback(),
                       ),
-                      const SizedBox(height: AppSpacing.large),
-                      RoutePanel(controller: _controller),
-                      const SizedBox(height: AppSpacing.large),
+                    if (!ready) ...[
+                      const SizedBox(height: 16),
+                      _parkButton(),
+                      if (_feedback() != null) _feedback()!,
                     ],
-                    const SizedBox(height: AppSpacing.medium),
-                    FilledButton(
-                      onPressed: _controller.canConfirm && !_dialogOpen
-                          ? _confirmParking
-                          : null,
-                      child: Text(
-                        _controller.confirming
-                            ? 'Confirming Parking…'
-                            : "I've Parked",
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.small),
-                    if (_controller.confirming)
-                      const LinearProgressIndicator(
-                        semanticsLabel: 'Confirming Parking',
-                      ),
-                    Text(
-                      _controller.confirmationMessage ??
-                          (_controller.hasConfirmationService
-                              ? 'Confirm after parking in your assigned zone. Only allocated sessions can be confirmed.'
-                              : 'Confirmation requires an eligible allocated session and driver authorisation. Confirmation services are not connected yet.'),
-                    ),
                   ],
                 ),
               ),
@@ -233,6 +241,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
           ),
         );
       },
-    );
-  }
+    ),
+  );
 }

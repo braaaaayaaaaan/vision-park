@@ -7,14 +7,14 @@ export const NODE_TYPES = {
 export const MAX_NODES = 1000;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function draftError(nodes, width = Infinity, height = Infinity) {
-  if (!Array.isArray(nodes) || nodes.length > MAX_NODES) return 'A Draft Can Contain At Most 1,000 Nodes.';
+  if (!Array.isArray(nodes) || nodes.length > MAX_NODES) return 'A draft can contain at most 1,000 nodes.';
   const ids = new Set(), codes = new Set();
   for (const node of nodes) {
-    if (!node || Object.keys(node).length !== 5 || !uuid.test(node.id) || ids.has(node.id.toLowerCase())) return 'Each Node Must Have A Unique UUID.';
-    if (typeof node.code !== 'string' || !node.code.trim() || node.code.trim().length > 64) return 'Use A Nonblank Node Code Of At Most 64 Characters.';
-    if (codes.has(node.code.trim())) return 'Node Codes Must Be Unique Within This Draft.';
-    if (!Object.hasOwn(NODE_TYPES, node.node_type)) return 'Choose A Valid Node Type.';
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || node.x < 0 || node.y < 0 || node.x > width || node.y > height) return 'Node Coordinates Must Be Inside The Image.';
+    if (!node || Object.keys(node).length !== 5 || !uuid.test(node.id) || ids.has(node.id.toLowerCase())) return 'Each node must have a unique UUID.';
+    if (typeof node.code !== 'string' || !node.code.trim() || node.code.trim().length > 64) return 'Use a nonblank node code of at most 64 characters.';
+    if (codes.has(node.code.trim())) return 'Node codes must be unique within this draft.';
+    if (!Object.hasOwn(NODE_TYPES, node.node_type)) return 'Choose a valid node type.';
+    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || node.x < 0 || node.y < 0 || node.x > width || node.y > height) return 'Node coordinates must be inside the image.';
     ids.add(node.id.toLowerCase()); codes.add(node.code.trim());
   }
   return '';

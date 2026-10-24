@@ -23,9 +23,30 @@ from backend.parking import levels as parking_levels
 from backend.parking import zone_drafts
 from backend.parking import zone_entrances
 from backend.parking import structure_validation
+from backend.parking import publication
 
 router = APIRouter(dependencies=[Depends(require_administrator)])
 Administrator = Annotated[ApplicationUser, Depends(require_administrator)]
+
+
+@router.post('/parking/structure/publication/{action}')
+async def publication_action(action: Literal['preview','publish'], request: Request, response: Response, admin: Administrator):
+    response.headers['Cache-Control']='private, no-store'
+    if request.headers.get('content-type','').split(';')[0].lower()!='application/json':
+        raise HTTPException(415,'Use a JSON publication request.')
+    body=bytearray()
+    async for chunk in request.stream():
+        if len(body)+len(chunk)>publication.MAX_BODY_BYTES:
+            raise HTTPException(413,'Publication request exceeds 64 KiB.')
+        body.extend(chunk)
+    try:
+        change=(publication.PreviewInput if action=='preview' else publication.PublishInput).model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422,'Select current levels, explicit tenant permissions and valid preview/confirmation fields.') from None
+    try:
+        return await run_in_threadpool(publication.preview if action=='preview' else publication.publish,str(admin.id),change)
+    except database.DatabaseError:
+        raise HTTPException(503,'Publication result could not be confirmed. Refresh preview and review the recorded revision before retrying.') from None
 
 
 @router.post('/parking/structure/validate')

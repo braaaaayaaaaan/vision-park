@@ -1,18 +1,18 @@
 export const MAX_EDGES = 2000;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function edgeError(edges, nodes = null, stored = false) {
-  if (!Array.isArray(edges) || edges.length > MAX_EDGES) return 'A Draft Can Contain At Most 2,000 Directed Edges.';
+  if (!Array.isArray(edges) || edges.length > MAX_EDGES) return 'A draft can contain at most 2,000 directed edges.';
   const ids = new Set(), pairs = new Set();
   const nodeIds = nodes && new Set(nodes.map(node => node.id.toLowerCase()));
   const keys = stored ? ['id', 'from_node_id', 'to_node_id', 'distance_meters', 'calibration_revision'] : ['id', 'from_node_id', 'to_node_id'];
   for (const edge of edges) {
     if (!edge || Object.keys(edge).length !== keys.length || keys.some(key => !Object.hasOwn(edge, key)) ||
-      ![edge.id, edge.from_node_id, edge.to_node_id].every(value => typeof value === 'string' && uuid.test(value))) return 'Use Valid Edge And Node UUIDs. Distances Are Calculated By The Server.';
+      ![edge.id, edge.from_node_id, edge.to_node_id].every(value => typeof value === 'string' && uuid.test(value))) return 'Use valid edge and node UUIDs. Distances are calculated by the server.';
     const id = edge.id.toLowerCase(), from = edge.from_node_id.toLowerCase(), to = edge.to_node_id.toLowerCase(), pair = `${from}:${to}`;
-    if (from === to) return 'Choose Two Different Nodes.';
-    if (ids.has(id) || pairs.has(pair)) return 'Each Directed Connection And Edge ID Must Be Unique.';
-    if (nodeIds && (!nodeIds.has(from) || !nodeIds.has(to))) return 'Connections Must Reference Saved Nodes On This Floor Plan.';
-    if (stored && (!(Number.isFinite(edge.distance_meters) && edge.distance_meters > 0) || !Number.isInteger(edge.calibration_revision) || edge.calibration_revision < 1)) return 'Invalid Saved Edge Distance Or Calibration.';
+    if (from === to) return 'Choose two different nodes.';
+    if (ids.has(id) || pairs.has(pair)) return 'Each directed connection and edge ID must be unique.';
+    if (nodeIds && (!nodeIds.has(from) || !nodeIds.has(to))) return 'Connections must reference saved nodes on this floor plan.';
+    if (stored && (!(Number.isFinite(edge.distance_meters) && edge.distance_meters > 0) || !Number.isInteger(edge.calibration_revision) || edge.calibration_revision < 1)) return 'Invalid saved edge distance or calibration.';
     ids.add(id); pairs.add(pair);
   }
   return '';

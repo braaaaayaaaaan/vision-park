@@ -1,6 +1,6 @@
 .filters { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; }
 .filters label { display: grid; gap: 8px; font-weight: 600; font-size: 13px; min-width: 170px; flex: 1; }
-.filters input, .filters select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; min-height: 44px; }
+.filters input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; min-height: 44px; }
 .filters button { min-height: 44px; }
 @media (max-width: 500px) { .filters label, .filters button { flex-basis: 100%; } }
 .sectionTitle { margin: 8px 0 0; font-size: 22px; }

@@ -1,13 +1,13 @@
 import { traceError, traceDistance } from './ramp-trace-utils.mjs';
 import { draftError } from './node-draft-utils.mjs';
 export const reviewLabels = {
-  reference_image_replaced: 'Reference Image Replaced: Retrace The Ramp',
-  reference_calibration_missing: 'Reference Calibration Required',
-  reference_calibration_changed: 'Reference Calibration Changed: Recalculate And Reconfirm',
-  source_image_replaced: 'Source Floor Plan Replaced', source_draft_changed: 'Source Draft Changed',
-  source_node_missing: 'Source Ramp Node Missing', source_not_ramp: 'Source Node Is No Longer A Ramp',
-  destination_image_replaced: 'Destination Floor Plan Replaced', destination_draft_changed: 'Destination Draft Changed',
-  destination_node_missing: 'Destination Ramp Node Missing', destination_not_ramp: 'Destination Node Is No Longer A Ramp',
+  reference_image_replaced: 'Reference image replaced: retrace the ramp',
+  reference_calibration_missing: 'Reference calibration required',
+  reference_calibration_changed: 'Reference calibration changed: recalculate and reconfirm',
+  source_image_replaced: 'Source floor plan replaced', source_draft_changed: 'Source draft changed',
+  source_node_missing: 'Source ramp node missing', source_not_ramp: 'Source node is no longer a ramp',
+  destination_image_replaced: 'Destination floor plan replaced', destination_draft_changed: 'Destination draft changed',
+  destination_node_missing: 'Destination ramp node missing', destination_not_ramp: 'Destination node is no longer a ramp',
 };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const revision = (value, minimum = 1) => Number.isInteger(value) && value >= minimum && value <= 2147483646;
@@ -16,22 +16,22 @@ const edgeKeys = ['id', 'expected_revision', 'from_level_id', 'from_floor_plan_r
 export function rampBatchError(batch) {
   if (!batch || Object.keys(batch).length !== 3 || typeof batch.confirm_measurement !== 'boolean' ||
       !Array.isArray(batch.upserts) || !Array.isArray(batch.deletes) || batch.upserts.length > 2 || batch.deletes.length > 2 ||
-      batch.upserts.length + batch.deletes.length === 0) return 'Use A Valid Ramp Connection Batch.';
-  if (batch.upserts.length && !batch.confirm_measurement) return 'Confirm The Current Endpoints And Traced Ramp Paths.';
+      batch.upserts.length + batch.deletes.length === 0) return 'Use a valid ramp connection batch.';
+  if (batch.upserts.length && !batch.confirm_measurement) return 'Confirm the current endpoints and traced ramp paths.';
   const ids = new Set(), pairs = new Set();
   for (const edge of [...batch.upserts, ...batch.deletes]) {
-    if (!edge || !uuid(edge.id) || ids.has(edge.id.toLowerCase()) || !revision(edge.expected_revision, batch.upserts.includes(edge) ? 0 : 1)) return 'Use Unique Edge UUIDs And Valid Revisions.';
+    if (!edge || !uuid(edge.id) || ids.has(edge.id.toLowerCase()) || !revision(edge.expected_revision, batch.upserts.includes(edge) ? 0 : 1)) return 'Use unique edge UUIDs and valid revisions.';
     ids.add(edge.id.toLowerCase());
   }
-  for (const edge of batch.deletes) if (Object.keys(edge).length !== 2) return 'Use Only Edge ID And Revision For Deletion.';
+  for (const edge of batch.deletes) if (Object.keys(edge).length !== 2) return 'Use only edge ID and revision for deletion.';
   for (const edge of batch.upserts) {
     if (Object.keys(edge).length !== edgeKeys.length || edgeKeys.some(key => !Object.hasOwn(edge, key)) ||
       !['from_level_id', 'to_level_id', 'from_node_id', 'to_node_id', 'reference_level_id'].every(key => uuid(edge[key])) ||
       !['from_floor_plan_revision', 'to_floor_plan_revision', 'from_draft_revision', 'to_draft_revision', 'reference_floor_plan_revision', 'reference_calibration_revision'].every(key => revision(edge[key])) ||
       edge.from_level_id.toLowerCase() === edge.to_level_id.toLowerCase() || edge.from_node_id.toLowerCase() === edge.to_node_id.toLowerCase() ||
-      traceError(edge.trace_points)) return 'Choose Ramp Nodes On Different Levels And A Valid Calibrated Trace.';
+      traceError(edge.trace_points)) return 'Choose ramp nodes on different levels and a valid calibrated trace.';
     const pair = [edge.from_level_id, edge.from_floor_plan_revision, edge.from_node_id, edge.to_level_id, edge.to_floor_plan_revision, edge.to_node_id].join(':').toLowerCase();
-    if (pairs.has(pair)) return 'Directed Ramp Connections Must Be Unique.';
+    if (pairs.has(pair)) return 'Directed ramp connections must be unique.';
     pairs.add(pair);
   }
   return '';
@@ -100,7 +100,7 @@ export const initialRampForm = () => ({ from_level_id: '', from_node_id: '', to_
 export function buildRampBatch(form, from, to, editing = null, makeId = () => crypto.randomUUID()) {
   const start = from?.draft?.nodes.find(node => node.id === form.from_node_id && node.node_type === 'ramp');
   const end = to?.draft?.nodes.find(node => node.id === form.to_node_id && node.node_type === 'ramp');
-  if (!start || !end) throw new Error('Select Current Saved Ramp Nodes For Both Levels.');
+  if (!start || !end) throw new Error('Select current saved ramp nodes for both levels.');
   const forward = {
     id: editing?.id ?? makeId(), expected_revision: editing?.revision ?? 0,
     from_level_id: form.from_level_id, from_floor_plan_revision: from.floor_plan_revision, from_draft_revision: from.draft.revision, from_node_id: start.id,

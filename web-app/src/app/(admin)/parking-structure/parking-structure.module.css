@@ -5,7 +5,8 @@
 .note { font-size: 13px; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; min-width: 0; }
 .field { display: grid; gap: 8px; font-weight: 600; font-size: 14px; }
-.field select, .field input { font: inherit; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); width: 100%; max-width: 480px; min-width: 0; }
+.field input { font: inherit; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); width: 100%; max-width: 480px; min-width: 0; }
+.field select { max-width: 480px; }
 .preview { margin-top: 24px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); text-align: center; overflow: auto; }
 .preview img { display: block; max-width: 100%; width: auto; height: auto; margin: auto; }
 .preview p { padding: 32px 0; color: var(--text-muted); }

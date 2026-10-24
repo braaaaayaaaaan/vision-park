@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import useConfirmation from '../../../components/use-confirmation';
 import { floorPlanRequest } from './floor-plans-client.mjs';
-import { imagePoint, panPosition } from './calibration-utils.mjs';
+import { floorPlanWidth, imagePoint, panPosition } from './calibration-utils.mjs';
 import { MAX_TRACE_POINTS, referenceChanged, traceDistance, traceError } from './ramp-trace-utils.mjs';
 import map from './calibration.module.css';
 import fields from './node-editor.module.css';
 import styles from './cross-level-ramps.module.css';
 
-function TraceCanvas({ level, trace, onChange, disabled }) {
+function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
   const plan = level.floor_plan;
   const [calibration, setCalibration] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [zoom, setZoom] = useState(1), [tool, setTool] = useState('add'), [selected, setSelected] = useState(null), [ready, setReady] = useState(false);
@@ -18,6 +19,7 @@ function TraceCanvas({ level, trace, onChange, disabled }) {
   // calibration is loading or the API legitimately returns calibration: null.
   const calibrationRevision = calibration?.revision ?? null;
   const busy = disabled || loading || !calibration || !ready || Boolean(error);
+  const { requestConfirmation, confirmationDialog } = useConfirmation({ disabled: busy });
   const preview = calibration && traceDistance(points, calibration.metres_per_pixel, plan.width_px, plan.height_px);
   const recalculation = calibrationRevision !== null && trace.reference_calibration_revision !== calibrationRevision;
   useEffect(() => {
@@ -31,6 +33,10 @@ function TraceCanvas({ level, trace, onChange, disabled }) {
     if (busy || calibrationRevision === null) return;
     onChange({ reference_level_id: level.id, reference_floor_plan_revision: plan.revision,
       reference_calibration_revision: calibrationRevision, trace_points: next });
+  }
+  function resetTrace(confirmed = false) {
+    if (trace.trace_points.length && confirmed !== true) return requestConfirmation({ title: 'Reset Ramp Trace?', description: 'All points for this travel direction will be removed from the local trace.', variant: 'destructive', confirmLabel: 'Reset Trace' }, () => resetTrace(true));
+    update([]); setSelected(null);
   }
   function point(event) { return imagePoint(event.clientX, event.clientY, drawing.current.getBoundingClientRect(), plan.width_px, plan.height_px); }
   function pointerDown(event) {
@@ -70,11 +76,11 @@ function TraceCanvas({ level, trace, onChange, disabled }) {
   }
   const radius = Math.max(plan.width_px, plan.height_px) / (80 * zoom);
   return <>
-    {loading && <p className={map.note} role="status">Loading Reference Calibration…</p>}
-    {error && <p className={map.error} role="alert">{error} Refresh Ramps To Retry.</p>}
-    {!loading && !calibration && !error && <p className={fields.warning}>Calibrate This Floor Plan Before Tracing.</p>}
-    {replaced && <p className={fields.warning}>This Trace Belongs To An Earlier Image. Reset And Retrace On The Current Reference Image.</p>}
-    {!replaced && recalculation && points.length > 1 && <p className={fields.warning}>Review The Path, Then Recalculate Using The Current Calibration Before Confirming.</p>}
+    {loading && <p className={map.note} role="status">Loading reference calibration…</p>}
+    {error && <p className={map.error} role="alert">{error} refresh ramps to retry.</p>}
+    {!loading && !calibration && !error && <p className={fields.warning}>Calibrate this floor plan before tracing.</p>}
+    {replaced && <p className={fields.warning}>This trace belongs to an earlier image. Reset and retrace on the current reference image.</p>}
+    {!replaced && recalculation && points.length > 1 && <p className={fields.warning}>Review the path, then recalculate using the current calibration before confirming.</p>}
     <div className={map.toolbar}>
       {['add', 'move', 'pan'].map(mode => <button type="button" key={mode} className={map.button} aria-pressed={tool === mode} disabled={busy || replaced} onClick={() => setTool(mode)}>{ { add: 'Add Points', move: 'Move Points', pan: 'Pan' }[mode]}</button>)}
       <div className={styles.zoom} role="group" aria-label="Trace Zoom">
@@ -84,11 +90,22 @@ function TraceCanvas({ level, trace, onChange, disabled }) {
         <button type="button" className={map.button} disabled={disabled} onClick={() => { setZoom(1); viewport.current.scrollTo(0, 0); }}>Fit</button>
       </div>
     </div>
+    <div className={map.toolbar}>
+      <button type="button" className={map.button} disabled={busy || replaced || !points.length} onClick={() => { update(points.slice(0, -1)); setSelected(null); }}>Undo Last Point</button>
+      <button type="button" className={map.button} disabled={busy || replaced || selected === null || selected >= points.length} onClick={() => { update(points.filter((_, index) => index !== selected)); setSelected(null); }}>Remove Selected Point</button>
+      <button type="button" className={map.button} disabled={busy} onClick={resetTrace}>Reset Trace</button>
+      {!replaced && recalculation && <button type="button" className={map.button} disabled={busy || preview === null} onClick={() => update(points)}>Recalculate and Review Path</button>}
+    </div>
+    <dl className={map.summary}>
+      <div className={map.summaryCard}><dt>Estimated Horizontal Projected Driving Distance</dt><dd>{preview ? `${preview.toLocaleString('en-MY', { maximumFractionDigits: 3 })} m` : 'Trace at least two points'}</dd></div>
+      <div className={map.summaryCard}><dt>Reference Measurement</dt><dd>{points.length} Points <span>· Image {plan.revision} · Calibration {calibration?.revision ?? 'Required'}</span></dd></div>
+    </dl>
+    {connectionSummary && <p className={styles.direction} aria-live="polite">{connectionSummary}</p>}
     <div className={`${map.viewport} ${tool === 'pan' ? map.pan : map.select}`} ref={viewport}>
-      <svg ref={drawing} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`} style={{ width: `${zoom * 100}%` }} role="img" aria-label="Ordered Ramp Centreline Trace"
+      <svg ref={drawing} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`} style={{ width: floorPlanWidth(plan.width_px, plan.height_px, zoom) }} role="img" aria-label="Ordered Ramp Centreline Trace"
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { gesture.current = null; }} onLostPointerCapture={() => { gesture.current = null; }}>
         <image href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}`} width={plan.width_px} height={plan.height_px}
-          onLoad={() => setReady(true)} onError={() => { setReady(false); setError('Reference Image Changed Or Could Not Be Loaded.'); }} />
+          onLoad={() => setReady(true)} onError={() => { setReady(false); setError('Reference image changed or could not be loaded.'); }} />
         <polyline points={points.map(value => `${value.x},${value.y}`).join(' ')} fill="none" stroke="white" strokeWidth={7} vectorEffect="non-scaling-stroke" pointerEvents="none" />
         <polyline points={points.map(value => `${value.x},${value.y}`).join(' ')} fill="none" stroke="#14B8A6" strokeWidth={3} strokeDasharray="10 4" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {points.map((value, index) => <g key={index}>
@@ -97,31 +114,24 @@ function TraceCanvas({ level, trace, onChange, disabled }) {
         </g>)}
       </svg>
     </div>
-    <div className={map.toolbar}>
-      <button type="button" className={map.button} disabled={busy || replaced || !points.length} onClick={() => { update(points.slice(0, -1)); setSelected(null); }}>Undo Last Point</button>
-      <button type="button" className={map.button} disabled={busy || replaced || selected === null || selected >= points.length} onClick={() => { update(points.filter((_, index) => index !== selected)); setSelected(null); }}>Remove Selected Point</button>
-      <button type="button" className={map.button} disabled={busy} onClick={() => { if (!trace.trace_points.length || window.confirm('Reset This Direction’s Trace?')) { update([]); setSelected(null); } }}>Reset Trace</button>
-      {!replaced && recalculation && <button type="button" className={map.button} disabled={busy || preview === null} onClick={() => update(points)}>Recalculate And Review Path</button>}
-    </div>
-    <dl className={map.summary}>
-      <div className={map.summaryCard}><dt>Estimated Horizontal Projected Driving Distance</dt><dd>{preview ? `${preview.toLocaleString('en-MY', { maximumFractionDigits: 3 })} m` : 'Trace At Least Two Points'}</dd></div>
-      <div className={map.summaryCard}><dt>Reference Measurement</dt><dd>{points.length} Points <span>· Image {plan.revision} · Calibration {calibration?.revision ?? 'Required'}</span></dd></div>
-    </dl>
     {points.length > 1 && traceError(points, plan.width_px, plan.height_px) && <p className={map.error}>{traceError(points, plan.width_px, plan.height_px)}</p>}
-    <p className={map.note}>Add Points In Travel Order Along The Complete Ramp Centreline. Use Move Points To Drag A Marker, Or Pan To Move The Image. Maximum 200 Points.</p>
+    {confirmationDialog}
   </>;
 }
 
-export default function RampTraceEditor({ label, levels, trace, onChange, disabled, refreshKey }) {
+export default function RampTraceEditor({ label, levels, trace, onChange, disabled, refreshKey, connectionSummary }) {
   const level = levels.find(item => item.id === trace?.reference_level_id);
-  return <section className={styles.trace} aria-label={`${label} Ramp Trace`}>
+  const { requestConfirmation, confirmationDialog } = useConfirmation({ disabled });
+  function chooseReference(value, confirmed = false) {
+    if (trace?.trace_points.length && confirmed !== true) return requestConfirmation({ title: 'Replace Trace Reference?', description: 'The existing trace will be discarded when you choose another reference image.', variant: 'warning', confirmLabel: 'Discard and Change Image' }, () => chooseReference(value, true));
+    const selected = levels.find(item => item.id === value);
+    onChange(selected ? { reference_level_id: selected.id, reference_floor_plan_revision: selected.floor_plan.revision, reference_calibration_revision: 0, trace_points: [] } : null);
+  }
+  return <section className={styles.trace} aria-label={`${label} ramp trace`}>
     <h4>{label}</h4>
-    <label className={fields.field}>Calibrated Reference Floor Plan<select value={trace?.reference_level_id ?? ''} disabled={disabled} onChange={event => {
-      if (trace?.trace_points.length && !window.confirm('Discard This Trace And Choose Another Reference Image?')) return;
-      const selected = levels.find(item => item.id === event.target.value);
-      onChange(selected ? { reference_level_id: selected.id, reference_floor_plan_revision: selected.floor_plan.revision, reference_calibration_revision: 0, trace_points: [] } : null);
-    }}><option value="">Select an Image Showing the Completed Ramp</option>{levels.filter(item => item.floor_plan).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-    {level?.floor_plan && <TraceCanvas key={`${level.id}-${level.floor_plan.revision}-${refreshKey}`} level={level} trace={trace} onChange={onChange} disabled={disabled} />}
-    {trace && !level?.floor_plan && <p className={fields.warning}>Reference Image Unavailable. Select A Current Calibrated Floor Plan.</p>}
+    <label className={fields.field}>Calibrated Reference Floor Plan<select value={trace?.reference_level_id ?? ''} disabled={disabled} onChange={event => chooseReference(event.target.value)}><option value="">Select an image showing the completed ramp</option>{levels.filter(item => item.floor_plan).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    {level?.floor_plan && <TraceCanvas key={`${level.id}-${level.floor_plan.revision}-${refreshKey}`} level={level} trace={trace} onChange={onChange} disabled={disabled} connectionSummary={connectionSummary} />}
+    {trace && !level?.floor_plan && <p className={fields.warning}>Reference image unavailable. Select a current calibrated floor plan.</p>}
+    {confirmationDialog}
   </section>;
 }

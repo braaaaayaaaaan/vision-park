@@ -5,7 +5,7 @@ import '../../../data/models/driver_models.dart';
 import '../../../shared/formatting/malaysian_date_time.dart';
 import '../history_controller.dart';
 
-class HistorySessionCard extends StatefulWidget {
+class HistorySessionCard extends StatelessWidget {
   const HistorySessionCard({
     required this.session,
     required this.plate,
@@ -15,67 +15,218 @@ class HistorySessionCard extends StatefulWidget {
   final String plate;
 
   @override
-  State<HistorySessionCard> createState() => _HistorySessionCardState();
-}
-
-class _HistorySessionCardState extends State<HistorySessionCard> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final session = widget.session;
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final duration = HistoryController.durationOf(session);
     final status = switch (session.status) {
-      ParkingSessionStatus.allocated => 'Allocated',
-      ParkingSessionStatus.occupied => 'Occupied',
+      ParkingSessionStatus.allocated => 'Space Allocated',
+      ParkingSessionStatus.occupied => 'Parked',
       ParkingSessionStatus.completed => 'Completed',
     };
+    final location = [
+      if (session.levelName?.trim().isNotEmpty ?? false) session.levelName!,
+      if (session.zoneName?.trim().isNotEmpty ?? false) session.zoneName!,
+    ].join(' · ');
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.large),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(widget.plate, style: theme.textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.small),
-            Text(
-              status,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.directions_car_rounded,
+                    color: colors.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plate,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          status,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colors.onPrimaryContainer,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.medium),
-            Text('Zone: ${session.zoneName ?? 'Unavailable'}'),
-            Text('Level: ${session.levelName ?? 'Unavailable'}'),
-            const SizedBox(height: AppSpacing.medium),
-            Text('Entry: ${MalaysianDateTime.format(session.entryTime)}'),
-            Text(
-              'Exit: ${session.exitTime == null ? 'Not Recorded' : MalaysianDateTime.format(session.exitTime!)}',
+            const SizedBox(height: 12),
+            _DetailGrid(
+              columns: 2,
+              children: [
+                _HistoryDetail(
+                  icon: Icons.location_on_outlined,
+                  label: 'Zone',
+                  value: location.isEmpty ? 'Not available' : location,
+                ),
+                _HistoryDetail(
+                  icon: Icons.timelapse_rounded,
+                  label: 'Parking Duration',
+                  value: duration == null
+                      ? 'Unavailable'
+                      : MalaysianDateTime.formatDuration(duration),
+                ),
+              ],
             ),
-            Text(
-              'Duration: ${duration == null ? 'Unavailable' : MalaysianDateTime.formatDuration(duration)}',
+            const SizedBox(height: 8),
+            _DetailGrid(
+              columns: 3,
+              children: [
+                _HistoryDetail(
+                  icon: Icons.login_rounded,
+                  label: 'Entry Time (MYT)',
+                  value: MalaysianDateTime.format(session.entryTime),
+                ),
+                _HistoryDetail(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: 'Parking Confirmed',
+                  value: session.confirmedAt == null
+                      ? 'Not recorded'
+                      : MalaysianDateTime.format(session.confirmedAt!),
+                ),
+                _HistoryDetail(
+                  icon: Icons.logout_rounded,
+                  label: 'Exit Time (MYT)',
+                  value: session.exitTime == null
+                      ? 'Not recorded'
+                      : MalaysianDateTime.format(session.exitTime!),
+                ),
+              ],
             ),
-            if (session.exitTime != null && duration == null)
-              const Text('The recorded timestamps are inconsistent.'),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => setState(() => _expanded = !_expanded),
-                child: Text(_expanded ? 'Hide Details' : 'View Details'),
-              ),
-            ),
-            if (_expanded) ...[
-              const Divider(),
-              const SizedBox(height: AppSpacing.medium),
-              Text('Session ID: ${session.id}'),
-              Text('Vehicle ID: ${session.vehicleId}'),
-              Text('Zone ID: ${session.zoneId}'),
+            if (session.exitTime != null && duration == null) ...[
+              const SizedBox(height: AppSpacing.small),
               Text(
-                'Parking Confirmed: ${session.confirmedAt == null ? 'Not Recorded' : MalaysianDateTime.format(session.confirmedAt!)}',
+                'The recorded timestamps are inconsistent.',
+                style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailGrid extends StatelessWidget {
+  const _DetailGrid({required this.columns, required this.children});
+  final int columns;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < columns * 150 + (columns - 1) * 8 ||
+            MediaQuery.textScalerOf(context).scale(14) > 20;
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                if (index > 0) const SizedBox(height: 8),
+                children[index],
+              ],
+            ],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                Expanded(child: children[index]),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HistoryDetail extends StatelessWidget {
+  const _HistoryDetail({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

@@ -21,33 +21,33 @@ export function assignZone(links, nodeId, zoneId, imageRevision) {
 export function zoneChanges(links, saved, zones) {
   return [...new Set([...Object.keys(links), ...Object.keys(saved)])].filter(id => linksChanged({ [id]: links[id] }, { [id]: saved[id] })).map(id => {
     const zone = zones.find(zone => zone.id === id);
-    if (!zone) throw new Error('A Draft Zone Is Missing. Reload Before Saving.');
+    if (!zone) throw new Error('A draft zone is missing. Reload before saving.');
     return { zone_id: id, node_id: links[id]?.node_id ?? null, expected_zone_revision: zone.revision };
   });
 }
 export function changesError(changes, nodes) {
-  if (!Array.isArray(changes) || changes.length > 1000) return 'Use At Most 1,000 Zone Link Changes.';
+  if (!Array.isArray(changes) || changes.length > 1000) return 'Use at most 1,000 zone link changes.';
   const zones = new Set(), entrances = new Set();
   for (const change of changes) {
     if (!change || Object.keys(change).length !== 3 || !uuid(change.zone_id) || zones.has(change.zone_id.toLowerCase()) ||
       !Number.isInteger(change.expected_zone_revision) || change.expected_zone_revision < 1 || change.expected_zone_revision > 2147483646 ||
-      !(change.node_id === null || uuid(change.node_id))) return 'Use Unique Draft Zones And Current Zone Revisions.';
-    if (change.node_id !== null && (!nodes.some(node => node.id.toLowerCase() === change.node_id.toLowerCase() && node.node_type === 'zone_entrance') || entrances.has(change.node_id.toLowerCase()))) return 'Select A Distinct Zone Entrance For Each Zone.';
+      !(change.node_id === null || uuid(change.node_id))) return 'Use unique draft zones and current zone revisions.';
+    if (change.node_id !== null && (!nodes.some(node => node.id.toLowerCase() === change.node_id.toLowerCase() && node.node_type === 'zone_entrance') || entrances.has(change.node_id.toLowerCase()))) return 'Select a distinct zone entrance for each zone.';
     zones.add(change.zone_id.toLowerCase()); if (change.node_id) entrances.add(change.node_id.toLowerCase());
   }
   return '';
 }
 export function validateEntranceResponse(data, levelId, imageRevision) {
   validateZoneResponse(data?.zone_configuration, 'GET', levelId);
-  if (!Array.isArray(data.zone_entrances) || data.zone_entrances.length > 1000) throw new Error('Invalid Zone Links.');
+  if (!Array.isArray(data.zone_entrances) || data.zone_entrances.length > 1000) throw new Error('Invalid zone links.');
   const zones = new Set(), nodes = new Set();
   for (const link of data.zone_entrances) {
     if (!link || !uuid(link.zone_id) || !uuid(link.node_id) || zones.has(link.zone_id) || nodes.has(link.node_id) ||
       !Number.isSafeInteger(link.floor_plan_revision) || link.floor_plan_revision < 1 || !data.zone_configuration.zones.some(zone => zone.id === link.zone_id) ||
-      !Array.isArray(link.review_reasons) || link.review_reasons.some(reason => !['image_replaced', 'node_missing', 'node_type_changed'].includes(reason))) throw new Error('Invalid Zone Link Record.');
+      !Array.isArray(link.review_reasons) || link.review_reasons.some(reason => !['image_replaced', 'node_missing', 'node_type_changed'].includes(reason))) throw new Error('Invalid zone link record.');
     const review = entranceReview(link, data.draft?.nodes ?? [], imageRevision);
     const reasons = { 'Image Replaced': 'image_replaced', 'Node Missing': 'node_missing', 'Node Type Changed': 'node_type_changed' };
-    if (link.state !== (review.length ? 'needs_review' : 'linked') || JSON.stringify(link.review_reasons) !== JSON.stringify(review.map(reason => reasons[reason]))) throw new Error('Invalid Zone Link Review State.');
+    if (link.state !== (review.length ? 'needs_review' : 'linked') || JSON.stringify(link.review_reasons) !== JSON.stringify(review.map(reason => reasons[reason]))) throw new Error('Invalid zone link review state.');
     zones.add(link.zone_id); nodes.add(link.node_id);
   }
   return data;

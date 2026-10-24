@@ -1,13 +1,13 @@
 export const MAX_TRACE_POINTS = 200;
 // Original-image pixels only. A trace always belongs to one reference image.
 export function traceError(points, width = Infinity, height = Infinity) {
-  if (!Array.isArray(points) || points.length < 2 || points.length > MAX_TRACE_POINTS) return 'Place 2–200 Distinct Trace Points.';
+  if (!Array.isArray(points) || points.length < 2 || points.length > MAX_TRACE_POINTS) return 'Place 2–200 distinct trace points.';
   const seen = new Set();
   for (const point of points) {
     if (!point || Object.keys(point).length !== 2 || !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
-      point.x < 0 || point.x > width || point.y < 0 || point.y > height) return 'Keep Trace Points Within The Reference Image.';
+      point.x < 0 || point.x > width || point.y < 0 || point.y > height) return 'Keep trace points within the reference image.';
     const key = `${point.x}:${point.y}`;
-    if (seen.has(key)) return 'Trace Points Must Be Distinct.';
+    if (seen.has(key)) return 'Trace points must be distinct.';
     seen.add(key);
   }
   return '';

@@ -1,22 +1,23 @@
 import { analyticsQuery } from '../analytics/analytics-client.mjs';
+import { formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 
 export const sessionLabels = { allocated: 'Allocated', occupied: 'Occupied', completed: 'Completed', cancelled: 'Cancelled' };
 export function formatAssignedZone(zoneName, levelName) {
   const zone = zoneName?.trim();
   const level = levelName?.trim();
-  if (!zone) return 'Not Available';
+  if (!zone) return 'Not available';
   if (level && zone.startsWith(level)) {
     const suffix = zone.slice(level.length);
     if (/^\s*[-–—]\s*\S/.test(suffix)) return suffix.replace(/^\s*[-–—]\s*/, '');
   }
   return zone;
 }
-const timeFormat = new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'medium' });
 export function formatTimestamp(value) {
-  return value === null ? 'Not Available' : `${timeFormat.format(new Date(value))} MYT`;
+  const formatted = formatMalaysiaDateTime(value, { seconds: true });
+  return formatted === 'Not available' ? formatted : `${formatted} MYT`;
 }
 export function formatDuration(seconds) {
-  if (seconds === null) return 'Not Available';
+  if (seconds === null) return 'Not available';
   const value = Math.floor(seconds);
   return `${Math.floor(value / 3600)}h ${Math.floor(value % 3600 / 60)}m ${value % 60}s`;
 }

@@ -28,17 +28,17 @@ export async function zoneDraftRequest(request, path) {
     if ([401, 403].includes(response.status)) throw new AuthError(response.status === 401 ? 'expired' : 'denied', response.status);
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      const conflicts = { stale: 'This Draft Zone Changed. Refresh And Review Before Retrying.', duplicate_code: 'This Zone Code Is Already Used On This Level.',
-        has_dependencies: 'This Draft Zone Has Mapping Or Publication References And Cannot Be Deleted.', limit: 'The Draft Zone Or Revision Limit Was Reached.' };
+      const conflicts = { stale: 'This draft zone changed. Refresh and review before retrying.', duplicate_code: 'This zone code is already used on this level.',
+        has_dependencies: 'This draft zone has mapping or publication references and cannot be deleted.', limit: 'The draft zone or revision limit was reached.' };
       return { status: [404, 409, 413, 415, 422].includes(response.status) ? response.status : 503, session, body: { error:
-        response.status === 409 ? conflicts[body?.detail?.code] ?? 'Draft Zones Changed. Refresh Before Retrying.' :
-          response.status === 404 ? 'The Level Or Draft Zone Was Not Found. Refresh The List.' : response.status === 422 ? 'Check Zone Codes, Names, Integer Capacities, Intended Status And Revision.' : uncertain } };
+        response.status === 409 ? conflicts[body?.detail?.code] ?? 'Draft zones changed. Refresh before retrying.' :
+          response.status === 404 ? 'The level or draft zone was not found. Refresh the list.' : response.status === 422 ? 'Check zone codes, names, integer capacities, intended status and revision.' : uncertain } };
     }
     return { status: method === 'POST' ? 201 : 200, session, body: validateZoneResponse(await response.json(), method, levelId, zoneId, input) };
   } catch (error) {
     return { status: error instanceof AuthError ? error.status : 503, session: error.session ?? session,
       clear: error instanceof AuthError && [401, 403].includes(error.status), body: { error: error instanceof AuthError ?
-        error.status === 413 ? 'Draft Zone Request Exceeds 32 KiB.' : error.status === 415 ? 'Use A JSON Draft Zone Request.' :
-          error.status === 422 ? 'Check Zone Details And The Current Revision.' : error.message : uncertain } };
+        error.status === 413 ? 'Draft zone request exceeds 32 KiB.' : error.status === 415 ? 'Use a JSON draft zone request.' :
+          error.status === 422 ? 'Check zone details and the current revision.' : error.message : uncertain } };
   }
 }

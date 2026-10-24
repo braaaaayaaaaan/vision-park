@@ -2,9 +2,9 @@ import { malaysiaToday } from '../analytics/analytics-client.mjs';
 
 export const PAGE_SIZE = 5;
 export const occupancyBands = [
-  { label: 'Available', threshold: '0%–85%', colour: '#25804B' },
-  { label: 'Nearly Full', threshold: '>85%–<100%', colour: '#E0B326' },
-  { label: 'Full', threshold: '100%', colour: '#C53D3D' },
+  { label: 'Available', threshold: '0% – 85%', colour: '#25804B' },
+  { label: 'Nearly Full', threshold: ' More than 85%, but < 100%', colour: '#E0B326' },
+  { label: 'Full', threshold: 'Exactly 100%', colour: '#C53D3D' },
 ];
 export function occupancyPercentage({ occupied, usable_capacity }) {
   return usable_capacity === 0 ? null : occupied / usable_capacity * 100;

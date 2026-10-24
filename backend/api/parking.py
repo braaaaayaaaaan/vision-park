@@ -5,13 +5,14 @@ from secrets import compare_digest
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Security
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Security
 from fastapi.security import APIKeyHeader
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from backend import database
 from backend.auth import ApplicationUser, require_driver
 from backend.parking.navigation import AssignedRouteResponse, assigned_route
+from backend.parking.navigation_floor_plans import published_image_bytes
 from backend.database import DatabaseError
 from backend.parking.allocation import AllocationError, allocate_parking
 from backend.parking.sessions import ClosureResult, ConfirmationResult, SessionError, close_parking, confirm_parking
@@ -25,6 +26,29 @@ def session_route(session_id: UUID, response: Response,
                   driver: Annotated[ApplicationUser, Depends(require_driver)]):
     response.headers["Cache-Control"] = "no-store"
     return assigned_route(str(driver.id), str(session_id))
+
+
+@router.get('/sessions/{session_id}/route/levels/{level_id}/floor-plan')
+def session_floor_plan(session_id: UUID, level_id: UUID,
+                       publication_revision: Annotated[int, Query(gt=0)],
+                       floor_plan_revision: Annotated[int, Query(gt=0)],
+                       driver: Annotated[ApplicationUser, Depends(require_driver)]):
+    # Recheck ownership, allocation, route membership and publication on every
+    # image request. Never grant access merely because a driver knows a level ID.
+    route = assigned_route(str(driver.id), str(session_id))
+    descriptor = next((level.floor_plan for level in route.levels if str(level.id) == str(level_id)), None)
+    if descriptor is None:
+        raise HTTPException(404, 'A verified published floor plan is unavailable for this route.')
+    if descriptor.publication_revision != publication_revision or descriptor.revision != floor_plan_revision:
+        raise HTTPException(409, 'The published map changed. Refresh navigation.')
+    try:
+        image = published_image_bytes(str(level_id), descriptor)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(503, 'The verified floor plan is unavailable. Refresh and retry.') from None
+    return Response(image, media_type='image/png', headers={
+        'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
 
 
 class ActiveSessionResponse(BaseModel):

@@ -41,6 +41,11 @@ class VisionParkApp extends StatelessWidget {
       title: AppConfig.name,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      // Keep cards rigid when dragging beyond the start or end of a page.
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        overscroll: false,
+        physics: const ClampingScrollPhysics(),
+      ),
       initialRoute: initialRoute,
       // Generate a single guarded route even for a platform-provided deep link.
       onGenerateInitialRoutes: (route) => [_route(route)],

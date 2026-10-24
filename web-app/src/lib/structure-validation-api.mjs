@@ -9,7 +9,7 @@ export function validScope(input) {
 
 export function validationReport(data, ids) {
   const bad = () => {
-    const error = new Error('Invalid Validation Report.');
+    const error = new Error('Invalid validation report.');
     error.code = 'invalid_report_metadata';
     throw error;
   };
@@ -51,7 +51,7 @@ export async function structureValidationRequest(request) {
   let session, stage = 'request', upstreamStatus = null;
   const started = Date.now();
   try {
-    if (request.method !== 'POST' || new URL(request.url).search) return { status: 404, body: { error: 'Not Found.' } };
+    if (request.method !== 'POST' || new URL(request.url).search) return { status: 404, body: { error: 'Not found.' } };
     requireSameOrigin(request);
     stage = 'authentication';
     const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
@@ -74,9 +74,9 @@ export async function structureValidationRequest(request) {
       if (response.status >= 500) console.error('[Stage5C validation]', { stage: 'upstream_response', upstream_status: upstreamStatus, elapsed_ms: Date.now() - started });
       const body = await response.json().catch(() => null), missing = body?.detail?.required_level_ids;
       return { status: [404, 413, 415, 422].includes(response.status) ? response.status : 503, session, body: {
-        error: body?.detail?.code === 'incomplete_scope' ? 'Include All Connected Ramp Endpoint And Measurement Reference Levels Before Validating.' :
-          response.status === 404 ? 'A Selected Level Is Missing. Refresh Parking Levels.' : response.status === 413 ? 'Validation Scope Exceeds The Graph Size Limit.' :
-            response.status === 422 ? 'Select 1–64 Distinct Parking Levels With A Complete Connected Scope.' : 'Draft Validation Is Unavailable. Retry After Checking Setup.',
+        error: body?.detail?.code === 'incomplete_scope' ? 'Include all connected ramp endpoint and measurement reference levels before validating.' :
+          response.status === 404 ? 'A selected level is missing. Refresh parking levels.' : response.status === 413 ? 'Validation scope exceeds the graph size limit.' :
+            response.status === 422 ? 'Select 1–64 distinct parking levels with a complete connected scope.' : 'Draft validation is unavailable. Retry after checking setup.',
         required_level_ids: Array.isArray(missing) && missing.length <= 1000 && missing.every(uuid) ? missing : [],
       } };
     }
@@ -95,7 +95,7 @@ export async function structureValidationRequest(request) {
     }
     return { status: error instanceof AuthError ? error.status : 503, session: error.session ?? session,
       clear: error instanceof AuthError && [401, 403].includes(error.status), body: { error: error instanceof AuthError ?
-        error.status === 413 ? 'Validation Scope Exceeds 8 KiB.' : error.status === 415 ? 'Use A JSON Validation Scope.' :
-          error.status === 422 ? 'Select 1–64 Distinct Parking Level IDs.' : error.message : 'Draft Validation Report Could Not Be Confirmed. Retry.' } };
+        error.status === 413 ? 'Validation scope exceeds 8 KiB.' : error.status === 415 ? 'Use a JSON validation scope.' :
+          error.status === 422 ? 'Select 1–64 distinct parking level IDs.' : error.message : 'Draft validation report could not be confirmed. Retry.' } };
   }
 }

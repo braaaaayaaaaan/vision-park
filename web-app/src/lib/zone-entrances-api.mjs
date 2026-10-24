@@ -35,11 +35,11 @@ export async function nodeZoneRequest(request, path) {
     if ([401, 403].includes(response.status)) throw new AuthError(response.status === 401 ? 'expired' : 'denied', response.status);
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      const conflicts = { conflict: 'Image Or Node Draft Changed. Reload Before Saving.', stale_zone: 'A Zone Or Association Changed. Reload Before Saving.',
-        duplicate_assignment: 'Each Draft Zone And Entrance May Have Only One Association.' };
+      const conflicts = { conflict: 'Image or node draft changed. Reload before saving.', stale_zone: 'A zone or association changed. Reload before saving.',
+        duplicate_assignment: 'Each draft zone and entrance may have only one association.' };
       return { status: [404, 409, 413, 415, 422].includes(response.status) ? response.status : 503, session, body: { error:
-        response.status === 409 ? conflicts[body?.detail?.code] ?? 'Draft Configuration Changed. Reload Before Retrying.' :
-          response.status === 404 ? 'A Level, Image Or Draft Zone Is Missing. Reload Current Data.' : response.status === 422 ? 'Check Draft Nodes, Same-Level Zone Entrances And Revisions.' : 'Node And Zone-Link Result Could Not Be Confirmed. Reload Before Retrying.' } };
+        response.status === 409 ? conflicts[body?.detail?.code] ?? 'Draft configuration changed. Reload before retrying.' :
+          response.status === 404 ? 'A level, image or draft zone is missing. Reload current data.' : response.status === 422 ? 'Check draft nodes, same-level zone entrances and revisions.' : 'Node and zone-link result could not be confirmed. Reload before retrying.' } };
     }
     const data = validateEntranceResponse(validateNodeDraft(await response.json(), levelId, imageRevision), levelId, imageRevision);
     if (input) {
@@ -49,13 +49,13 @@ export async function nodeZoneRequest(request, path) {
         input.zone_changes.some(change => {
           const zone = data.zone_configuration.zones.find(zone => zone.id === change.zone_id), link = data.zone_entrances.find(link => link.zone_id === change.zone_id);
           return zone?.revision !== change.expected_zone_revision + 1 || (change.node_id === null ? Boolean(link) : link?.node_id !== change.node_id || link.floor_plan_revision !== imageRevision || link.state !== 'linked');
-        })) throw new Error('Unconfirmed Combined Save.');
+        })) throw new Error('Unconfirmed combined save.');
     }
     return { status: 200, session, body: data };
   } catch (error) {
     return { status: error instanceof AuthError ? error.status : 503, session: error.session ?? session,
       clear: error instanceof AuthError && [401, 403].includes(error.status), body: { error: error instanceof AuthError ?
-        error.status === 413 ? 'Node And Zone-Link Draft Exceeds 768 KiB.' : error.status === 415 ? 'Use A JSON Node And Zone-Link Draft.' :
-          error.status === 422 ? 'Use Valid Draft Nodes, Zone Links And Current Revisions.' : error.message : 'Node And Zone-Link Result Could Not Be Confirmed. Reload Before Retrying.' } };
+        error.status === 413 ? 'Node and zone-link draft exceeds 768 KiB.' : error.status === 415 ? 'Use a JSON node and zone-link draft.' :
+          error.status === 422 ? 'Use valid draft nodes, zone links and current revisions.' : error.message : 'Node and zone-link result could not be confirmed. Reload before retrying.' } };
   }
 }

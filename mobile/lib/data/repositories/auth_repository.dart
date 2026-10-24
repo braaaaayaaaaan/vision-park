@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,12 +29,16 @@ class AuthProfile {
     required this.approvalStatus,
     required this.isActive,
     this.tenantId,
+    this.fullName,
+    this.companyName,
   });
   final String id;
   final String role;
   final String approvalStatus;
   final bool isActive;
   final String? tenantId;
+  final String? fullName;
+  final String? companyName;
 
   bool get canEnter =>
       role == 'driver' &&
@@ -190,6 +195,9 @@ class RemoteAuthRepository implements AuthRepository {
   Future<dynamic> getAuthenticated(String path) =>
       _request(path, protected: true);
 
+  Future<Uint8List> getAuthenticatedImage(String path) async =>
+      await _request(path, protected: true, image: true) as Uint8List;
+
   Future<dynamic> postAuthenticated(
     String path, {
     Map<String, Object> body = const {},
@@ -202,11 +210,12 @@ class RemoteAuthRepository implements AuthRepository {
     Map<String, Object>? body,
     bool protected = false,
     String? method,
+    bool image = false,
   }) async {
     try {
       for (var attempt = 0; attempt < 2; attempt++) {
         final headers = {
-          'Accept': 'application/json',
+          'Accept': image ? 'image/png' : 'application/json',
           'Content-Type': 'application/json',
         };
         if (protected) {
@@ -269,6 +278,17 @@ class RemoteAuthRepository implements AuthRepository {
                   : 'The service is unavailable. Please try again.',
           });
         }
+        if (image) {
+          if (response.headers['content-type']?.split(';').first !=
+                  'image/png' ||
+              response.bodyBytes.isEmpty ||
+              response.bodyBytes.length > 10 * 1024 * 1024) {
+            throw const AuthFailure(
+              'The verified floor plan is unavailable. Refresh navigation.',
+            );
+          }
+          return response.bodyBytes;
+        }
         return jsonDecode(response.body);
       }
     } on AuthFailure {
@@ -299,6 +319,12 @@ class RemoteAuthRepository implements AuthRepository {
       approvalStatus: data['approval_status'] as String,
       isActive: data['is_active'] as bool,
       tenantId: data['tenant_id'] as String?,
+      fullName: data['full_name'] is String
+          ? data['full_name'] as String
+          : null,
+      companyName: data['company_name'] is String
+          ? data['company_name'] as String
+          : null,
     );
   }
 
