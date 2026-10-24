@@ -27,6 +27,7 @@ class AuthController extends ChangeNotifier {
   late final StreamSubscription<void> _subscription;
   AuthStatus status = AuthStatus.loading;
   String? message;
+  AuthProfile? profile;
   bool _busy = false;
   bool _disposed = false;
   int _epoch = 0;
@@ -46,6 +47,7 @@ class AuthController extends ChangeNotifier {
     _busy = true;
     final epoch = ++_epoch;
     status = AuthStatus.loading;
+    profile = null;
     message = null;
     _notify();
     try {
@@ -63,6 +65,7 @@ class AuthController extends ChangeNotifier {
             ? AuthStatus.approved
             : AuthStatus.blocked;
         if (status == AuthStatus.blocked) message = profile.statusMessage;
+        if (status == AuthStatus.approved) this.profile = profile;
       }
     } on AuthFailure catch (error) {
       if (_disposed || epoch != _epoch) return;
@@ -94,6 +97,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    profile = null;
     // Invalidate a pending profile read before clearing the session.
     ++_epoch;
     _busy = true;

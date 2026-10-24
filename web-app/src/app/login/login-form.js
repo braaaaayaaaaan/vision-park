@@ -41,8 +41,8 @@ export default function LoginForm({ message }) {
       <label htmlFor="password">Password</label>
       <input id="password" name="password" type="password" autoComplete="current-password" maxLength={4096} required disabled={pending} />
       {error && <p className={styles.error} role="alert">{error}</p>}
-      <button type="submit" disabled={pending}>{pending ? 'Signing In…' : 'Sign In'}</button>
-      <p className={styles.status} role="status">{pending ? 'Verifying Administrator Access…' : ''}</p>
+      <button type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Sign In'}</button>
+      <p className={styles.status} role="status">{pending ? 'Verifying administrator access…' : ''}</p>
     </form>
   );
 }

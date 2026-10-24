@@ -77,6 +77,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           );
         case AuthStatus.approved:
           return AppShell(
+            profile: _controller.profile,
             onSignOut: _controller.signOut,
             activeSessionRepository: widget.activeSessionRepository,
             availabilityRepository: widget.availabilityRepository,

@@ -5,7 +5,7 @@ import styles from '../approvals/approvals.module.css';
 import local from './sessions.module.css';
 
 function DetailFields({ fields }) {
-  return <dl className={local.fields}>{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not Available'}</dd></div>)}</dl>;
+  return <dl className={local.fields}>{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not available'}</dd></div>)}</dl>;
 }
 
 export default function SessionDetails({ session, onClose }) {
@@ -23,8 +23,8 @@ export default function SessionDetails({ session, onClose }) {
     <div className={local.details}>
       <header>
         <h2 id="session-details-title">Parking Session Details</h2>
-        <div className={local.sessionSummary}><strong className={local.plate}>{session.plate_number || 'Plate Not Available'}</strong><span className={`${styles.badge} ${local.statusBadge}`}>{sessionLabels[session.status]}</span></div>
-        <p id="session-details-description" className={local.note}>All Times In Malaysia Time (MYT).</p>
+        <div className={local.sessionSummary}><strong className={local.plate}>{session.plate_number || 'Plate not available'}</strong><span className={`${styles.badge} ${local.statusBadge}`}>{sessionLabels[session.status]}</span></div>
+        <p id="session-details-description" className={local.note}>All times in Malaysia time (MYT).</p>
       </header>
       <div className={local.detailCards}>
         <section className={local.detailCard} aria-labelledby="session-vehicle-title">
@@ -38,7 +38,7 @@ export default function SessionDetails({ session, onClose }) {
         <section className={`${local.detailCard} ${local.activityCard}`} aria-labelledby="session-activity-title">
           <h3 id="session-activity-title">Activity</h3>
           <DetailFields fields={activity} />
-          {session.duration_seconds !== null && <p className={local.note}>Duration From Entry To Exit.</p>}
+          {session.duration_seconds !== null && <p className={local.note}>Duration from entry to exit.</p>}
         </section>
       </div>
       <details className={local.reference}><summary>Session Reference</summary>

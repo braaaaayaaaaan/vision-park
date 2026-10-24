@@ -161,7 +161,8 @@ def get_vehicle_companies():
 def get_driver_vehicles(user_id: str) -> list[dict]:
     return _all_rows(lambda: get_supabase().table("vehicles").select(
         "id,user_id,plate_number,registration_status,"
-        "sessions:parking_sessions!vehicle_id(id,vehicle_id,zone_id,user_id,status,entry_time,parking_confirmed_at,exit_time)"
+        "sessions:parking_sessions!vehicle_id(id,vehicle_id,zone_id,user_id,status,entry_time,parking_confirmed_at,exit_time,"
+        "zone:parking_zones!zone_id(name,level:parking_levels!level_id(name)))"
     ).eq("user_id", user_id).eq("sessions.user_id", user_id)
         .in_("sessions.status", ACTIVE_STATUSES))
 
@@ -400,11 +401,27 @@ def count_active_sessions(zone_id: str, *, status: str | None = None) -> int:
     return response.count
 
 
-def reserve_zone(vehicle_id: str, zone_id: str) -> dict:
+def get_published_navigation_draft(revision: int) -> dict | None:
+    """Read the immutable receipt for this exact operational revision."""
+    rows = _execute(get_supabase().table('parking_configuration_publications')
+                    .select('validated_draft').eq('revision', revision).limit(1)).data
+    return rows[0]['validated_draft'] if rows else None
+
+
+def get_publication_state() -> dict:
+    result = _execute(get_supabase().rpc('read_parking_publication_state', {})).data
+    if not isinstance(result, dict) or type(result.get('revision')) is not int or not 0 <= result['revision'] <= 9007199254740990 or (
+            result['revision'] > 0 and (not isinstance(result.get('entrance_node_id'), str) or not isinstance(result.get('entrance_aliases'), list))):
+        raise DatabaseError('Operational publication state is unavailable.')
+    return result
+
+
+def reserve_zone(vehicle_id: str, zone_id: str, expected_revision: int | None = None) -> dict:
     # Never fall back to a non-atomic client-side insert if the RPC is missing.
-    result = _execute(get_supabase().rpc("reserve_parking_zone", {
-        "p_vehicle_id": vehicle_id, "p_zone_id": zone_id,
-    })).data
+    params = {"p_vehicle_id": vehicle_id, "p_zone_id": zone_id}
+    if expected_revision is not None:
+        params['p_expected_revision'] = expected_revision
+    result = _execute(get_supabase().rpc('reserve_parking_zone_at_revision' if expected_revision is not None else 'reserve_parking_zone', params)).data
     if not isinstance(result, dict) or "status" not in result:
         raise DatabaseError("Reservation RPC returned an invalid response.")
     return result

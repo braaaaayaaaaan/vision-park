@@ -65,6 +65,9 @@ def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
     if db.get_active_session(vehicle["id"]) is not None:
         raise AllocationError("existing_active_session", "The vehicle already has an active parking session.")
 
+    publication = db.get_publication_state()
+    if publication['revision'] and entrance_node_id in publication['entrance_aliases']:
+        entrance_node_id = publication['entrance_node_id']
     permissions = db.get_permissions(tenant["id"])
     if not permissions:
         raise AllocationError("no_authorised_zones", "The tenant has no authorised zones.", 403)
@@ -78,7 +81,7 @@ def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
 
     for candidate in candidates:
         zone, level, route = candidate["zone"], candidate["level"], candidate["route"]
-        reservation = db.reserve_zone(vehicle["id"], zone["id"])
+        reservation = db.reserve_zone(vehicle["id"], zone["id"], expected_revision=publication['revision'])
         status = reservation["status"]
         if status == "allocated":
             if not reservation.get("session_id"):
@@ -95,6 +98,7 @@ def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
         if status in {"zone_full", "zone_unavailable", "zone_not_authorised"}:
             continue  # Capacity/permissions may have changed since the read snapshot.
         messages = {
+            "configuration_changed": ("Parking configuration changed. Request a fresh allocation.", 409),
             "unknown_vehicle": ("The plate is no longer registered.", 404),
             "registration_not_approved": ("Vehicle registration is no longer approved.", 403),
             "inactive_user": ("The associated user is inactive.", 403),

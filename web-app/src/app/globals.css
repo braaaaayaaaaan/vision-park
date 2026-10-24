@@ -30,6 +30,8 @@
   }
 }
 * { box-sizing: border-box; }
+/* Use the whole display in the floor-plan workspace, without desktop compact zoom. */
+body:has([data-floor-plan-workspace]:fullscreen) { --ui-scale: 1; zoom: 1; }
 body { margin: 0; background: var(--background); color: var(--text); font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.6; }
 a { color: inherit; }
 button { font: inherit; }
@@ -37,3 +39,127 @@ button { font: inherit; }
 h1, h2, p { margin: 0; }
 h1, h2 { line-height: 1.25; letter-spacing: -0.025em; }
 ::selection { background: #d1d1d1; color: var(--text); text-shadow: none; }
+
+/* Shared single-selection controls across filters, dialogs and graph editors. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 42px 10px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23596b80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgb(23 43 69 / 4%);
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+select:not([multiple]):not([size]):not(:disabled):hover {
+  border-color: var(--primary);
+  background-color: #fbfdff;
+}
+select:not([multiple]):not([size]):focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+select:not([multiple]):not([size]):disabled {
+  background-color: var(--background);
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Progressive enhancement: style the native popup without replacing its semantics.
+   Unsupported browsers keep the shared closed control and their native picker. */
+@supports (appearance: base-select) and selector(::picker(select)) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker(select) { appearance: base-select; }
+  select:not([multiple]):not([size]) {
+    padding-right: 14px;
+    background-image: none;
+    gap: 12px;
+    align-items: center;
+  }
+  select:not([multiple]):not([size])::picker-icon {
+    color: var(--text-muted);
+    margin-inline-start: auto;
+    transition: rotate 140ms ease;
+  }
+  select:not([multiple]):not([size]):open {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-soft);
+  }
+  select:not([multiple]):not([size]):open::picker-icon { rotate: 180deg; }
+  select:not([multiple]):not([size])::picker(select) {
+    margin-block: 6px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 12px 32px rgb(23 43 69 / 14%), 0 2px 6px rgb(23 43 69 / 6%);
+    max-block-size: min(320px, 60dvh);
+    max-inline-size: calc(100vw - 24px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--input-border) transparent;
+  }
+  select:not([multiple]):not([size]) option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-weight: 500;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+  select:not([multiple]):not([size]) option + option { margin-top: 2px; }
+  select:not([multiple]):not([size]) option:checked {
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    font-weight: 600;
+  }
+  select:not([multiple]):not([size]) option:not(:disabled):hover,
+  select:not([multiple]):not([size]) option:focus-visible {
+    background: var(--primary-soft);
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+  select:not([multiple]):not([size]) option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+    color: var(--primary);
+  }
+  select:not([multiple]):not([size]) option:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker-icon { transition: none; }
+}
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]) { appearance: auto; background-image: none; }
+  select:not([multiple]):not([size])::picker(select) { appearance: auto; }
+}

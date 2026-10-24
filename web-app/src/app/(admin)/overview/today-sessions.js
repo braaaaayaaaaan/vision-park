@@ -23,17 +23,17 @@ export default function TodaySessions() {
     setLoading(true); setData(null); setError(''); setOffset(nextOffset); setRevision(value => value + 1);
   }
   return <section className={styles.panel} aria-labelledby="today-sessions-title" aria-busy={loading}>
-    <div className={styles.sectionHeading}><h2 id="today-sessions-title">Today's Parking Sessions</h2><a href="/sessions">View Sessions</a></div>
-    {loading ? <p className={styles.empty} role="status">Loading Today's Sessions…</p> : error ?
+    <div className={styles.sectionHeading}><h2 id="today-sessions-title">Today&apos;s Parking Sessions</h2><a href="/sessions">View Sessions</a></div>
+    {loading ? <p className={styles.empty} role="status">Loading today&apos;s sessions…</p> : error ?
       <div className={styles.empty}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={() => reload()}>Try Again</button></div> :
-      data?.sessions.length === 0 ? <div className={styles.empty}><p>{offset ? 'No sessions on this page. The list may have changed.' : 'No parking sessions entered today.'}</p>{offset > 0 && <button className={styles.refresh} onClick={() => reload(0)}>First Page</button>}</div> :
+      data?.sessions.length === 0 ? <div className={styles.empty}><p>{offset ? 'No sessions on this page. The list may have changed.' : 'No parking sessions recorded today.'}</p>{offset > 0 && <button className={styles.refresh} onClick={() => reload(0)}>First Page</button>}</div> :
       <div className={styles.tableScroll} tabIndex={0} aria-label="Scrollable Today's Parking Sessions"><table className={styles.table}>
         <thead><tr>{['Entry Time (MYT)', 'Vehicle Plate', 'Level', 'Zone', 'Current Status'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{data?.sessions.map(row => <tr key={row.id}>
-          <td>{row.entry_time ? <time dateTime={row.entry_time}>{formatTimestamp(row.entry_time)}</time> : 'Not Available'}</td>
-          <td>{row.plate_number ?? 'Not Available'}</td>
-          <td>{row.level_name ?? 'Not Available'}</td>
-          <td>{row.zone_name ?? 'Not Available'}</td>
+          <td>{row.entry_time ? <time dateTime={row.entry_time}>{formatTimestamp(row.entry_time)}</time> : 'Not available'}</td>
+          <td>{row.plate_number ?? 'Not available'}</td>
+          <td>{row.level_name ?? 'Not available'}</td>
+          <td>{row.zone_name ?? 'Not available'}</td>
           <td><span className={styles.badge}>{sessionLabels[row.status]}</span></td>
         </tr>)}</tbody>
       </table></div>}

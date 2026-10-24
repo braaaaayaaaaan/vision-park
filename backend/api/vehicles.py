@@ -30,6 +30,8 @@ class VehicleSession(BaseModel):
     entry_time: AwareDatetime
     parking_confirmed_at: AwareDatetime | None
     exit_time: AwareDatetime | None
+    zone_name: str | None = None
+    level_name: str | None = None
 
 
 class VehicleResponse(BaseModel):
@@ -49,9 +51,15 @@ def vehicle_response(row: dict, user_id: str) -> VehicleResponse:
     if len(sessions) > 1 or any(s["user_id"] != user_id or s["vehicle_id"] != row["id"] for s in sessions):
         raise ValueError("Invalid session ownership")
     has_records = bool(sessions) or database.vehicle_has_records(row["id"])
+    active_session = None
+    if sessions:
+        session = sessions[0]
+        zone = session.get("zone") or {}
+        level = zone.get("level") or {}
+        active_session = VehicleSession(**session, zone_name=zone.get("name"), level_name=level.get("name"))
     return VehicleResponse(id=row["id"], plate_number=row["plate_number"],
                            registration_status=row["registration_status"],
-                           active_session=VehicleSession(**sessions[0]) if sessions else None,
+                           active_session=active_session,
                            removal_permitted=not has_records,
                            removal_reason=REMOVAL_BLOCKED if has_records else None)
 

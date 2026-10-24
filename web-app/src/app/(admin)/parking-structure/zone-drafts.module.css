@@ -3,4 +3,6 @@
 .summary span, .summary p { font-size: 13px; color: var(--text-muted); }
 .summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .exampleInput::placeholder { color: var(--text-muted); font-weight: 400; opacity: 1; }
+.formActions { align-items: stretch; }
+.formActions > button { display: inline-flex; align-items: center; justify-content: center; min-width: 128px; min-height: 50px; padding: 12px 20px; border-radius: 10px; }
 @media (max-width: 540px) { .summary > div { flex: 1; min-width: 0; } }

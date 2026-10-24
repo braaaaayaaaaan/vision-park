@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+
 import '../models/dashboard_models.dart';
 import '../models/driver_models.dart';
 import '../models/navigation_models.dart';
@@ -13,10 +17,77 @@ abstract interface class ParkingConfirmationRepository {
   Future<ParkingSession> confirmParking(ActiveParking parking);
 }
 
+abstract interface class FloorPlanRepository {
+  Future<Uint8List> getFloorPlan(MapFloorPlan plan);
+}
+
 class RemoteAssignedRouteRepository
-    implements AssignedRouteRepository, ParkingConfirmationRepository {
+    implements
+        AssignedRouteRepository,
+        ParkingConfirmationRepository,
+        FloorPlanRepository {
   RemoteAssignedRouteRepository(this.api);
   final RemoteAuthRepository api;
+
+  double? _edgeDistance(dynamic value) {
+    if (value == null) return null;
+    if (value is! num || !value.isFinite || value < 0) {
+      throw const FormatException('Invalid published edge distance');
+    }
+    return value.toDouble();
+  }
+
+  @override
+  Future<Uint8List> getFloorPlan(MapFloorPlan plan) =>
+      api.getAuthenticatedImage(plan.imagePath);
+
+  MapFloorPlan? _floorPlan(dynamic raw, String sessionId, String levelId) {
+    if (raw == null) {
+      if (kDebugMode) {
+        debugPrint('Navigation floor plan: missing_metadata level=$levelId');
+      }
+      return null;
+    }
+    try {
+      final width = raw['width_px'] as int;
+      final height = raw['height_px'] as int;
+      final revision = raw['revision'] as int;
+      final publication = raw['publication_revision'] as int;
+      final path =
+          'parking/sessions/${Uri.encodeComponent(sessionId)}/route/levels/${Uri.encodeComponent(levelId)}/floor-plan'
+          '?publication_revision=$publication&floor_plan_revision=$revision';
+      if (width <= 0 ||
+          height <= 0 ||
+          width * height > 20000000 ||
+          revision <= 0 ||
+          publication <= 0 ||
+          raw['image_path'] != path) {
+        if (kDebugMode) {
+          debugPrint(
+            'Navigation floor plan: invalid_dimensions_revision_or_path level=$levelId',
+          );
+        }
+        return null;
+      }
+      if (kDebugMode) {
+        debugPrint('Navigation floor plan: descriptor_accepted level=$levelId');
+      }
+      return MapFloorPlan(
+        width: width,
+        height: height,
+        revision: revision,
+        publicationRevision: publication,
+        imagePath: path,
+      );
+    } catch (_) {
+      if (kDebugMode) {
+        debugPrint(
+          'Navigation floor plan: invalid_metadata_types level=$levelId',
+        );
+      }
+      return null; // Invalid image metadata must not invalidate the assigned route.
+    }
+  }
 
   @override
   Future<ParkingSession> confirmParking(ActiveParking parking) async {
@@ -108,6 +179,12 @@ class RemoteAssignedRouteRepository
               MapLevel(
                 id: level['id'] as String,
                 name: level['name'] as String,
+                levelNumber: level['level_number'] as int?,
+                floorPlan: _floorPlan(
+                  level['floor_plan'],
+                  parking.session.id,
+                  level['id'] as String,
+                ),
               ),
           ],
           nodes: nodes,
@@ -116,6 +193,7 @@ class RemoteAssignedRouteRepository
               GraphEdge(
                 fromId: edge['from_id'] as String,
                 toId: edge['to_id'] as String,
+                distanceMetres: _edgeDistance(edge['distance_meters']),
               ),
           ],
         ),

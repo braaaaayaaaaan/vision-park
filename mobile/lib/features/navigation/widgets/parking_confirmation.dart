@@ -11,8 +11,8 @@ Future<void> showParkingConfirmation(
       scrollable: true,
       title: const Text('Confirm Parking?'),
       content: Text(
-        'You are confirming that you have parked in your allocated zone: $zoneName. '
-        '${onConfirm == null ? 'Confirmation services are not connected yet.' : 'Confirm only after parking your vehicle.'}',
+        'You are confirming that you have parked in $zoneName. '
+        '${onConfirm == null ? 'Confirmation services are not connected yet.' : 'Please confirm only after parking your vehicle.'}',
       ),
       actions: [
         TextButton(

@@ -52,7 +52,7 @@ export default function AdminShell({ children }) {
         <header className={styles.header}>
           <div><p className={styles.eyebrow}>VisionPark Admin</p><p className={styles.pageTitle}>{title}</p></div>
           <form action="/api/auth/logout" method="post" onSubmit={() => setSigningOut(true)}>
-            <button className={styles.signOut} type="submit" disabled={signingOut}>{signingOut ? 'Signing Out…' : 'Sign Out'}</button>
+            <button className={styles.signOut} type="submit" disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
           </form>
         </header>
         <main id="main-content" tabIndex={-1} className={styles.main}>

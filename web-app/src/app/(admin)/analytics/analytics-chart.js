@@ -7,7 +7,7 @@ export default function AnalyticsChart({ id, title, description, rows, series, u
   return <section className={styles.panel} aria-labelledby={id}>
     <div className={styles.sectionHeading}><h2 id={id}>{title}</h2><div className={styles.legend}>{series.map((item) => <span key={item.key}><i className={styles.entryKey} style={{ background: item.colour }} />{item.label}</span>)}</div></div>
     <p className={styles.muted}>{description}</p>
-    {rows.every((row) => series.every((item) => row[item.key] === 0)) && <p className={styles.empty}>No Records In This Selection</p>}
+    {rows.every((row) => series.every((item) => row[item.key] === 0)) && <p className={styles.empty}>No records in this selection</p>}
     <div className={styles.chartScroll}><div className={styles.chart} style={{ minWidth: Math.max(650, rows.length * (rows[0]?.period.includes(':') ? 44 : 100)) }}>
       <p className={styles.axisTitle}>{unit}</p>
       <div className={styles.plot}><div className={styles.yAxis} aria-hidden="true"><span>{ceiling}</span><span>{ceiling / 2}</span><span>0</span></div>

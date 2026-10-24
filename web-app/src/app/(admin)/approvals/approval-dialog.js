@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import ConfirmationDialog from '../../../components/confirmation-dialog';
 import { reviewRequest } from './approvals-client';
 import styles from './approvals.module.css';
 
 export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess }) {
-  const dialog = useRef(null);
   const approve = action === 'approve';
   const [companies, setCompanies] = useState([]);
   const [tenant, setTenant] = useState('');
@@ -15,12 +15,6 @@ export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess
   const [error, setError] = useState('');
   const [uncertain, setUncertain] = useState(false);
   const inFlight = useRef(false);
-
-  useEffect(() => {
-    const element = dialog.current;
-    element.showModal();
-    return () => element.close();
-  }, []);
 
   useEffect(() => {
     if (!approve) return;
@@ -58,30 +52,22 @@ export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess
   }
 
   return (
-    <dialog ref={dialog} className={styles.dialog} aria-labelledby="decision-title" aria-describedby="decision-description" onCancel={(event) => { event.preventDefault(); if (!inFlight.current) onDismiss(uncertain); }}>
-      <form onSubmit={submit} aria-busy={submitting}>
-        <h2 id="decision-title">{approve ? 'Approve Application' : 'Reject Application'}</h2>
-        <p id="decision-description">{approve ? 'Assign a company and confirm approval for this driver.' : 'Confirm that you want to reject this driver application.'}</p>
-        <div className={styles.applicant}><strong>{applicant.full_name || 'Name Not Provided'}</strong><small>{applicant.id}</small><p>Requested Company: {applicant.requested_company?.name || 'Not Provided'}</p></div>
+    <ConfirmationDialog id="decision" title={approve ? 'Approve Application' : 'Reject Application'} variant={approve ? 'default' : 'destructive'}
+      description={approve ? 'Assign a company and confirm approval for this driver.' : 'Confirm that you want to reject this driver application.'}
+      onConfirm={submit} onCancel={() => { if (!inFlight.current) onDismiss(uncertain); }} pending={submitting} error={error}
+      pendingLabel="Submitting…" cancelLabel={uncertain ? 'Close and Refresh' : 'Cancel'} confirmLabel={approve ? 'Confirm Approval' : 'Confirm Rejection'}
+      disabled={uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
+        <div className={styles.applicant}><strong>{applicant.full_name || 'Name not provided'}</strong><small>{applicant.id}</small><p>Requested company: {applicant.requested_company?.name || 'Not provided'}</p></div>
         {approve && <div className={styles.companyField}>
-          {loading ? <p role="status">Loading Available Companies…</p> : companyError ? <div><p className={styles.error} role="alert">{companyError}</p><button type="button" className={styles.secondary} onClick={() => { setLoading(true); setCompanyError(''); setAttempt((value) => value + 1); }}>Retry Companies</button></div> : <>
+          {loading ? <p role="status">Loading available companies…</p> : companyError ? <div><p className={styles.error} role="alert">{companyError}</p><button type="button" className={styles.secondary} onClick={() => { setLoading(true); setCompanyError(''); setAttempt((value) => value + 1); }}>Retry Companies</button></div> : <>
             <label htmlFor="assigned-company">Assigned Company</label>
             <select id="assigned-company" value={tenant} onChange={(event) => { setTenant(event.target.value); setError(''); }} disabled={submitting || uncertain} required>
-              <option value="">Select A Company</option>
+              <option value="">Select a company</option>
               {companies.map((company) => <option value={company.id} key={company.id}>{company.name}</option>)}
             </select>
             {companies.length === 0 && <p>No companies are currently available. Approval is unavailable.</p>}
           </>}
         </div>}
-        {error && <p className={styles.error} role="alert">{error}</p>}
-        {submitting && <p role="status">Waiting For Backend Confirmation…</p>}
-        <div className={styles.dialogActions}>
-          <button type="button" className={styles.secondary} disabled={submitting} onClick={() => onDismiss(uncertain)}>{uncertain ? 'Close And Refresh' : 'Cancel'}</button>
-          <button type="submit" className={approve ? styles.approve : styles.reject} disabled={submitting || uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
-            {submitting ? 'Submitting…' : approve ? 'Confirm Approval' : 'Confirm Rejection'}
-          </button>
-        </div>
-      </form>
-    </dialog>
+    </ConfirmationDialog>
   );
 }

@@ -1,3 +1,8 @@
+// Fit both dimensions at 100%; zoom enlarges that fitted image, not just its width.
+export function floorPlanWidth(width, height, zoom = 1) {
+  return `min(${zoom * 100}%, calc((var(--floor-plan-height) - 2px) * ${width / height * zoom}))`;
+}
+
 // The SVG rect already includes responsive sizing, zoom and viewport scrolling.
 export function imagePoint(clientX, clientY, rect, width, height) {
   if (!(rect.width > 0 && rect.height > 0)) return null;

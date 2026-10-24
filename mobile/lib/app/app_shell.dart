@@ -6,6 +6,7 @@ import '../data/repositories/availability_repository.dart';
 import 'package:flutter/material.dart';
 
 import '../data/repositories/active_session_repository.dart';
+import '../data/repositories/auth_repository.dart';
 
 import '../features/account/account_screen.dart';
 import '../features/history/history_screen.dart';
@@ -19,6 +20,7 @@ import 'driver_bottom_navigation.dart';
 class AppShell extends StatefulWidget {
   const AppShell({
     this.onSignOut,
+    this.profile,
     this.activeSessionRepository,
     this.availabilityRepository,
     this.routeRepository,
@@ -28,6 +30,7 @@ class AppShell extends StatefulWidget {
   });
 
   final VoidCallback? onSignOut;
+  final AuthProfile? profile;
   final ActiveSessionRepository? activeSessionRepository;
   final AvailabilityRepository? availabilityRepository;
   final AssignedRouteRepository? routeRepository;
@@ -64,6 +67,8 @@ class _AppShellState extends State<AppShell> {
           index: _selectedIndex,
           children: [
             HomeScreen(
+              fullName: widget.profile?.fullName,
+              companyName: widget.profile?.companyName,
               refreshRevision: _parkingRevision,
               activeSessionRepository: widget.activeSessionRepository,
               availabilityRepository: widget.availabilityRepository,

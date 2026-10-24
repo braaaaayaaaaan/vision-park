@@ -24,6 +24,8 @@ class HomeScreen extends StatefulWidget {
     this.isVisible = true,
     this.refreshRevision = 0,
     this.onSignOut,
+    this.fullName,
+    this.companyName,
     super.key,
   });
 
@@ -35,6 +37,8 @@ class HomeScreen extends StatefulWidget {
   final bool isVisible;
   final int refreshRevision;
   final VoidCallback? onSignOut;
+  final String? fullName;
+  final String? companyName;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -83,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, _) {
         final theme = Theme.of(context);
         final data = _controller.data;
-        final tenant = data?.profile.tenantName;
+        final tenant = (widget.companyName ?? data?.profile.tenantName)?.trim();
+        final name = (widget.fullName ?? data?.profile.fullName)?.trim();
         final now = (widget.clock ?? DateTime.now)();
 
         return SingleChildScrollView(
@@ -110,12 +115,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 MalaysianDateTime.greeting(now),
                                 style: theme.textTheme.headlineMedium,
                               ),
+                              if (name != null && name.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(name, style: theme.textTheme.titleLarge),
+                              ],
                               const SizedBox(height: AppSpacing.small),
-                              Text(
-                                tenant != null && tenant.trim().isNotEmpty
-                                    ? tenant
-                                    : 'Your parking journey, in one place.',
-                              ),
+                              const Text('Your parking journey, in one place.'),
                             ],
                           ),
                         ),
@@ -143,10 +148,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: AppSpacing.large),
                     if (_controller.availabilityRepository != null)
-                      _availabilitySection()
+                      _availabilitySection(tenant)
                     else if (_controller.status == HomeStatus.ready &&
                         data != null)
-                      AvailabilityCard(availability: data.availability)
+                      AvailabilityCard(
+                        availability: data.availability,
+                        companyName: tenant,
+                      )
                     else
                       _unavailableSection(
                         'Parking Availability',
@@ -164,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         )
                       else
                         const EmptyStateCard(
+                          compact: true,
                           icon: Icons.local_parking_outlined,
                           title: 'No Active Parking Session',
                           message: 'Your current parking session will appear here when one is available.',
@@ -186,9 +195,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _availabilitySection() {
+  Widget _availabilitySection(String? companyName) {
     if (_controller.availabilityStatus == HomeStatus.ready) {
-      return AvailabilityCard(availability: _controller.availability!);
+      return AvailabilityCard(
+        availability: _controller.availability!,
+        companyName: companyName,
+      );
     }
     return DashboardCard(
       title: 'Parking Availability',
@@ -227,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_controller.sessionStatus == HomeStatus.ready) {
       if (_controller.activeSessions.isEmpty) {
         return const EmptyStateCard(
+          compact: true,
           icon: Icons.local_parking_outlined,
           title: 'No Active Parking Session',
           message: 'Your current parking session will appear here when one is available.',
@@ -319,7 +332,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
           if (session) ...[
             const SizedBox(height: AppSpacing.medium),
-            const FilledButton(onPressed: null, child: Text('View Route')),
+            FilledButton.icon(
+              onPressed: () => widget.onTabSelected(1),
+              icon: const Icon(Icons.near_me_outlined),
+              label: const Text('View Route'),
+            ),
           ],
         ],
       ),

@@ -6,18 +6,18 @@ const integer = value => Number.isInteger(value) && value >= 0 && value <= MAX_C
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 const exact = (value, fields) => object(value) && Object.keys(value).length === fields.length && fields.every(key => Object.hasOwn(value, key));
 export function zoneError(value) {
-  if (!object(value)) return 'Enter Zone Details.';
+  if (!object(value)) return 'Enter zone details.';
   for (const [key, max] of [['code', 64], ['name', 100]]) {
-    if (typeof value[key] !== 'string' || !value[key].trim() || Array.from(value[key].trim()).length > max || /[\u0000-\u001f\u007f-\u009f]/u.test(value[key])) return `Use A Readable Zone ${key === 'code' ? 'Code' : 'Name'} Of At Most ${max} Characters.`;
+    if (typeof value[key] !== 'string' || !value[key].trim() || Array.from(value[key].trim()).length > max || /[\u0000-\u001f\u007f-\u009f]/u.test(value[key])) return `Use a readable zone ${key === 'code' ? 'Code' : 'Name'} of at most ${max} characters.`;
   }
-  if (!integer(value.total_capacity) || !integer(value.unavailable_capacity)) return 'Capacities Must Be Whole Numbers From 0 To 2147483647.';
-  if (value.unavailable_capacity > value.total_capacity) return 'Unavailable Capacity Cannot Exceed Total Capacity.';
-  return ZONE_STATUSES.includes(value.operational_status) ? '' : 'Choose A Valid Intended Status.';
+  if (!integer(value.total_capacity) || !integer(value.unavailable_capacity)) return 'Capacities must be whole numbers from 0 to 2147483647.';
+  if (value.unavailable_capacity > value.total_capacity) return 'Unavailable capacity cannot exceed total capacity.';
+  return ZONE_STATUSES.includes(value.operational_status) ? '' : 'Choose a valid intended status.';
 }
 export function zoneRequestError(value, method) {
   const fields = method === 'DELETE' ? ['expected_revision'] : [...ZONE_FIELDS, ...(method === 'PATCH' ? ['expected_revision'] : [])];
-  if (!exact(value, fields)) return 'Use Only Draft Zone Fields And The Required Revision.';
-  if (method !== 'POST' && (!integer(value.expected_revision) || value.expected_revision < 1 || (method === 'PATCH' && value.expected_revision === MAX_CAPACITY))) return 'Refresh To Load The Current Draft Zone Revision.';
+  if (!exact(value, fields)) return 'Use only draft zone fields and the required revision.';
+  if (method !== 'POST' && (!integer(value.expected_revision) || value.expected_revision < 1 || (method === 'PATCH' && value.expected_revision === MAX_CAPACITY))) return 'Refresh to load the current draft zone revision.';
   return method === 'DELETE' ? '' : zoneError(value);
 }
 export const zoneTotals = zones => ({ total_capacity: zones.reduce((sum, zone) => sum + zone.total_capacity, 0),
@@ -31,15 +31,15 @@ export function validateZoneResponse(data, method, levelId, zoneId, input) {
   if (method === 'GET') {
     if (data?.level_id !== levelId || !Array.isArray(data.zones) || data.zones.length > 1000 || data.total_count !== data.zones.length ||
       data.zones.some(zone => !validZone(zone, levelId)) || new Set(data.zones.map(zone => zone.id)).size !== data.zones.length ||
-      new Set(data.zones.map(zone => zone.code)).size !== data.zones.length) throw new Error('Invalid Draft Zone Listing.');
+      new Set(data.zones.map(zone => zone.code)).size !== data.zones.length) throw new Error('Invalid draft zone listing.');
     const totals = zoneTotals(data.zones);
-    if (data.total_capacity !== totals.total_capacity || data.unavailable_capacity !== totals.unavailable_capacity) throw new Error('Incomplete Draft Zone Listing.');
+    if (data.total_capacity !== totals.total_capacity || data.unavailable_capacity !== totals.unavailable_capacity) throw new Error('Incomplete draft zone listing.');
   } else if (method === 'DELETE') {
-    if (data?.level_id !== levelId || data.deleted_zone_id !== zoneId) throw new Error('Unconfirmed Draft Zone Deletion.');
+    if (data?.level_id !== levelId || data.deleted_zone_id !== zoneId) throw new Error('Unconfirmed draft zone deletion.');
   } else if (!validZone(data?.zone, levelId) || (zoneId && data.zone.id !== zoneId) ||
     data.zone.revision !== (method === 'POST' ? 1 : input.expected_revision + 1) ||
     (method === 'POST' && data.zone.operational_zone_id !== null) || ZONE_FIELDS.some(key => data.zone[key] !== (typeof input[key] === 'string' ? input[key].trim() : input[key]))) {
-    throw new Error('Unconfirmed Draft Zone Save.');
+    throw new Error('Unconfirmed draft zone save.');
   }
   return data;
 }

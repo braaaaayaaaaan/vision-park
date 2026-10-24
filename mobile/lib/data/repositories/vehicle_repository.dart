@@ -37,6 +37,8 @@ class RemoteVehicleRepository implements VehicleRepository {
               id: active['id'] as String,
               vehicleId: active['vehicle_id'] as String,
               zoneId: active['zone_id'] as String,
+              zoneName: active['zone_name'] as String?,
+              levelName: active['level_name'] as String?,
               status: switch (active['status']) {
                 'allocated' => ParkingSessionStatus.allocated,
                 'occupied' => ParkingSessionStatus.occupied,

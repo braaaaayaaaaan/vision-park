@@ -5,7 +5,7 @@ import { duplicateLevelNumbers, levelRequestError, validateLevelResponse } from 
 export async function levelManagementRequest(request, path) {
   let session;
   const unconfirmed = request.method === 'DELETE' ? 'Level deletion could not be confirmed. Refresh before retrying.' : 'Level save could not be confirmed. Refresh before retrying.';
-  const invalid = request.method === 'DELETE' ? 'Refresh To Load The Current Level Revision.' : 'Check Level Numbers, Names And The Current Edit Snapshot.';
+  const invalid = request.method === 'DELETE' ? 'Refresh to load the current level revision.' : 'Check level numbers, names and the current edit snapshot.';
   try {
     const mode = request.method === 'POST' && path.length === 1 && path[0] === 'levels' ? 'create' :
       request.method === 'POST' && path.length === 2 && path[0] === 'levels' && path[1] === 'bulk' ? 'bulk' :
@@ -44,7 +44,7 @@ export async function levelManagementRequest(request, path) {
   } catch (error) {
     return { status: error instanceof AuthError ? error.status : 503, session: error.session ?? session,
       clear: error instanceof AuthError && [401, 403].includes(error.status), body: { error: error instanceof AuthError ?
-        error.status === 413 ? 'Level request exceeds 32 KiB.' : error.status === 415 ? 'Use A JSON Level Request.' : error.status === 422 ? invalid :
-          error.status === 409 ? 'Use Unique Level Numbers In The Batch.' : error.message : unconfirmed } };
+        error.status === 413 ? 'Level request exceeds 32 KiB.' : error.status === 415 ? 'Use a JSON level request.' : error.status === 422 ? invalid :
+          error.status === 409 ? 'Use unique level numbers in the batch.' : error.message : unconfirmed } };
   }
 }

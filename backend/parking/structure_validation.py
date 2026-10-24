@@ -208,7 +208,7 @@ def validate_snapshot(snapshot):
                 total_capacity=row['total_capacity'], unavailable_capacity=row['unavailable_capacity'], usable_capacity=usable,
                 intended_status=row['operational_status'], allocation_candidate=eligible, entrance_node_id=node_id, mapping_state=state,
                 reachability='not_applicable' if not eligible else 'not_checked', distance_meters=None, node_ids=None,
-                message='Excluded From Allocation' if not eligible else 'Correct The Entrance Mapping And Building Entrance Before Routing.'))
+                message='Excluded from allocation' if not eligible else 'Correct the entrance mapping and building entrance before routing.'))
 
     if not used_zones:
         issue('zones_missing', 'Configure at least one valid draft parking zone in the selected levels.')
@@ -221,7 +221,7 @@ def validate_snapshot(snapshot):
             continue
         destination = zone['entrance_node_id']
         if destination not in distances:
-            zone.update(reachability='unreachable', message='No Directed Route Using Current Validated Edges. Connect Driving Lanes And Ramps Or Resolve Reported Edge Issues.')
+            zone.update(reachability='unreachable', message='No directed route using current validated edges. Connect driving lanes and ramps or resolve reported edge issues.')
             issue('zone_unreachable', zone['message'], zone['level_id'], zone['zone_id'])
             continue
         path = [destination]
@@ -229,7 +229,7 @@ def validate_snapshot(snapshot):
             path.append(previous[path[-1]])
         path.reverse()
         zone.update(reachability='reachable', distance_meters=distances[destination], node_ids=path if len(path) <= path_budget else None,
-            message='Reachable Using Current Validated Directed Edges.' if len(path) <= path_budget else 'Reachable; Route Node List Omitted Because The Report Size Limit Was Reached.')
+            message='Reachable using current validated directed edges.' if len(path) <= path_budget else 'Reachable; route node list omitted because the report size limit was reached.')
         path_budget -= min(path_budget, len(path))
     ready = not any(item['severity'] == 'error' for item in issues)
     return dict(report_version=1, snapshot_at=snapshot['snapshot_at'], readiness='ready' if ready else 'needs_attention',
@@ -243,7 +243,8 @@ def validate_snapshot(snapshot):
             mappings=[{key: m.get(key) for key in ('zone_id', 'node_id', 'floor_plan_revision', 'updated_at')} for m in level['mappings']]) for level in levels],
         ramp_revisions=[dict(id=edge['id'], revision=edge['revision']) for edge in snapshot['ramps']], zones=zone_results, issues=issues,
         checked=['Current Images And Calibration Geometry', 'Unique Nodes And One Building Entrance', 'Directed Same-Level Distances And Revalidation',
-                 'Current Directed Ramp Endpoints And Traced Measurements', 'Zone Capacities, Statuses And One-To-One Mappings', 'Directed Dijkstra Reachability For Allocation Candidates'])
+                 'Current Directed Ramp Endpoints And Traced Measurements', 'Zone Capacities, Statuses And One-To-One Mappings', 'Directed Dijkstra Reachability For Allocation Candidates'],
+        notice='Draft validation only. Revalidate after any edit. No publication, activation or operational availability check was performed.')
 
 
 def validate(admin_id, scope):

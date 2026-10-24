@@ -7,8 +7,8 @@
 .button:disabled { opacity: .55; cursor: not-allowed; }
 .primary { background: var(--primary); color: white; }
 .primary:hover { background: var(--primary-hover); }
-.viewport { overflow: auto; max-height: calc(65vh / var(--ui-scale)); border: 1px solid var(--border); border-radius: 12px; background: var(--background); overscroll-behavior: contain; }
-.viewport svg { display: block; height: auto; max-width: none; user-select: none; }
+.viewport { --floor-plan-height: var(--workspace-plan-height, calc(65vh / var(--ui-scale))); width: 100%; min-width: 0; overflow: auto; max-height: var(--floor-plan-height); border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.viewport svg { display: block; height: auto; max-width: none; margin-inline: auto; user-select: none; }
 .pan, .select { touch-action: none; }
 .pan { cursor: grab; }
 .pan:active { cursor: grabbing; }

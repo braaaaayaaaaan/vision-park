@@ -38,14 +38,14 @@ export default function RegistrationApprovals() {
       </div>
       <section className={styles.summary} aria-labelledby="pending-summary">
         <h2 id="pending-summary">Pending Applications</h2>
-        <p><strong>{loading ? '—' : data ? data.applications.length : '—'}</strong> <span>On This Page</span></p>
+        <p><strong>{loading ? '—' : data ? data.applications.length : '—'}</strong> <span>On this page</span></p>
       </section>
       {notice && <p className={styles.success} role="status">{notice}</p>}
       <section className={styles.card} aria-label="Pending Driver Applications" aria-busy={loading}>
-        {loading ? <div className={styles.state} role="status">Loading Pending Applications…</div> : error ? (
+        {loading ? <div className={styles.state} role="status">Loading pending applications…</div> : error ? (
           <div className={styles.state}><p className={styles.error} role="alert">{error}</p><button className={styles.secondary} onClick={() => refresh()}>Try Again</button></div>
         ) : data?.applications.length === 0 ? (
-          <div className={styles.state}><h2>{offset === 0 ? 'No Pending Applications' : 'No Applications On This Page'}</h2><p>{offset === 0 ? 'New driver applications will appear here when they are submitted.' : 'The pending list may have changed. Return to the previous page or refresh.'}</p></div>
+          <div className={styles.state}><h2>{offset === 0 ? 'No Pending Applications' : 'No Applications on This Page'}</h2><p>{offset === 0 ? 'New driver applications will appear here when they are submitted.' : 'The pending list may have changed. Return to the previous page or refresh.'}</p></div>
         ) : (
           <div className={styles.tableScroll} tabIndex={0} aria-label="Scrollable Applications Table">
             <table className={styles.table}>
@@ -53,8 +53,8 @@ export default function RegistrationApprovals() {
               <thead><tr><th scope="col">Applicant</th><th scope="col">Requested Company</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
               <tbody>{data?.applications.map((applicant) => (
                 <tr key={applicant.id}>
-                  <td><strong>{applicant.full_name || 'Name Not Provided'}</strong><small className={styles.identifier}>{applicant.id}</small></td>
-                  <td>{applicant.requested_company?.name || 'Not Provided'}{applicant.requested_company?.is_active === false && <small className={styles.identifier}>Company Inactive</small>}</td>
+                  <td><strong>{applicant.full_name || 'Name not provided'}</strong><small className={styles.identifier}>{applicant.id}</small></td>
+                  <td>{applicant.requested_company?.name || 'Not provided'}{applicant.requested_company?.is_active === false && <small className={styles.identifier}>Company inactive</small>}</td>
                   <td><span className={styles.badge}>Pending</span></td>
                   <td><div className={styles.actions}>
                     <button className={styles.approve} onClick={() => { setNotice(''); setSelection({ applicant, action: 'approve' }); }} aria-label={`Approve ${applicant.full_name || applicant.id}`}>Approve</button>

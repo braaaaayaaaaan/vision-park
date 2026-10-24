@@ -54,8 +54,16 @@ class _RegistrationDialogState extends State<RegistrationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
       scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      icon: Icon(
+        Icons.directions_car_outlined,
+        color: theme.colorScheme.primary,
+        size: 32,
+      ),
       title: const Text('Register New Vehicle'),
       content: Form(
         key: _formKey,
@@ -63,16 +71,24 @@ class _RegistrationDialogState extends State<RegistrationDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'New vehicles require administrator approval before parking access is granted.',
+            Text(
+              'Add your number plate to request parking access.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: AppSpacing.medium),
             TextFormField(
               controller: _plate,
               enabled: !_busy,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Number Plate',
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.directions_car_outlined),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerLow,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               textCapitalization: TextCapitalization.characters,
               autocorrect: false,
@@ -89,19 +105,62 @@ class _RegistrationDialogState extends State<RegistrationDialog> {
               onFieldSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: AppSpacing.medium),
-            Text(
-              widget.onRegister != null
-                  ? (_error ??
-                        (_busy
-                            ? 'Submitting Registration…'
-                            : 'Your vehicle will be submitted for administrator approval.'))
-                  : _submitted
-                  ? 'Registration Unavailable. No vehicle has been registered. Please try again once parking services are connected.'
-                  : 'Registration is not connected yet. Submitting this form will not register a vehicle.',
-              semanticsLabel: _submitted && widget.onRegister == null
-                  ? 'Registration Unavailable. No vehicle has been registered.'
-                  : null,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.35,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.fact_check_outlined,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Approval Required',
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'New vehicles require administrator approval before parking access is granted.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+            if (_error != null || _busy || widget.onRegister == null) ...[
+              const SizedBox(height: AppSpacing.medium),
+              Text(
+                widget.onRegister != null
+                    ? (_error ??
+                          (_busy
+                              ? 'Submitting Registration…'
+                              : 'Your vehicle will be submitted for administrator approval.'))
+                    : _submitted
+                    ? 'Registration Unavailable. No vehicle has been registered. Please try again once parking services are connected.'
+                    : 'Registration is not connected yet. Submitting this form will not register a vehicle.',
+                semanticsLabel: _submitted && widget.onRegister == null
+                    ? 'Registration Unavailable. No vehicle has been registered.'
+                    : null,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _error != null
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -111,6 +170,11 @@ class _RegistrationDialogState extends State<RegistrationDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: _busy ? null : _submit,
           child: Text(_busy ? 'Submitting…' : 'Submit'),
         ),
