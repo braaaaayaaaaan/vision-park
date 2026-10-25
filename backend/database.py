@@ -82,6 +82,10 @@ class DatabaseError(RuntimeError):
     """Safe message for callers; never include SDK errors containing credentials."""
 
 
+class RegistrationCompanyUnavailable(DatabaseError):
+    """Atomic registration completion found no active requested company."""
+
+
 class DuplicateVehicleError(DatabaseError):
     pass
 
@@ -355,6 +359,19 @@ def get_tenant(tenant_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def read_admin_tenants(admin_id, tenant_id, search, status, sort, limit, offset):
+    return _execute(get_supabase().rpc('read_admin_tenants', {
+        'p_admin_id': admin_id, 'p_tenant_id': tenant_id, 'p_search': search,
+        'p_status': status, 'p_sort': sort, 'p_limit': limit, 'p_offset': offset,
+    })).data
+
+
+def save_admin_tenant(admin_id, change):
+    return _execute(get_supabase().rpc('save_admin_tenant', {
+        'p_admin_id': admin_id, 'p_change': change,
+    })).data
+
+
 def get_registration_companies() -> list[dict]:
     return _all_rows(lambda: get_supabase().table("tenants").select(
         "id,name"
@@ -400,13 +417,16 @@ def decide_driver_registration(admin_id: str, user_id: str, decision: str, tenan
 
 
 def insert_pending_driver(user_id: str, full_name: str, requested_tenant_id: str):
-    # ON CONFLICT DO NOTHING makes concurrent retries safe; never merge into an
-    # existing account. In particular, never overwrite an administrator profile.
-    _execute(get_supabase().table("users").upsert({
-        "id": user_id, "full_name": full_name, "role": "driver",
-        "approval_status": "pending", "is_active": False, "tenant_id": None,
-        "requested_tenant_id": requested_tenant_id,
-    }, on_conflict="id", ignore_duplicates=True))
+    # The RPC locks/checks tenant activity and inserts in one transaction. No
+    # fallback to separate REST operations: missing setup must fail closed.
+    result = _execute(get_supabase().rpc('complete_pending_driver_registration', {
+        'p_user_id': user_id, 'p_full_name': full_name, 'p_requested_tenant_id': requested_tenant_id,
+    })).data
+    if isinstance(result, dict) and result.get('status') == 'invalid_company':
+        raise RegistrationCompanyUnavailable('Select an available company.')
+    if not isinstance(result, dict) or result.get('status') != 'profile_available' or result.get('id') != user_id:
+        raise DatabaseError('Registration completion returned an unconfirmed result.')
+    return result
 
 
 def get_permissions(tenant_id: str) -> list[dict]:

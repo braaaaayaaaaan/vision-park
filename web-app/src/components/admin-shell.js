@@ -5,11 +5,12 @@ import styles from "./admin-shell.module.css";
 
 const navigation = [
   ["/overview", "Overview"], ["/analytics", "Analytics"],
-  ["/approvals", "Approvals"], ["/vehicles", "Vehicles"],
+  ["/approvals", "Approvals"], ["/vehicles", "Vehicles"], ["/tenants", "Tenants"],
   ["/sessions", "Sessions"], ["/parking-structure", "Parking Structure"],
 ];
 
 const navigationIcons = {
+  "/tenants": "M3 21V7h10v14 M13 3h8v18 M1 21h22 M6 11h4 M6 15h4 M16 7h2 M16 11h2 M16 15h2",
   "/overview": "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   "/analytics": "M3 3v18h18 M7 16v-5 M12 16V7 M17 16V4",
   "/approvals": "M9 4H5v17h14V4h-4 M9 3h6v4H9z M8 14l3 3 5-6",

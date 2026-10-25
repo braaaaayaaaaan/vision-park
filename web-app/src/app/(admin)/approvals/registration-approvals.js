@@ -78,7 +78,7 @@ export default function RegistrationApprovals() {
                   const company = approved ? applicant.company : applicant.requested_company;
                   return <tr key={applicant.id}>
                     <td><strong>{applicant.full_name || 'Name Not Provided'}</strong><small className={styles.identifier}>{applicant.id}</small></td>
-                    <td>{company?.name || 'Not Provided'}<small>{approved ? 'Assigned company' : 'Requested company'}{company?.is_active === false ? ' · Inactive' : ''}</small></td>
+                    <td>{company?.name || 'Not Provided'}<small>{approved ? 'Assigned Company' : 'Requested Company'}{company?.is_active === false ? ' · Inactive' : ''}</small></td>
                     <td><div className={styles.statusBadges}><StatusBadge status={applicant.approval_status} />
                       {approved && !applicant.is_active && <span className={vehicles.inactive}>Inactive</span>}</div></td>
                     <td>{applicant.approval_status === 'pending' ? <div className={`${shared.actions} ${styles.rowActions}`}>

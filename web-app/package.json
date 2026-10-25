@@ -14,6 +14,7 @@
     "test:overview": "node --test tests/overview.test.mjs",
     "test:analytics": "node --test tests/analytics.test.mjs",
     "test:vehicles": "node --test tests/vehicles.test.mjs tests/vehicle-reads.test.mjs tests/vehicles-ui.test.mjs tests/bulk-vehicle-approval.test.mjs",
+    "test:tenants": "node --test tests/tenants.test.mjs tests/tenants-ui.test.mjs",
     "test:sessions": "node --test tests/sessions.test.mjs",
     "test:parking-structure": "node --test tests/parking-structure.test.mjs tests/floor-plan-workspace.test.mjs tests/calibration.test.mjs tests/node-drafts.test.mjs tests/edge-drafts.test.mjs tests/cross-level-ramps.test.mjs tests/level-management.test.mjs tests/zone-drafts.test.mjs tests/zone-entrances.test.mjs tests/structure-validation.test.mjs tests/publication.test.mjs"
   },

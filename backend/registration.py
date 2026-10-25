@@ -74,11 +74,13 @@ def complete_registration(user_id: UUID, request: RegistrationProfile):
         # Repeated requests never edit, downgrade or reactivate existing users.
         if database.get_auth_profile(str(user_id)) is not None:
             return {"status": "profile_available"}
-        check_company(request.tenant_id)
+        # The database checks activity while holding the tenant lock through insert.
         database.insert_pending_driver(str(user_id), request.full_name, str(request.tenant_id))
         if database.get_auth_profile(str(user_id)) is None:
             raise database.DatabaseError("Profile not visible after insert.")
         return {"status": "profile_available"}
+    except database.RegistrationCompanyUnavailable:
+        raise HTTPException(400, "Select an available company.") from None
     except database.DatabaseError:
         raise HTTPException(503, "Registration is incomplete. Sign in and retry registration completion.") from None
 
