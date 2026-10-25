@@ -1,71 +1,131 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { fetchVehicles, vehiclesQuery } from './vehicles-client.mjs';
+import { useCallback, useState } from 'react';
+import { driversQuery, vehiclesQuery, fetchDrivers, fetchVehicles, fetchVehicleSummary } from './vehicles-client.mjs';
+import useVehicleResource from './use-vehicle-resource';
 import VehicleDecisionDialog from './vehicle-decision-dialog';
-import styles from '../approvals/approvals.module.css';
-import filtersStyle from '../analytics/analytics.module.css';
+import DriverDetailsDrawer from './driver-details-drawer';
+import BulkVehicleApprovalDialog from './bulk-vehicle-approval-dialog';
+import VehicleRecordsTable from './vehicle-records-table';
+import { DriverIdentity, RegistrationUsage, VehicleSummaryCards, VehiclePagination, RecordsState, statusLabels } from './vehicles-ui';
+import styles from './vehicles.module.css';
+import shared from '../approvals/approvals.module.css';
 
-const initial = { plate: '', status: '', tenant_id: '' };
-const labels = { approved: 'Approved', pending: 'Pending', rejected: 'Rejected' };
+const initial = { search: '', plate: '', status: '', tenant_id: '' };
+const loadCompanies = signal => fetchVehicles('limit=1&offset=0', signal);
+
 export default function RegisteredVehicles() {
-  const [draft, setDraft] = useState(initial);
-  const [applied, setApplied] = useState(initial);
-  const [offset, setOffset] = useState(0);
-  const [revision, setRevision] = useState(0);
-  const [data, setData] = useState(null);
-  const [companies, setCompanies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [inputError, setInputError] = useState('');
-  const [selection, setSelection] = useState(null);
-  const [notice, setNotice] = useState('');
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchVehicles(vehiclesQuery(applied, offset), controller.signal).then(result => {
-      if (!controller.signal.aborted) { setData(result); setCompanies(result.companies); setLoading(false); }
-    }).catch(failure => {
-      if (!controller.signal.aborted) { setError(failure.message); setLoading(false); }
+  const [view, setView] = useState('drivers');
+  const [draft, setDraft] = useState(initial), [applied, setApplied] = useState(initial);
+  const [offsets, setOffsets] = useState({ drivers: 0, vehicles: 0 });
+  const [revision, setRevision] = useState(0), [companyRevision, setCompanyRevision] = useState(0);
+  const [selection, setSelection] = useState(null), [drawer, setDrawer] = useState(null);
+  const [notice, setNotice] = useState(''), [inputError, setInputError] = useState('');
+  const [checked, setChecked] = useState({ scope: null, ids: [] }), [bulkSelection, setBulkSelection] = useState(null);
+  const [bulkResults, setBulkResults] = useState(null);
+  const offset = offsets[view];
+  const query = view === 'drivers' ? driversQuery(applied, offset) : vehiclesQuery(applied, offset);
+  const load = useCallback(signal => view === 'drivers' ? fetchDrivers(query, signal) : fetchVehicles(query, signal), [view, query]);
+  const scope = `${view}|${query}|${revision}`;
+  const records = useVehicleResource(scope, load);
+  const loadSummary = useCallback(signal => fetchVehicleSummary(applied.tenant_id, signal), [applied.tenant_id]);
+  const summary = useVehicleResource(`summary|${applied.tenant_id}|${revision}`, loadSummary);
+  const companyResource = useVehicleResource(`companies|${companyRevision}`, loadCompanies);
+  const companies = (companyResource.data ?? companyResource.previous)?.companies ?? [];
+  const data = records.data, locked = Boolean(selection || bulkSelection);
+  const eligible = view === 'vehicles' ? (data?.vehicles ?? []).filter(vehicle => vehicle.registration_status === 'pending') : [];
+  const selectedVehicles = eligible.filter(vehicle => checked.scope === scope && checked.ids.includes(vehicle.id));
+  const rows = view === 'drivers' ? data?.drivers : data?.vehicles;
+  const filtered = Boolean(applied.tenant_id || applied.status || (view === 'drivers' ? applied.search : applied.plate).trim());
+  function resetChecked() { setChecked({ scope: null, ids: [] }); }
+  function changePage(next) { resetChecked(); setOffsets(old => ({ ...old, [view]: next })); }
+  function reload() { resetChecked(); setRevision(value => value + 1); }
+  function selectVehicle(id, selected) {
+    if (locked || records.loading || !eligible.some(vehicle => vehicle.id === id)) return;
+    setChecked(previous => {
+      const ids = previous.scope === scope ? previous.ids : [];
+      return { scope, ids: selected ? [...new Set([...ids, id])] : ids.filter(value => value !== id) };
     });
-    return () => controller.abort();
-  }, [applied, offset, revision]);
-  function reload(nextOffset = offset, filters = applied) {
-    setData(null); setError(''); setLoading(true); setApplied(filters); setOffset(nextOffset); setRevision(value => value + 1);
+  }
+  function selectAll(selected) {
+    if (!locked && !records.loading) setChecked({ scope, ids: selected ? eligible.map(vehicle => vehicle.id) : [] });
   }
   function apply(event) {
     event.preventDefault();
-    try { vehiclesQuery(draft); setInputError(''); reload(0, { ...draft }); }
-    catch (failure) { setInputError(failure.message); }
+    try {
+      driversQuery({ ...draft, search: view === 'drivers' ? draft.search : '' });
+      if (view === 'vehicles') vehiclesQuery(draft);
+      const searchKey = view === 'drivers' ? 'search' : 'plate';
+      setInputError(''); setNotice(''); resetChecked(); setBulkResults(null);
+      setApplied({ ...applied, tenant_id: draft.tenant_id, status: draft.status, [searchKey]: draft[searchKey] });
+      setOffsets({ drivers: 0, vehicles: 0 });
+    } catch (error) { setInputError(error.message); }
   }
-  const filtered = Boolean(applied.plate.trim() || applied.status || applied.tenant_id);
+  function clear() { resetChecked(); setBulkResults(null); setDraft(initial); setApplied(initial); setOffsets({ drivers: 0, vehicles: 0 }); setInputError(''); setNotice(''); }
+  function chooseView(next) { resetChecked(); setView(next); setInputError(''); setOffsets(old => ({ ...old, [next]: 0 })); }
+  function decide(vehicle, action) { setNotice(''); setBulkResults(null); setSelection({ vehicle, action }); }
   return <div className={styles.page}>
-    <div className={styles.heading}><div><h1>Registered Vehicles</h1><p>View vehicle registrations, registered owners and their current company associations.</p></div>
-      <button className={styles.secondary} disabled={loading || Boolean(selection)} onClick={() => { setNotice(''); reload(); }}>{loading && revision > 0 ? 'Refreshing…' : 'Refresh'}</button></div>
-    <form className={filtersStyle.filters} onSubmit={apply}>
-      <label>Search by Number Plate<input type="search" maxLength={32} value={draft.plate} onChange={event => setDraft({ ...draft, plate: event.target.value })} placeholder="Enter number plate" /></label>
-      <label>Vehicle Status<select value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="">All Statuses</option>{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label>Company<select value={draft.tenant_id} onChange={event => setDraft({ ...draft, tenant_id: event.target.value })}><option value="">All Companies</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
-      <button className={styles.primary} disabled={loading || Boolean(selection)}>Apply Filters</button>
-    </form>
-    {inputError && <p className={styles.error} role="alert">{inputError}</p>}
-    {notice && <p className={styles.success} role="status">{notice}</p>}
-    <section className={styles.card} aria-label="Vehicle Records" aria-busy={loading}>
-      {loading ? <div className={styles.state} role="status">{revision ? 'Refreshing vehicle records…' : 'Loading vehicle records…'}</div> : error ?
-        <div className={styles.state}><p className={styles.error} role="alert">{error}</p><button className={styles.secondary} onClick={() => reload()}>Try Again</button></div> : data?.vehicles.length === 0 ?
-          <div className={styles.state}><h2>{offset > 0 ? 'No Vehicles on This Page' : filtered ? 'No Matching Vehicles' : 'No Registered Vehicles'}</h2><p>{offset > 0 ? 'The list may have changed. Return to the first page.' : filtered ? 'Adjust the filters to find vehicle records.' : 'Vehicle registrations will appear here when available.'}</p>{offset > 0 && <button className={styles.secondary} onClick={() => reload(0)}>First Page</button>}</div> :
-          <div className={styles.tableScroll} tabIndex={0} aria-label="Scrollable Vehicle Records Table"><table className={styles.table}><caption className={styles.srOnly}>Registered Vehicles</caption>
-            <thead><tr><th scope="col">Number Plate</th><th scope="col">Registered Owner</th><th scope="col">Company</th><th scope="col">Vehicle Status</th><th scope="col">Actions</th></tr></thead>
-            <tbody>{data?.vehicles.map(vehicle => <tr key={vehicle.id}><td><strong>{vehicle.plate_number}</strong></td><td>{vehicle.owner_name || 'Not available'}</td><td>{vehicle.tenant_name || 'Not available'}</td><td><span className={styles.badge}>{labels[vehicle.registration_status]}</span></td><td>{vehicle.registration_status === 'pending' ? <div className={styles.actions}>
-              <button className={styles.approve} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'approve' }); }} aria-label={`Approve ${vehicle.plate_number}`}>Approve</button>
-              <button className={styles.reject} disabled={Boolean(selection)} onClick={() => { setNotice(''); setSelection({ vehicle, action: 'reject' }); }} aria-label={`Reject ${vehicle.plate_number}`}>Reject</button>
-            </div> : '—'}</td></tr>)}</tbody>
-          </table></div>}
-      <nav className={styles.pagination} aria-label="Vehicles Pagination"><span>Page {Math.floor(offset / 25) + 1}{data ? ` · ${data.total} matching records${data.vehicles.length ? ` · Showing ${offset + 1}–${offset + data.vehicles.length}` : ''}` : ''}</span>
-        <div className={styles.actions}><button className={styles.secondary} disabled={loading || offset === 0 || Boolean(selection)} onClick={() => reload(Math.max(0, offset - 25))}>Previous</button><button className={styles.secondary} disabled={loading || !data || offset + 25 >= data.total || Boolean(selection)} onClick={() => reload(offset + 25)}>Next</button></div></nav>
+    <header className={styles.heading}><div><h1>Registered Vehicles</h1><p>Review driver registration usage and manage individual vehicles.</p></div>
+      <button className={shared.secondary} disabled={records.loading || locked} onClick={() => { setNotice(''); reload(); setCompanyRevision(value => value + 1); }}>Refresh</button></header>
+    <VehicleSummaryCards resource={summary} tenantName={applied.tenant_id ? companies.find(company => company.id === applied.tenant_id)?.name || 'Selected Company' : null} onRetry={reload} />
+    {notice && <p className={shared.success} role="status">{notice}</p>}
+    {bulkResults && <div className={styles.bulkFeedback} data-partial={bulkResults.some(result => result.outcome !== 'approved')}
+      role={bulkResults.some(result => result.outcome !== 'approved') ? 'alert' : 'status'}>
+      <p><strong>{bulkResults.filter(result => result.outcome === 'approved').length} of {bulkResults.length} selected vehicles approved.</strong></p>
+      {bulkResults.some(result => result.outcome !== 'approved') && <ul aria-label="Vehicles Requiring Review">
+        {bulkResults.filter(result => result.outcome !== 'approved').map(result => <li key={result.id}><strong>{result.plate_number}</strong>: {result.message}</li>)}
+      </ul>}
+    </div>}
+    <section className={styles.workspace} aria-label="Registration Management">
+      <div className={styles.toolbar}>
+        <div className={styles.viewControl} role="group" aria-label="Registration View">
+          <button aria-pressed={view === 'drivers'} disabled={locked} onClick={() => chooseView('drivers')}>By Drivers</button>
+          <button aria-pressed={view === 'vehicles'} disabled={locked} onClick={() => chooseView('vehicles')}>All Vehicles</button>
+        </div>
+        <form className={styles.filters} onSubmit={apply}>
+          <label>{view === 'drivers' ? 'Search by Driver Name' : 'Search by Number Plate'}<input type="search"
+            maxLength={view === 'drivers' ? 150 : 32} placeholder={view === 'drivers' ? 'Enter Driver Name' : 'Enter Number Plate'}
+            value={view === 'drivers' ? draft.search : draft.plate} disabled={locked}
+            onChange={event => setDraft(old => ({ ...old, [view === 'drivers' ? 'search' : 'plate']: event.target.value }))} /></label>
+          <label>Company<select value={draft.tenant_id} disabled={locked || (companyResource.loading && !companies.length)}
+            onChange={event => setDraft(old => ({ ...old, tenant_id: event.target.value }))}>
+            <option value="">All Companies</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select></label>
+          <label>Registration Status<select value={draft.status} disabled={locked} onChange={event => setDraft(old => ({ ...old, status: event.target.value }))}>
+            <option value="">All Statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select></label>
+          <div className={styles.filterActions}><button className={shared.primary} disabled={locked}>Apply Filters</button>
+            <button type="button" className={shared.secondary} disabled={locked} onClick={clear}>Clear Filters</button></div>
+        </form>
+        {inputError && <p className={shared.error} role="alert">{inputError}</p>}
+        {companyResource.error && <div className={styles.metadataError}><p role="alert">Company choices are unavailable.</p><button className={shared.secondary} onClick={() => setCompanyRevision(value => value + 1)}>Retry Companies</button></div>}
+        <p className={styles.filterNote}>{view === 'drivers' ? 'Usage includes approved and pending registrations. Rejected records do not take up a slot.' : 'Only pending registrations can be approved or rejected.'}</p>
+      </div>
+      <div aria-busy={records.loading} aria-label={view === 'drivers' ? 'Driver Records' : 'Vehicle Records'}>
+        {records.loading || records.error ? <RecordsState loading={records.loading} error={records.error} onRetry={reload} message={view === 'drivers' ? 'Loading driver registrations…' : 'Loading vehicle registrations…'} />
+          : !rows?.length ? <RecordsState title={offset > 0 ? 'No Records on This Page' : filtered ? 'No Matching Registrations' : view === 'drivers' ? 'No Driver Accounts' : 'No Registered Vehicles'}
+            message={offset > 0 ? 'The records may have changed. Return to the first page.' : filtered ? 'Adjust or clear the filters to find registrations.' : 'Registration records will appear here when available.'}
+            onFirstPage={offset > 0 ? () => changePage(0) : null} />
+            : view === 'drivers' ? <div className={shared.tableScroll} tabIndex={0} aria-label="Scrollable Driver Records Table">
+              <table className={`${shared.table} ${styles.driverTable}`}>
+                <caption className={shared.srOnly}>Driver Vehicle Registrations</caption>
+                <thead><tr><th scope="col">Driver</th><th scope="col">Registration Usage</th><th scope="col">Details</th></tr></thead>
+                <tbody>{data.drivers.map(driver => <tr key={driver.id}>
+                  <td><DriverIdentity driver={driver} /></td>
+                  <td><RegistrationUsage counts={driver.vehicle_counts} /></td>
+                  <td><button className={`${shared.secondary} ${styles.detailsButton}`} disabled={locked} onClick={event => setDrawer({ id: driver.id, trigger: event.currentTarget })} aria-label={`View Driver Details for ${driver.full_name || 'unnamed driver'}`}>View Details</button></td>
+                </tr>)}</tbody>
+              </table>
+            </div> : <VehicleRecordsTable vehicles={data.vehicles} selectedIds={selectedVehicles.map(vehicle => vehicle.id)} locked={locked}
+              onSelect={selectVehicle} onSelectAll={selectAll} onDecision={decide}
+              onApproveSelected={() => { if (!locked && selectedVehicles.length) { setNotice(''); setBulkResults(null); setBulkSelection(selectedVehicles); } }} />}
+      </div>
+      <VehiclePagination data={data} offset={offset} loading={records.loading} disabled={locked} onPage={changePage} noun={view === 'drivers' ? 'Drivers' : 'Vehicles'} />
     </section>
-    {selection && <VehicleDecisionDialog {...selection} onDismiss={(refresh = false) => { setSelection(null); if (refresh) reload(); }} onSuccess={result => {
-      setNotice(`${result.plate_number}: ${labels[result.registration_status]}.`);
-      setSelection(null);
-      reload();
-    }} />}
+    {drawer && <DriverDetailsDrawer key={drawer.id} driverId={drawer.id} trigger={drawer.trigger} revision={revision} locked={locked} onClose={() => { if (!locked) setDrawer(null); }} onDecision={decide} />}
+    {selection && <VehicleDecisionDialog {...selection} onDismiss={(refresh = false) => { setSelection(null); if (refresh) reload(); }}
+      onSuccess={result => { setNotice(`${result.plate_number}: ${statusLabels[result.registration_status]}.`); setSelection(null); reload(); }} />}
+    {bulkSelection && <BulkVehicleApprovalDialog vehicles={bulkSelection}
+      onDismiss={(refresh = false) => { setBulkSelection(null); if (refresh) reload(); }}
+      onComplete={results => { setBulkResults(results); setBulkSelection(null); reload(); }} />}
   </div>;
 }

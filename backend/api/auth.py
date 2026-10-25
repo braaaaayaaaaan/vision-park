@@ -1,4 +1,4 @@
-"""Read-only access to the caller's application profile."""
+"""Registration and read-only access to the caller's application profile."""
 
 from typing import Annotated
 
@@ -9,10 +9,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
+from supabase_auth.types import User
 
-from backend.auth import ApplicationUser, require_application_user, authenticated_user_id
+from backend.auth import ApplicationUser, require_application_user, authenticated_user_id, authenticated_auth_user
 from backend import database
-from backend.registration import RegistrationRequest, RegistrationProfile, register_driver, complete_registration
+from backend.registration import RegistrationRequest, RegistrationProfile, register_driver, complete_registration, restore_registration
 
 
 class SafeAuthRoute(APIRoute):
@@ -55,6 +56,11 @@ def register(request: RegistrationRequest):
 @router.post("/register/complete")
 def complete(request: RegistrationProfile, user_id: Annotated[UUID, Depends(authenticated_user_id)]):
     return complete_registration(user_id, request)
+
+
+@router.post("/register/restore")
+def restore(user: Annotated[User, Depends(authenticated_auth_user)]):
+    return restore_registration(user)
 
 
 @router.get("/me", response_model=ApplicationUser)

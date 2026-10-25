@@ -856,9 +856,7 @@ class _ParkingMapState extends State<ParkingMap>
                 const SizedBox(height: 8),
               ],
               Text(
-                widget.navigationLayout
-                    ? 'Route Preview · Simulated'
-                    : 'Route Preview',
+                widget.navigationLayout ? 'Route Preview' : 'Route Preview',
                 style: widget.navigationLayout
                     ? Theme.of(context).textTheme.labelSmall
                     : Theme.of(context).textTheme.titleSmall,
@@ -977,9 +975,7 @@ class _ParkingMapState extends State<ParkingMap>
     return AnimatedBuilder(
       animation: voice,
       builder: (context, _) => Tooltip(
-        message:
-            voice.unavailableReason ??
-            'Voice Guidance For Simulated Route Preview',
+        message: voice.unavailableReason ?? 'Voice Guidance For Route Preview',
         child: OutlinedButton.icon(
           onPressed:
               voice.enabled ||

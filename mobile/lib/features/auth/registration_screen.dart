@@ -19,7 +19,7 @@ class RegistrationScreen extends StatefulWidget {
 
   final AuthRepository repository;
   final VoidCallback onBack;
-  final VoidCallback onRegistered;
+  final ValueChanged<String> onRegistered;
   final Future<void> Function(String name, String companyId)? onComplete;
   final bool completion;
   final String? message;
@@ -95,7 +95,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           password: _password.text,
           companyId: _companyId!,
         );
-        if (mounted) widget.onRegistered();
+        if (mounted) {
+          _password.clear();
+          _confirmation.clear();
+          widget.onRegistered(_email.text.trim());
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -133,40 +137,43 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ],
           TextFormField(
             controller: _name,
+            enabled: !_submitting,
+            autofillHints: const [AutofillHints.name],
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
             validator: AuthFormValidators.fullName,
             decoration: const InputDecoration(
               labelText: 'Full Name',
-              border: OutlineInputBorder(),
               errorMaxLines: 3,
             ),
           ),
-          const SizedBox(height: AppSpacing.medium),
+          const SizedBox(height: 12),
           if (!widget.completion) ...[
             TextFormField(
               controller: _email,
+              enabled: !_submitting,
+              autofillHints: const [AutofillHints.email],
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autocorrect: false,
               validator: AuthFormValidators.email,
               decoration: const InputDecoration(
                 labelText: 'Email',
-                border: OutlineInputBorder(),
                 errorMaxLines: 3,
               ),
             ),
-            const SizedBox(height: AppSpacing.medium),
+            const SizedBox(height: 12),
             PasswordField(
               controller: _password,
+              enabled: !_submitting,
               label: 'Password',
+              hintText: 'At least 8 characters',
               validator: AuthFormValidators.registrationPassword,
             ),
-            const SizedBox(height: AppSpacing.small),
-            const Text('Use 12 to 128 characters.'),
-            const SizedBox(height: AppSpacing.medium),
+            const SizedBox(height: 12),
             PasswordField(
               controller: _confirmation,
+              enabled: !_submitting,
               label: 'Confirm Password',
               textInputAction: TextInputAction.done,
               validator: (value) {
@@ -176,7 +183,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 return value != _password.text ? 'Passwords must match.' : null;
               },
             ),
-            const SizedBox(height: AppSpacing.medium),
+            const SizedBox(height: 12),
           ],
           if (_loading)
             const LinearProgressIndicator(semanticsLabel: 'Loading Companies'),
@@ -195,7 +202,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Company',
-              border: OutlineInputBorder(),
               errorMaxLines: 3,
             ),
             items: [
@@ -212,7 +218,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           const SizedBox(height: AppSpacing.small),
           const Text(
-            'Select your requested company. Parking access is granted only after administrator approval.',
+            'Company access requires administrator approval.',
+            style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: AppSpacing.large),
           FilledButton(
@@ -227,8 +234,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   : 'Register',
             ),
           ),
-          const SizedBox(height: AppSpacing.small),
-          TextButton(
+          const SizedBox(height: 12),
+          OutlinedButton(
             onPressed: _submitting ? null : _backToLogin,
             child: Text(widget.completion ? 'Sign Out' : 'Back to Login'),
           ),

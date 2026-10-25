@@ -10,6 +10,7 @@ import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+from supabase_auth.types import User
 
 from backend import database
 
@@ -60,12 +61,21 @@ def verify_access_token(token: str) -> UUID:
         raise unauthorized() from None
 
 
-def authenticated_user_id(
+def authenticated_auth_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> UUID:
+) -> User:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise unauthorized()
-    return verify_access_token(credentials.credentials)
+    user_id = verify_access_token(credentials.credentials)
+    # Import here because the public client shares auth_issuer with this module.
+    from backend.public_auth import get_verified_auth_user
+    return get_verified_auth_user(credentials.credentials, user_id)
+
+
+def authenticated_user_id(
+    user: Annotated[User, Depends(authenticated_auth_user)],
+) -> UUID:
+    return UUID(user.id)
 
 
 class ApplicationUser(BaseModel):

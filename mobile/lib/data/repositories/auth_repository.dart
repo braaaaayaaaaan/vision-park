@@ -10,10 +10,12 @@ class AuthFailure implements Exception {
     this.message, {
     this.expired = false,
     this.missingProfile = false,
+    this.code,
   });
   final String message;
   final bool expired;
   final bool missingProfile;
+  final String? code;
 }
 
 class AuthCompany {
@@ -31,6 +33,7 @@ class AuthProfile {
     this.tenantId,
     this.fullName,
     this.companyName,
+    this.email,
   });
   final String id;
   final String role;
@@ -39,6 +42,7 @@ class AuthProfile {
   final String? tenantId;
   final String? fullName;
   final String? companyName;
+  final String? email;
 
   bool get canEnter =>
       role == 'driver' &&
@@ -110,7 +114,7 @@ class SupabaseIdentity implements AuthIdentity {
       throw AuthFailure(
         error.code == 'email_not_confirmed'
             ? 'Confirm your email before signing in.'
-            : 'Unable to sign in. Check your email and password and try again.',
+            : 'Unavailable to sign in. Check your email and password again',
       );
     } catch (_) {
       throw const AuthFailure(
@@ -241,9 +245,14 @@ class RemoteAuthRepository implements AuthRepository {
             expired: true,
           );
         }
-        if (response.statusCode == 403 && path == 'auth/me') {
+        if (response.statusCode == 403) {
           final data = jsonDecode(response.body);
           if (data is Map &&
+              data['detail'] == 'Confirm your email before continuing.') {
+            throw const AuthFailure('Confirm your email before continuing.');
+          }
+          if (data is Map &&
+              path == 'auth/me' &&
               data['detail'] == 'Application profile is unavailable.') {
             throw const AuthFailure(
               'Complete your driver registration.',
@@ -252,6 +261,33 @@ class RemoteAuthRepository implements AuthRepository {
           }
         }
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          if (response.statusCode == 409 && path.startsWith('vehicles')) {
+            // Only recognized application codes select specific local feedback.
+            // Never display an arbitrary database/backend message.
+            dynamic detail;
+            try {
+              final data = jsonDecode(response.body);
+              if (data is Map) detail = data['detail'];
+            } catch (_) {
+              /* Retain the existing safe fallback below. */
+            }
+            if (detail is Map &&
+                detail['code'] == 'vehicle_limit_reached' &&
+                path == 'vehicles') {
+              throw const AuthFailure(
+                'You have reached the five-vehicle limit. Remove an eligible registration or wait for a pending registration to be rejected.',
+                code: 'vehicle_limit_reached',
+              );
+            }
+            if (detail is Map &&
+                detail['code'] == 'rejected_vehicle_retained' &&
+                path.startsWith('vehicles/')) {
+              throw const AuthFailure(
+                'Rejected registrations are retained for audit and cannot be removed.',
+                code: 'rejected_vehicle_retained',
+              );
+            }
+          }
           throw AuthFailure(switch (response.statusCode) {
             400 => 'Unable to submit. Check your details and select an available company.',
             403 => 'Access was denied. Contact your parking administrator.',
@@ -270,7 +306,7 @@ class RemoteAuthRepository implements AuthRepository {
             422 =>
               path.startsWith('vehicles')
                   ? 'Use 1–32 letters and digits for the number plate, without spaces or punctuation.'
-                  : 'Check the required fields and password length.',
+                  : 'Check the required fields and password requirements.',
             429 => 'Too many attempts. Please wait and try again.',
             _ =>
               path.startsWith('auth/register')
@@ -302,7 +338,28 @@ class RemoteAuthRepository implements AuthRepository {
 
   @override
   Future<AuthProfile> profile() async {
-    final data = await _request('auth/me', protected: true);
+    dynamic data;
+    try {
+      data = await _request('auth/me', protected: true);
+    } on AuthFailure catch (error) {
+      if (!error.missingProfile) rethrow;
+      // Only an exact missing-profile response permits automatic provisioning.
+      // Auth and metadata are revalidated by the backend, not by this client.
+      final result = await _request(
+        'auth/register/restore',
+        body: const {},
+        protected: true,
+      );
+      if (result is Map && result['status'] == 'completion_required') {
+        rethrow;
+      }
+      if (result is! Map || result['status'] != 'profile_available') {
+        throw const AuthFailure(
+          'Unable to restore your registration. Please retry.',
+        );
+      }
+      data = await _request('auth/me', protected: true);
+    }
     if (data is! Map ||
         data['id'] != identity.userId ||
         data['role'] is! String ||
@@ -315,6 +372,9 @@ class RemoteAuthRepository implements AuthRepository {
     }
     return AuthProfile(
       id: data['id'] as String,
+      email: identity is SupabaseIdentity
+          ? (identity as SupabaseIdentity).client.auth.currentUser?.email
+          : null,
       role: data['role'] as String,
       approvalStatus: data['approval_status'] as String,
       isActive: data['is_active'] as bool,

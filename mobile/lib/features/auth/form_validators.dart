@@ -1,5 +1,17 @@
-/// Basic UI checks only. The future backend remains authoritative.
+import 'dart:convert';
+
+/// UI feedback mirrors registration policy; the backend remains authoritative.
 abstract final class AuthFormValidators {
+  static String? changePassword(String? value) {
+    final error = registrationPassword(value);
+    if (error != null) return error;
+    // Hosted Auth uses bcrypt's 72-byte password limit (not 72 Unicode runes).
+    if (utf8.encode(value!).length > 72) {
+      return 'Use at most 72 bytes (fewer characters for some symbols).';
+    }
+    return null;
+  }
+
   static String? email(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) return 'Enter your email.';
@@ -24,9 +36,20 @@ abstract final class AuthFormValidators {
 
   static String? registrationPassword(String? value) {
     if (value == null || value.isEmpty) return 'Enter your password.';
-    if (value.length < 12 || value.length > 128) {
-      return 'Use 12 to 128 characters.';
+    if (value.runes.length < 8 || value.runes.length > 128) {
+      return 'Use 8 to 128 characters.';
     }
+    const symbols = r'''!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~''';
+    final missing = <String>[
+      if (!RegExp(r'[A-Z]').hasMatch(value)) 'an uppercase letter',
+      if (!RegExp(r'[a-z]').hasMatch(value)) 'a lowercase letter',
+      if (!RegExp(r'[0-9]').hasMatch(value)) 'a number',
+      if (!value.runes.any(
+        (rune) => symbols.contains(String.fromCharCode(rune)),
+      ))
+        'a special character',
+    ];
+    if (missing.isNotEmpty) return 'Include ${missing.join(', ')}.';
     return null;
   }
 }

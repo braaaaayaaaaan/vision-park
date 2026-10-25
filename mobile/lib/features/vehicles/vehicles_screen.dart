@@ -132,6 +132,13 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            Text(
+                              ready
+                                  ? '${_controller.registrationUsage} / ${VehiclesController.registrationLimit} Registered Vehicles'
+                                  : 'Registration Usage Unavailable',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 12),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -153,7 +160,9 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Add a Vehicle',
+                                        _controller.atRegistrationLimit
+                                            ? 'Limit Reached'
+                                            : 'Add a Vehicle',
                                         style: theme.textTheme.titleMedium
                                             ?.copyWith(
                                               fontWeight: FontWeight.w700,
@@ -161,7 +170,9 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Register your number plate. Parking access is granted after administrator approval.',
+                                        _controller.atRegistrationLimit
+                                            ? 'Remove an eligible registration or wait for a pending registration to be rejected before adding another.'
+                                            : 'Register your number plate. Parking access is granted after administrator approval.',
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
                                               color: theme
@@ -187,6 +198,10 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                               ),
                               onPressed:
                                   _controller.submitting ||
+                                      _controller.atRegistrationLimit ||
+                                      (!ready &&
+                                          _controller.vehicleRepository !=
+                                              null) ||
                                       _controller.status ==
                                           VehiclesStatus.loading
                                   ? null
@@ -215,43 +230,81 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                       style: theme.textTheme.titleLarge,
                     ),
                     const SizedBox(height: AppSpacing.medium),
-                    Wrap(
-                      spacing: AppSpacing.small,
-                      runSpacing: AppSpacing.small,
-                      children: [
-                        for (final (filter, label) in [
-                          (VehicleFilter.all, 'All'),
-                          (VehicleFilter.approved, 'Approved'),
-                          (VehicleFilter.pending, 'Pending'),
-                        ])
-                          ChoiceChip(
-                            label: Text(label),
-                            showCheckmark: false,
-                            avatar: Text(
-                              ready
-                                  ? '${filter == VehicleFilter.all ? _controller.vehicles.length : _controller.count(filter.name)}'
-                                  : '—',
-                              semanticsLabel: ready
-                                  ? '${filter == VehicleFilter.all ? _controller.vehicles.length : _controller.count(filter.name)} vehicles'
-                                  : 'Count unavailable',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
+                    InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Filter Vehicles',
+                        enabled: ready,
+                        isDense: true,
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<VehicleFilter>(
+                          value: _controller.filter,
+                          isExpanded: true,
+                          isDense: true,
+                          itemHeight: null,
+                          borderRadius: BorderRadius.circular(12),
+                          items: [
+                            for (final (filter, label, count) in [
+                              (
+                                VehicleFilter.all,
+                                'All',
+                                _controller.vehicles.length,
                               ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            selectedColor: theme.colorScheme.primaryContainer,
-                            selected: _controller.filter == filter,
-                            onSelected: ready
-                                ? (_) => _controller.selectFilter(filter)
-                                : null,
-                          ),
-                      ],
+                              (
+                                VehicleFilter.approved,
+                                'Approved',
+                                _controller.count('approved'),
+                              ),
+                              (
+                                VehicleFilter.pending,
+                                'Pending',
+                                _controller.count('pending'),
+                              ),
+                              (
+                                VehicleFilter.active,
+                                'Active',
+                                _controller.activeCount,
+                              ),
+                              (
+                                VehicleFilter.rejected,
+                                'Rejected',
+                                _controller.count('rejected'),
+                              ),
+                            ])
+                              DropdownMenuItem(
+                                value: filter,
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(label)),
+                                    const SizedBox(width: AppSpacing.small),
+                                    Text(
+                                      ready ? '$count' : '—',
+                                      semanticsLabel: ready
+                                          ? '$count vehicles'
+                                          : 'Count unavailable',
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          onChanged: ready
+                              ? (filter) {
+                                  if (filter != null) {
+                                    _controller.selectFilter(filter);
+                                  }
+                                }
+                              : null,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.medium),
                     if (_controller.status == VehiclesStatus.loading) ...[
@@ -278,6 +331,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                       )
                     else if (_controller.filteredVehicles.isEmpty)
                       EmptyStateCard(
+                        compact: true,
                         icon: Icons.directions_car_outlined,
                         title: _controller.vehicles.isEmpty
                             ? 'No Registered Vehicles'

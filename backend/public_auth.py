@@ -2,13 +2,17 @@
 
 import os
 from contextlib import contextmanager
+from uuid import UUID
 
 import httpx
 import jwt
 from fastapi import HTTPException
+from pydantic import ValidationError
 from supabase_auth import SyncGoTrueClient
+from supabase_auth.errors import AuthApiError, AuthRetryableError
+from supabase_auth.types import User
 
-from backend.auth import auth_issuer
+from backend.auth import auth_issuer, unauthorized
 
 
 def public_key() -> str:
@@ -37,3 +41,24 @@ def public_auth_client():
             yield client
         finally:
             client.close()
+
+
+def get_verified_auth_user(token: str, expected_user_id: UUID) -> User:
+    """Read confirmation from Auth, never from editable metadata/JWT hints."""
+    try:
+        with public_auth_client() as client:
+            response = client.get_user(jwt=token)
+    except AuthApiError as error:
+        if error.status in (401, 403):
+            raise unauthorized() from None
+        raise HTTPException(503, "Authentication service is unavailable.") from None
+    except (AuthRetryableError, httpx.HTTPError, ValidationError):
+        raise HTTPException(503, "Authentication service is unavailable.") from None
+    if response is None or response.user is None:
+        raise unauthorized()
+    user = response.user
+    if user.id != str(expected_user_id):
+        raise unauthorized()
+    if user.is_anonymous or not user.email or not user.email.strip() or not user.email_confirmed_at:
+        raise HTTPException(403, "Confirm your email before continuing.")
+    return user

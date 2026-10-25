@@ -8,7 +8,10 @@ import 'package:flutter/material.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/active_session_repository.dart';
 import '../features/auth/auth_gate.dart';
+import '../features/auth/email_verification_controller.dart';
+import '../features/auth/password_recovery_controller.dart';
 import '../features/auth/widgets/auth_layout.dart';
+import '../data/services/password_change.dart';
 
 import 'app_config.dart';
 import 'app_theme.dart';
@@ -16,6 +19,9 @@ import 'app_theme.dart';
 class VisionParkApp extends StatelessWidget {
   const VisionParkApp({
     this.repository,
+    this.emailVerification,
+    this.passwordRecovery,
+    this.passwordChange,
     this.activeSessionRepository,
     this.availabilityRepository,
     this.routeRepository,
@@ -27,6 +33,9 @@ class VisionParkApp extends StatelessWidget {
   });
 
   final AuthRepository? repository;
+  final EmailVerificationController? emailVerification;
+  final PasswordRecoveryController? passwordRecovery;
+  final PasswordChangeService? passwordChange;
   final ActiveSessionRepository? activeSessionRepository;
   final AvailabilityRepository? availabilityRepository;
   final AssignedRouteRepository? routeRepository;
@@ -63,6 +72,9 @@ class VisionParkApp extends StatelessWidget {
           )
         : AuthGate(
             repository: repository!,
+            emailVerification: emailVerification,
+            passwordRecovery: passwordRecovery,
+            passwordChange: passwordChange,
             activeSessionRepository: activeSessionRepository,
             availabilityRepository: availabilityRepository,
             routeRepository: routeRepository,

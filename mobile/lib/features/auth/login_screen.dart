@@ -9,13 +9,19 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({
     required this.onLogin,
     required this.onRegister,
+    this.onForgotPassword,
     this.message,
+    this.messageIsError = false,
+    this.initialEmail,
     super.key,
   });
 
   final Future<void> Function(String email, String password) onLogin;
   final VoidCallback onRegister;
+  final void Function(String email)? onForgotPassword;
   final String? message;
+  final bool messageIsError;
+  final String? initialEmail;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,6 +31,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _email.text = widget.initialEmail ?? '';
+  }
 
   @override
   void dispose() {
@@ -51,7 +63,15 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.message != null) ...[
-            Semantics(liveRegion: true, child: Text(widget.message!)),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                widget.message!,
+                style: widget.messageIsError
+                    ? TextStyle(color: Theme.of(context).colorScheme.error)
+                    : null,
+              ),
+            ),
             const SizedBox(height: AppSpacing.medium),
           ],
           TextFormField(
@@ -62,11 +82,10 @@ class _LoginScreenState extends State<LoginScreen> {
             validator: AuthFormValidators.email,
             decoration: const InputDecoration(
               labelText: 'Email',
-              border: OutlineInputBorder(),
               errorMaxLines: 3,
             ),
           ),
-          const SizedBox(height: AppSpacing.medium),
+          const SizedBox(height: 12),
           PasswordField(
             controller: _password,
             label: 'Password',
@@ -74,10 +93,22 @@ class _LoginScreenState extends State<LoginScreen> {
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
           ),
-          const SizedBox(height: AppSpacing.large),
+          if (widget.onForgotPassword != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  _password.clear();
+                  FocusScope.of(context).unfocus();
+                  widget.onForgotPassword!(_email.text);
+                },
+                child: const Text('Forgot Password?'),
+              ),
+            ),
+          const SizedBox(height: 12),
           FilledButton(onPressed: _submit, child: const Text('Login')),
-          const SizedBox(height: AppSpacing.small),
-          TextButton(
+          const SizedBox(height: 12),
+          OutlinedButton(
             onPressed: () {
               _password.clear();
               FocusScope.of(context).unfocus();

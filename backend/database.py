@@ -1,8 +1,6 @@
 """Small Supabase boundary. Importing this module does not connect to the database."""
 
 import os
-from datetime import datetime, timezone
-from uuid import uuid4
 from pathlib import Path
 from threading import Lock
 
@@ -88,6 +86,18 @@ class DuplicateVehicleError(DatabaseError):
     pass
 
 
+class VehicleLimitReached(DatabaseError):
+    pass
+
+
+class VehicleRegistrationForbidden(DatabaseError):
+    pass
+
+
+class RejectedVehicleRetention(DatabaseError):
+    pass
+
+
 class VehicleRemovalConflict(DatabaseError):
     pass
 
@@ -111,6 +121,8 @@ def remove_driver_vehicle(user_id: str, vehicle_id: str) -> bool:
     try:
         rows = get_supabase().table("vehicles").delete().eq("id", vehicle_id).eq("user_id", user_id).execute().data
     except APIError as error:
+        if error.code == "PVR01":
+            raise RejectedVehicleRetention("Rejected registrations are retained for audit.") from None
         if error.code == "23503":
             raise VehicleRemovalConflict("This vehicle has parking or ANPR records and cannot be removed.") from None
         raise DatabaseError("Vehicle removal could not be verified.") from None
@@ -119,9 +131,10 @@ def remove_driver_vehicle(user_id: str, vehicle_id: str) -> bool:
     return bool(rows)
 
 
-def decide_vehicle_registration(admin_id: str, vehicle_id: str, decision: str) -> dict:
+def decide_vehicle_registration(admin_id: str, vehicle_id: str, decision: str, rejection_reason: str | None = None) -> dict:
     result = _execute(get_supabase().rpc('decide_vehicle_registration', {
         'p_admin_id': admin_id, 'p_vehicle_id': vehicle_id, 'p_decision': decision,
+        'p_rejection_reason': rejection_reason,
     })).data
     if not isinstance(result, dict) or 'status' not in result:
         raise DatabaseError('Vehicle decision RPC returned an invalid response.')
@@ -131,7 +144,7 @@ def decide_vehicle_registration(admin_id: str, vehicle_id: str, decision: str) -
 def get_admin_vehicles(limit, offset, plate, status, tenant_id):
     owner = 'owner:users!user_id!inner' if tenant_id else 'owner:users!user_id'
     query = get_supabase().table('vehicles').select(
-        f'id,user_id,plate_number,registration_status,{owner}(full_name,tenant_id,tenant:tenants!tenant_id(id,name))',
+        f'id,user_id,plate_number,registration_status,rejection_reason,{owner}(full_name,tenant_id,tenant:tenants!tenant_id(id,name))',
         count='exact')
     if plate:
         query = query.ilike('plate_number', f'%{plate}%')
@@ -158,9 +171,29 @@ def get_vehicle_companies():
     return _all_rows(lambda: get_supabase().table('tenants').select('id,name'))
 
 
+def get_admin_vehicle_drivers(admin_id, limit, offset, search, tenant_id, status):
+    return _execute(get_supabase().rpc('read_admin_vehicle_drivers', {
+        'p_admin_id': admin_id, 'p_limit': limit, 'p_offset': offset,
+        'p_search': search, 'p_tenant_id': tenant_id, 'p_status': status,
+    })).data
+
+
+def get_admin_vehicle_driver_details(admin_id, driver_id, limit, offset, status):
+    return _execute(get_supabase().rpc('read_admin_vehicle_driver_details', {
+        'p_admin_id': admin_id, 'p_driver_id': driver_id, 'p_limit': limit,
+        'p_offset': offset, 'p_status': status,
+    })).data
+
+
+def get_admin_vehicle_summary(admin_id, tenant_id):
+    return _execute(get_supabase().rpc('read_admin_vehicle_summary', {
+        'p_admin_id': admin_id, 'p_tenant_id': tenant_id,
+    })).data
+
+
 def get_driver_vehicles(user_id: str) -> list[dict]:
     return _all_rows(lambda: get_supabase().table("vehicles").select(
-        "id,user_id,plate_number,registration_status,"
+        "id,user_id,plate_number,registration_status,rejection_reason,"
         "sessions:parking_sessions!vehicle_id(id,vehicle_id,zone_id,user_id,status,entry_time,parking_confirmed_at,exit_time,"
         "zone:parking_zones!zone_id(name,level:parking_levels!level_id(name)))"
     ).eq("user_id", user_id).eq("sessions.user_id", user_id)
@@ -168,23 +201,24 @@ def get_driver_vehicles(user_id: str) -> list[dict]:
 
 
 def register_driver_vehicle(user_id: str, plate_number: str) -> dict:
-    # Company association is through the verified owner (users.tenant_id).
-    # The database's plate uniqueness constraint is authoritative under races.
-    try:
-        now = datetime.now(timezone.utc).isoformat()
-        rows = get_supabase().table("vehicles").insert({
-            "id": str(uuid4()), "created_at": now, "updated_at": now,
-            "user_id": user_id, "plate_number": plate_number, "registration_status": "pending",
-        }).execute().data
-    except APIError as error:
-        if error.code == "23505":
-            raise DuplicateVehicleError("This plate is already registered.") from None
-        raise DatabaseError("Vehicle registration could not be saved.") from None
-    except HTTPError:
-        raise DatabaseError("Registration could not be verified. Refresh your vehicles before retrying.") from None
-    if not rows or len(rows) != 1:
-        raise DatabaseError("Registration could not be verified. Refresh your vehicles before retrying.")
-    return rows[0]
+    # No direct-insert fallback: missing RPC deployment must fail closed.
+    result = _execute(get_supabase().rpc("register_driver_vehicle", {
+        "p_driver_id": user_id, "p_plate_number": plate_number,
+    })).data
+    if not isinstance(result, dict):
+        raise DatabaseError("Vehicle registration could not be verified.")
+    if result.get("status") == "vehicle_limit_reached":
+        raise VehicleLimitReached("The five-vehicle registration limit has been reached.")
+    if result.get("status") == "duplicate_plate":
+        raise DuplicateVehicleError("This plate is already registered.")
+    if result.get("status") == "forbidden":
+        raise VehicleRegistrationForbidden("Driver eligibility could not be confirmed.")
+    row = result.get("vehicle")
+    if (result.get("status") != "registered" or not isinstance(row, dict)
+            or row.get("user_id") != user_id or row.get("plate_number") != plate_number
+            or row.get("registration_status") != "pending"):
+        raise DatabaseError("Vehicle registration could not be verified.")
+    return row
 
 
 def get_supabase() -> Client:
@@ -327,12 +361,32 @@ def get_registration_companies() -> list[dict]:
     ).eq("is_active", True))
 
 
-def get_pending_driver_registrations(limit: int, offset: int) -> list[dict]:
-    return _execute(get_supabase().table("users").select(
-        "id,full_name,approval_status,is_active,requested_tenant_id,"
-        "requested_company:tenants!requested_tenant_id(id,name,is_active)"
-    ).eq("role", "driver").eq("approval_status", "pending")
-        .order("id").range(offset, offset + limit - 1)).data
+def get_driver_registrations(limit: int, offset: int, status='pending', tenant_id=None, sort='name_asc') -> list[dict]:
+    query = get_supabase().table("users").select(
+        "id,full_name,approval_status,is_active,requested_tenant_id,tenant_id,"
+        "requested_company:tenants!requested_tenant_id(id,name,is_active),"
+        "company:tenants!tenant_id(id,name,is_active)", count='exact'
+    ).eq("role", "driver")
+    if status != 'all':
+        query = query.eq('approval_status', status)
+    if tenant_id:
+        # Approved membership is authoritative; other statuses retain their request.
+        query = query.or_(f'and(approval_status.eq.approved,tenant_id.eq.{tenant_id}),'
+                          f'and(approval_status.neq.approved,requested_tenant_id.eq.{tenant_id})')
+    query = query.order('full_name', desc=sort == 'name_desc', nullsfirst=False).order('id')
+    try:
+        return _execute(query.range(offset, offset + limit - 1)).data
+    except DatabaseError:
+        if offset > 0:
+            first = _execute(query.range(0, 0))
+            if isinstance(first.count, int) and offset >= first.count:
+                return []
+        raise
+
+
+def get_driver_registration_summary_rows() -> list[dict]:
+    return _all_rows(lambda: get_supabase().table('users').select(
+        'id,approval_status,tenant_id,requested_tenant_id').eq('role', 'driver'))
 
 
 def decide_driver_registration(admin_id: str, user_id: str, decision: str, tenant_id: str | None) -> dict:

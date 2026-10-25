@@ -16,10 +16,12 @@ import '../features/vehicles/vehicles_screen.dart';
 import 'app_config.dart';
 import 'app_theme.dart';
 import 'driver_bottom_navigation.dart';
+import '../data/services/password_change.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
     this.onSignOut,
+    this.passwordChange,
     this.profile,
     this.activeSessionRepository,
     this.availabilityRepository,
@@ -29,7 +31,8 @@ class AppShell extends StatefulWidget {
     super.key,
   });
 
-  final VoidCallback? onSignOut;
+  final Future<void> Function()? onSignOut;
+  final PasswordChangeService? passwordChange;
   final AuthProfile? profile;
   final ActiveSessionRepository? activeSessionRepository;
   final AvailabilityRepository? availabilityRepository;
@@ -92,6 +95,8 @@ class _AppShellState extends State<AppShell> {
               isVisible: _selectedIndex == 3,
             ),
             AccountScreen(
+              profile: widget.profile,
+              passwordChange: widget.passwordChange,
               onSignOut: widget.onSignOut,
               onVehiclesSelected: () {
                 setState(() => _selectedIndex = 2);

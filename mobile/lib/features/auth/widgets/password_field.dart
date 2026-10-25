@@ -7,6 +7,8 @@ class PasswordField extends StatefulWidget {
     required this.validator,
     this.onSubmitted,
     this.textInputAction = TextInputAction.next,
+    this.enabled = true,
+    this.hintText,
     super.key,
   });
 
@@ -15,6 +17,8 @@ class PasswordField extends StatefulWidget {
   final FormFieldValidator<String> validator;
   final ValueChanged<String>? onSubmitted;
   final TextInputAction textInputAction;
+  final bool enabled;
+  final String? hintText;
 
   @override
   State<PasswordField> createState() => _PasswordFieldState();
@@ -26,6 +30,7 @@ class _PasswordFieldState extends State<PasswordField> {
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: widget.controller,
+    enabled: widget.enabled,
     obscureText: _obscured,
     autocorrect: false,
     enableSuggestions: false,
@@ -34,8 +39,8 @@ class _PasswordFieldState extends State<PasswordField> {
     validator: widget.validator,
     decoration: InputDecoration(
       labelText: widget.label,
-      border: const OutlineInputBorder(),
-      errorMaxLines: 3,
+      hintText: widget.hintText,
+      errorMaxLines: 4,
       suffixIcon: IconButton(
         tooltip: '${_obscured ? 'Show' : 'Hide'} ${widget.label}',
         onPressed: () => setState(() => _obscured = !_obscured),

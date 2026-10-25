@@ -53,7 +53,9 @@ class _VehicleCardState extends State<VehicleCard> {
         : approved
         ? colors.onPrimaryContainer
         : colors.onSecondaryContainer;
-    final removalReason = vehicle.hasActiveSession
+    final removalReason = vehicle.registrationStatus == 'rejected'
+        ? 'Rejected registrations are retained for audit and cannot be removed.'
+        : vehicle.hasActiveSession
         ? 'Removal is unavailable during an active parking session.'
         : vehicle.removalReason ??
               'Removal is unavailable until session information is confirmed.';
@@ -113,6 +115,38 @@ class _VehicleCardState extends State<VehicleCard> {
               ],
             ),
             const SizedBox(height: AppSpacing.medium),
+            if (vehicle.registrationStatus == 'rejected') ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.errorContainer.withValues(alpha: 0.35),
+                  border: Border.all(
+                    color: colors.error.withValues(alpha: 0.2),
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Rejection Reason',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colors.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      vehicle.rejectionReason?.trim().isNotEmpty ?? false
+                          ? vehicle.rejectionReason!.trim()
+                          : 'No rejection reason was provided.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.medium),
+            ],
             if (vehicle.hasActiveSession)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.medium),
@@ -193,7 +227,7 @@ class _VehicleCardState extends State<VehicleCard> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
+                  ).copyWith(overlayColor: AppTheme.buttonOverlay()),
                   onPressed: vehicle.canRemove && !widget.busy && !_removing
                       ? _remove
                       : null,
