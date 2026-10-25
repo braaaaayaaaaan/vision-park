@@ -16,8 +16,7 @@ Future<void> showVehicleRemovalDialog(
       title: const Text('Remove Vehicle?'),
       content: Text(
         'Remove ${vehicle.plateNumber} from your registered vehicles? '
-        'Removal would withdraw its parking registration. '
-        'Vehicles with parking sessions or ANPR records cannot be removed.',
+        'The removal would withdraw its parking registration. ',
       ),
       actions: [
         TextButton(

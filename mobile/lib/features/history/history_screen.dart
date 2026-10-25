@@ -275,6 +275,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       )
                     else if (sessions.isEmpty)
                       const EmptyStateCard(
+                        compact: true,
                         icon: Icons.history_rounded,
                         title: 'No Parking Sessions',
                         message: 'No sessions match this date period and vehicle. Try another filter.',

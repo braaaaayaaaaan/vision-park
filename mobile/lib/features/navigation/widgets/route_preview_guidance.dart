@@ -207,7 +207,7 @@ class RoutePreviewGuidance extends StatelessWidget {
                             children: [
                               Text('${i + 1}. ${plan.instructions[i].text}'),
                               Text(
-                                '${plan.instructions[i].distanceFromStartMetres.round()} m From Start · ${plan.instructions[i].levelName}',
+                                '${plan.instructions[i].distanceFromStartMetres.round()} m from Start · ${plan.instructions[i].levelName}',
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
@@ -230,7 +230,7 @@ class RoutePreviewGuidance extends StatelessWidget {
   }) => Text(
     compact
         ? (staticDirections ? 'Static' : 'Preview')
-        : 'Route Preview Guidance',
+        : 'Route Preview Assistance',
     style: display == RouteGuidanceDisplay.overlay
         ? Theme.of(context).textTheme.labelSmall?.copyWith(height: 1.1)
         : Theme.of(context).textTheme.titleSmall,

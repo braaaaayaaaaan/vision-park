@@ -10,6 +10,7 @@ from backend.auth import ApplicationUser, require_driver
 
 router = APIRouter()
 REMOVAL_BLOCKED = "This vehicle has parking or ANPR records and cannot be removed. Its history is preserved."
+REJECTED_RETAINED = "Rejected registrations are retained for audit and cannot be removed."
 
 
 class VehicleRegistration(BaseModel):
@@ -38,6 +39,7 @@ class VehicleResponse(BaseModel):
     id: UUID
     plate_number: str
     registration_status: str
+    rejection_reason: str | None = Field(default=None, max_length=500)
     active_session: VehicleSession | None = None
     session_information_available: bool = True
     removal_permitted: bool = False
@@ -59,9 +61,11 @@ def vehicle_response(row: dict, user_id: str) -> VehicleResponse:
         active_session = VehicleSession(**session, zone_name=zone.get("name"), level_name=level.get("name"))
     return VehicleResponse(id=row["id"], plate_number=row["plate_number"],
                            registration_status=row["registration_status"],
+                           rejection_reason=row.get('rejection_reason') if row['registration_status'] == 'rejected' else None,
                            active_session=active_session,
-                           removal_permitted=not has_records,
-                           removal_reason=REMOVAL_BLOCKED if has_records else None)
+                           removal_permitted=not has_records and row["registration_status"] != "rejected",
+                           removal_reason=REJECTED_RETAINED if row["registration_status"] == "rejected"
+                           else REMOVAL_BLOCKED if has_records else None)
 
 
 @router.delete("/{vehicle_id}")
@@ -72,11 +76,16 @@ def remove_vehicle(vehicle_id: UUID, response: Response,
         row = database.get_owned_vehicle(str(driver.id), str(vehicle_id))
         if row is None or row["user_id"] != str(driver.id) or row["id"] != str(vehicle_id):
             raise HTTPException(404, "Vehicle not found.")
+        if row["registration_status"] == "rejected":
+            raise HTTPException(409, {"code": "rejected_vehicle_retained", "message": REJECTED_RETAINED})
         if database.vehicle_has_records(str(vehicle_id)):
             raise HTTPException(409, REMOVAL_BLOCKED)
         if not database.remove_driver_vehicle(str(driver.id), str(vehicle_id)):
             raise HTTPException(404, "Vehicle not found. Refresh your vehicles.")
         return {"status": "removed", "vehicle_id": vehicle_id}
+    except database.RejectedVehicleRetention:
+        # The database trigger also covers rejection racing with this deletion.
+        raise HTTPException(409, {"code": "rejected_vehicle_retained", "message": REJECTED_RETAINED}) from None
     except database.VehicleRemovalConflict:
         raise HTTPException(409, REMOVAL_BLOCKED) from None
     except (database.DatabaseError, ValueError, KeyError, TypeError):
@@ -105,5 +114,10 @@ def register_vehicle(request: VehicleRegistration, response: Response,
         return vehicle_response(row, str(driver.id))
     except database.DuplicateVehicleError:
         raise HTTPException(409, "This plate is already registered.") from None
+    except database.VehicleLimitReached:
+        raise HTTPException(409, {"code": "vehicle_limit_reached", "message":
+            "You have reached the five-vehicle limit. Remove an eligible registration or wait for a pending registration to be rejected."}) from None
+    except database.VehicleRegistrationForbidden:
+        raise HTTPException(403, "An approved, active driver and company are required.") from None
     except (database.DatabaseError, ValueError, KeyError, TypeError):
         raise HTTPException(503, "Registration could not be verified. Refresh your vehicles before retrying.") from None

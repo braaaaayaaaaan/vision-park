@@ -1,0 +1,30 @@
+.companyBreakdown { margin-top: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.companyBreakdown summary { padding: 14px 20px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.companyBreakdown summary span { margin-left: 8px; font-weight: 400; }
+.breakdownContent { padding: 0 20px 16px; display: grid; gap: 12px; }
+.breakdownScroll { overflow: auto; max-height: 280px; }
+.breakdownTable { min-width: 480px; }
+.companyBreakdown .breakdownTable th, .companyBreakdown .breakdownTable td { padding: 10px 12px; font-size: 13px; }
+.breakdownTable thead th { position: sticky; top: 0; }
+.breakdownTable tbody th { font-weight: 500; }
+.breakdownTable th:not(:first-child), .breakdownTable td { text-align: right; font-variant-numeric: tabular-nums; }
+.registrationTable { table-layout: fixed; min-width: 840px; }
+.registrationTable th:first-child { width: 32%; }
+.registrationTable th:nth-child(2) { width: 29%; }
+.registrationTable th:nth-child(3) { width: 18%; }
+.registrationTable th:last-child { width: 21%; }
+.registrationTable th:nth-child(3), .registrationTable td:nth-child(3), .registrationTable th:last-child, .registrationTable td:last-child { text-align: center; }
+.registrationTable .rowActions { justify-content: center; }
+.registrationTable .rowActions button { min-height: 36px; padding: 7px 10px; font-size: 12px; }
+.registrationTable tbody tr:last-child td { border-bottom: 0; }
+.registrationTable tbody tr:hover { background: var(--background); }
+.workspace .registrationTable th { padding: 12px 20px; font-size: 12px; }
+.workspace .registrationTable td { padding: 14px 20px; }
+.registrationTable td > strong { font-size: 15px; }
+.registrationTable small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+.registrationTable .identifier { font-size: 11px; }
+.statusBadges { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 600px) {
+  .companyBreakdown summary, .breakdownContent { padding-inline: 16px; }
+  .companyBreakdown summary span { display: block; margin: 4px 0 0; }
+}

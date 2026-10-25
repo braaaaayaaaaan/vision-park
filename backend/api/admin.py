@@ -7,9 +7,12 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict, ValidationError, Field
+from pydantic import BaseModel, ConfigDict, ValidationError, Field, field_validator
 
 from backend import database
+from backend.vehicle_rejection import normalize_rejection_reason
+from backend import admin_vehicle_data as vehicle_data
+from backend.admin_registration_data import RegistrationSummary, summarize_registrations
 from backend.auth import ApplicationUser, require_administrator
 from backend.parking.overview import ParkingOverview, aggregate_overview, reporting_period
 from backend.parking.analytics import ParkingAnalytics, aggregate_analytics, analytics_period
@@ -382,10 +385,37 @@ class VehicleCompany(BaseModel):
     name: str
 
 
+@router.get('/vehicle-drivers', response_model=vehicle_data.DriverVehiclePage)
+def vehicle_drivers(response: Response, admin: Administrator,
+                    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+                    offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
+                    search: Annotated[str, Query(max_length=150)] = '',
+                    tenant_id: UUID | None = None, status: vehicle_data.VehicleStatus | None = None):
+    response.headers['Cache-Control'] = 'no-store'
+    return vehicle_data.driver_page(str(admin.id), limit, offset, vehicle_data.normalized_search(search),
+                                    str(tenant_id) if tenant_id else None, status)
+
+
+@router.get('/vehicle-drivers/{driver_id}', response_model=vehicle_data.DriverVehicleDetails)
+def vehicle_driver_details(driver_id: UUID, response: Response, admin: Administrator,
+                           limit: Annotated[int, Query(ge=1, le=100)] = 25,
+                           offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
+                           status: vehicle_data.VehicleStatus | None = None):
+    response.headers['Cache-Control'] = 'no-store'
+    return vehicle_data.driver_details(str(admin.id), str(driver_id), limit, offset, status)
+
+
+@router.get('/vehicles/summary', response_model=vehicle_data.VehicleSummary)
+def registered_vehicle_summary(response: Response, admin: Administrator, tenant_id: UUID | None = None):
+    response.headers['Cache-Control'] = 'no-store'
+    return vehicle_data.vehicle_summary(str(admin.id), str(tenant_id) if tenant_id else None)
+
+
 class AdminVehicle(BaseModel):
     id: UUID
     plate_number: str
     registration_status: Literal['approved', 'pending', 'rejected']
+    rejection_reason: str | None = Field(default=None, max_length=500)
     owner_id: UUID | None
     owner_name: str | None
     tenant_id: UUID | None
@@ -404,20 +434,31 @@ class VehicleDecisionRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
 
+class VehicleRejectionRequest(VehicleDecisionRequest):
+    rejection_reason: str = Field(strict=True, min_length=1, max_length=500)
+
+    @field_validator('rejection_reason', mode='before')
+    @classmethod
+    def valid_reason(cls, value):
+        return normalize_rejection_reason(value)
+
+
 class VehicleDecisionResponse(BaseModel):
     id: UUID
     plate_number: str
     registration_status: Literal['approved', 'rejected']
+    rejection_reason: str | None = Field(default=None, max_length=500)
 
 
-def decide_vehicle(admin: ApplicationUser, vehicle_id: UUID, decision: str):
+def decide_vehicle(admin: ApplicationUser, vehicle_id: UUID, decision: str, rejection_reason: str | None = None):
     try:
-        result = database.decide_vehicle_registration(str(admin.id), str(vehicle_id), decision)
+        result = database.decide_vehicle_registration(str(admin.id), str(vehicle_id), decision, rejection_reason)
         errors = {
             'forbidden': (403, 'Administrator access is required.'),
             'not_found': (404, 'Vehicle not found. Refresh the vehicle list.'),
             'conflict': (409, 'This registration has already been processed. Refresh the vehicle list.'),
             'invalid_decision': (400, 'Invalid vehicle registration decision.'),
+            'invalid_reason': (422, 'Enter a rejection reason of 500 characters or fewer.'),
         }
         if result.get('status') in errors:
             code, message = errors[result['status']]
@@ -425,6 +466,8 @@ def decide_vehicle(admin: ApplicationUser, vehicle_id: UUID, decision: str):
         vehicle = VehicleDecisionResponse.model_validate(result)
         if vehicle.id != vehicle_id or vehicle.registration_status != decision or result.get('status') != decision:
             raise ValueError('Unexpected vehicle decision result')
+        if vehicle.rejection_reason != rejection_reason:
+            raise ValueError('Unexpected rejection reason')
         return vehicle
     except (database.DatabaseError, ValueError, KeyError, TypeError):
         raise HTTPException(503, 'Vehicle decision could not be confirmed. Refresh the list before retrying. Ensure the vehicle decision RPC is deployed.') from None
@@ -439,9 +482,9 @@ def approve_vehicle(vehicle_id: UUID, admin: Administrator, response: Response,
 
 @router.post('/vehicles/{vehicle_id}/reject', response_model=VehicleDecisionResponse)
 def reject_vehicle(vehicle_id: UUID, admin: Administrator, response: Response,
-                   request: VehicleDecisionRequest | None = None):
+                   request: VehicleRejectionRequest):
     response.headers['Cache-Control'] = 'no-store'
-    return decide_vehicle(admin, vehicle_id, 'rejected')
+    return decide_vehicle(admin, vehicle_id, 'rejected', request.rejection_reason)
 
 
 @router.get('/vehicles', response_model=AdminVehiclePage)
@@ -461,6 +504,7 @@ def registered_vehicles(response: Response, limit: Annotated[int, Query(ge=1, le
             owner = row.get('owner') or {}
             tenant = owner.get('tenant') or {}
             vehicles.append(AdminVehicle(id=row['id'], plate_number=row['plate_number'],
+                rejection_reason=row.get('rejection_reason') if row['registration_status'] == 'rejected' else None,
                 registration_status=row['registration_status'], owner_id=row.get('user_id'),
                 owner_name=owner.get('full_name'), tenant_id=owner.get('tenant_id'), tenant_name=tenant.get('name')))
         return AdminVehiclePage(vehicles=vehicles, total=total, limit=limit, offset=offset,
@@ -508,13 +552,15 @@ class RequestedCompany(BaseModel):
     is_active: bool
 
 
-class PendingRegistration(BaseModel):
+class DriverRegistration(BaseModel):
     id: UUID
     full_name: str | None
-    approval_status: Literal["pending"]
+    approval_status: Literal["pending", "approved", "rejected"]
     is_active: bool
     requested_tenant_id: UUID | None
     requested_company: RequestedCompany | None
+    tenant_id: UUID | None = None
+    company: RequestedCompany | None = None
 
 
 class ApprovalRequest(BaseModel):
@@ -529,12 +575,24 @@ class DecisionResponse(BaseModel):
     tenant_id: UUID | None
 
 
-@router.get("/registrations", response_model=list[PendingRegistration])
+@router.get('/registrations/summary', response_model=RegistrationSummary)
+def registration_summary(response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        return summarize_registrations(database.get_driver_registration_summary_rows(), database.get_vehicle_companies())
+    except (database.DatabaseError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Registration summary is unavailable. Please retry.') from None
+
+
+@router.get("/registrations", response_model=list[DriverRegistration])
 def registrations(response: Response, limit: Annotated[int, Query(ge=1, le=100)] = 50,
-                  offset: Annotated[int, Query(ge=0)] = 0):
+                  offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
+                  status: Literal['pending', 'approved', 'rejected', 'all'] = 'pending',
+                  tenant_id: UUID | None = None,
+                  sort: Literal['name_asc', 'name_desc'] = 'name_asc'):
     response.headers["Cache-Control"] = "no-store"
     try:
-        return database.get_pending_driver_registrations(limit, offset)
+        return database.get_driver_registrations(limit, offset, status, str(tenant_id) if tenant_id else None, sort)
     except database.DatabaseError:
         raise HTTPException(503, "Registration service is unavailable.") from None
 

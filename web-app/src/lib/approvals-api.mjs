@@ -1,4 +1,5 @@
 import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { approvalQuery, validateRegistrations, validateRegistrationSummary } from './approval-read-contracts.mjs';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 class ReviewError extends Error {
@@ -36,20 +37,6 @@ function companies(data) {
   return data.map(({ id, name }) => ({ id, name }));
 }
 
-function registrations(data) {
-  if (!Array.isArray(data)) throw unavailable();
-  return data.map((item) => {
-    if (!item || !uuid.test(item.id) || item.approval_status !== 'pending' ||
-        !(item.full_name === null || typeof item.full_name === 'string') || typeof item.is_active !== 'boolean' ||
-        !(item.requested_tenant_id === null || uuid.test(item.requested_tenant_id))) throw unavailable();
-    const company = item.requested_company;
-    if (company !== null && (!company || !uuid.test(company.id) || typeof company.name !== 'string' || typeof company.is_active !== 'boolean' || company.id !== item.requested_tenant_id)) throw unavailable();
-    return { id: item.id, full_name: item.full_name, approval_status: item.approval_status,
-      requested_tenant_id: item.requested_tenant_id,
-      requested_company: company ? { id: company.id, name: company.name, is_active: company.is_active } : null };
-  });
-}
-
 // Only the registration-review operations are exposed; this is not an open proxy.
 export async function handleApprovals(request, segments = []) {
   let session;
@@ -60,12 +47,15 @@ export async function handleApprovals(request, segments = []) {
     const token = session?.access_token ?? request.cookies.get(ACCESS_COOKIE)?.value;
     let body;
     if (request.method === 'GET' && segments.length === 0) {
-      const params = new URL(request.url).searchParams;
-      const limit = Number(params.get('limit') ?? 10);
-      const offset = Number(params.get('offset') ?? 0);
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 99 || !Number.isSafeInteger(offset) || offset < 0) throw new ReviewError('Invalid pagination parameters.', 400);
-      const rows = registrations(await backend(`admin/registrations?limit=${limit + 1}&offset=${offset}`, token));
+      let params;
+      try { params = approvalQuery(new URL(request.url).searchParams); }
+      catch (error) { throw new ReviewError(error.message, 400); }
+      const limit = Number(params.get('limit')), offset = Number(params.get('offset'));
+      params.set('limit', String(limit + 1));
+      const rows = validateRegistrations(await backend(`admin/registrations?${params}`, token), params);
       body = { applications: rows.slice(0, limit), hasNext: rows.length > limit, limit, offset };
+    } else if (request.method === 'GET' && segments.length === 1 && segments[0] === 'summary') {
+      body = validateRegistrationSummary(await backend('admin/registrations/summary', token));
     } else if (request.method === 'GET' && segments.length === 1 && segments[0] === 'companies') {
       body = { companies: companies(await backend('auth/companies', token)) };
     } else if (request.method === 'POST' && segments.length === 2 && uuid.test(segments[0]) && ['approve', 'reject'].includes(segments[1])) {

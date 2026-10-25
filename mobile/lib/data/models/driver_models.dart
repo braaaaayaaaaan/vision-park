@@ -24,6 +24,7 @@ class DriverVehicle {
     required this.id,
     required this.plateNumber,
     required this.registrationStatus,
+    this.rejectionReason,
     this.lastRecognitionAt,
     this.activeSession,
     this.sessionInformationAvailable = false,
@@ -34,6 +35,7 @@ class DriverVehicle {
   final String id;
   final String plateNumber;
   final String registrationStatus;
+  final String? rejectionReason;
   final DateTime? lastRecognitionAt;
   final ParkingSession? activeSession;
 
@@ -56,7 +58,10 @@ class DriverVehicle {
       activeSession?.status == ParkingSessionStatus.occupied;
 
   bool get canRemove =>
-      removalPermitted && sessionInformationAvailable && !hasActiveSession;
+      registrationStatus != 'rejected' &&
+      removalPermitted &&
+      sessionInformationAvailable &&
+      !hasActiveSession;
 }
 
 enum ParkingSessionStatus { allocated, occupied, completed }

@@ -21,15 +21,59 @@ abstract final class AppTheme {
   static const cornerRadius = 20.0;
   static const contentWidth = 640.0;
 
+  static WidgetStateProperty<Color?> buttonOverlay({bool filled = false}) =>
+      WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return Colors.transparent;
+        final colour = filled ? Colors.black : blue;
+        if (states.contains(WidgetState.pressed)) {
+          return colour.withValues(alpha: filled ? .24 : .20);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return colour.withValues(alpha: .16);
+        }
+        if (states.contains(WidgetState.focused)) {
+          return colour.withValues(alpha: .18);
+        }
+        return null;
+      });
+
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
       seedColor: blue,
       brightness: Brightness.light,
     ).copyWith(primary: blue, surface: Colors.white, onSurface: ink);
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      fontFamily: 'Roboto',
+    );
 
     return base.copyWith(
       scaffoldBackgroundColor: background,
+      hoverColor: blue.withValues(alpha: .12),
+      focusColor: blue.withValues(alpha: .16),
+      highlightColor: blue.withValues(alpha: .18),
+      splashColor: blue.withValues(alpha: .22),
+      filledButtonTheme: FilledButtonThemeData(
+        style: ButtonStyle(overlayColor: buttonOverlay(filled: true)),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(overlayColor: buttonOverlay()),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ButtonStyle(overlayColor: buttonOverlay()),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(overlayColor: buttonOverlay()),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(overlayColor: buttonOverlay()),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        hoverColor: blue.withValues(alpha: .16),
+        focusColor: blue.withValues(alpha: .20),
+        splashColor: blue.withValues(alpha: .24),
+      ),
       textTheme: base.textTheme.copyWith(
         headlineMedium: base.textTheme.headlineMedium?.copyWith(
           fontWeight: FontWeight.w700,
@@ -62,6 +106,7 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
+        overlayColor: buttonOverlay(),
         backgroundColor: scheme.surface,
         indicatorColor: scheme.primaryContainer,
         elevation: 0,

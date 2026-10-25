@@ -7,17 +7,33 @@ import '../../data/repositories/auth_repository.dart';
 
 enum VehiclesStatus { disconnected, loading, ready, error }
 
-enum VehicleFilter { all, approved, pending }
+enum VehicleFilter { all, approved, pending, active, rejected }
 
 class VehiclesController extends ChangeNotifier {
+  static const registrationLimit = 5;
   VehiclesController({this.repository, this.vehicleRepository});
   final VehicleRepository? vehicleRepository;
   bool submitting = false;
   String? message;
   String? notice;
 
+  int get registrationUsage => count('approved') + count('pending');
+  bool get atRegistrationLimit =>
+      status == VehiclesStatus.ready && registrationUsage >= registrationLimit;
+
   Future<void> register(String plate) async {
     if (submitting || _disposed || vehicleRepository == null) return;
+    if (status != VehiclesStatus.ready) {
+      throw const AuthFailure(
+        'Refresh your vehicles before registering another.',
+      );
+    }
+    if (atRegistrationLimit) {
+      throw const AuthFailure(
+        'You have reached the five-vehicle limit. Remove an eligible registration or wait for a pending registration to be rejected.',
+        code: 'vehicle_limit_reached',
+      );
+    }
     submitting = true;
     notifyListeners();
     try {
@@ -26,6 +42,10 @@ class VehiclesController extends ChangeNotifier {
       notice = 'Vehicle registered. Administrator approval is pending.';
       filter = VehicleFilter.all;
       await load();
+    } on AuthFailure catch (error) {
+      // Another device may have consumed the final slot since the list loaded.
+      if (error.code == 'vehicle_limit_reached' && !_disposed) await load();
+      rethrow;
     } finally {
       submitting = false;
       if (!_disposed) notifyListeners();
@@ -46,6 +66,9 @@ class VehiclesController extends ChangeNotifier {
       if (_disposed) return;
       notice = 'Vehicle removed.';
       await load();
+    } on AuthFailure catch (error) {
+      if (error.code == 'rejected_vehicle_retained' && !_disposed) await load();
+      rethrow;
     } finally {
       submitting = false;
       if (!_disposed) notifyListeners();
@@ -60,14 +83,18 @@ class VehiclesController extends ChangeNotifier {
 
   List<DriverVehicle> get filteredVehicles => vehicles
       .where(
-        (vehicle) =>
-            filter == VehicleFilter.all ||
-            vehicle.registrationStatus == filter.name,
+        (vehicle) => switch (filter) {
+          VehicleFilter.all => true,
+          VehicleFilter.active => vehicle.hasActiveSession,
+          _ => vehicle.registrationStatus == filter.name,
+        },
       )
       .toList();
 
   int count(String status) =>
       vehicles.where((v) => v.registrationStatus == status).length;
+
+  int get activeCount => vehicles.where((v) => v.hasActiveSession).length;
 
   void selectFilter(VehicleFilter value) {
     filter = value;

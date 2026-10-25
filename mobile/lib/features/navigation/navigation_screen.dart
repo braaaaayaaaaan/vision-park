@@ -208,6 +208,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       )
                     else if (!_controller.hasActiveSession)
                       const EmptyStateCard(
+                        compact: true,
                         icon: Icons.local_parking_outlined,
                         title: 'No Active Parking Session',
                         message: 'Navigation requires an active parking allocation. No route is currently available.',

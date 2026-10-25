@@ -28,6 +28,7 @@ class RemoteVehicleRepository implements VehicleRepository {
       id: row['id'] as String,
       plateNumber: row['plate_number'] as String,
       registrationStatus: row['registration_status'] as String,
+      rejectionReason: row['rejection_reason'] as String?,
       sessionInformationAvailable: row['session_information_available'] as bool,
       removalPermitted: row['removal_permitted'] as bool,
       removalReason: row['removal_reason'] as String?,
