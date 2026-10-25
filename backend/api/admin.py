@@ -1,4 +1,4 @@
-"""Administrator registration review and read-only parking reports."""
+"""Administrator registration review, tenant management and parking configuration."""
 
 from typing import Annotated, Literal
 from uuid import UUID
@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, ValidationError, Field, field_validator
 
 from backend import database
+from backend import tenants
 from backend.vehicle_rejection import normalize_rejection_reason
 from backend import admin_vehicle_data as vehicle_data
 from backend.admin_registration_data import RegistrationSummary, summarize_registrations
@@ -30,6 +31,60 @@ from backend.parking import publication
 
 router = APIRouter(dependencies=[Depends(require_administrator)])
 Administrator = Annotated[ApplicationUser, Depends(require_administrator)]
+
+
+@router.get('/tenants')
+def list_tenants(response: Response, admin: Administrator,
+                 search: Annotated[str, Query(max_length=120)] = '',
+                 status: Literal['all', 'active', 'inactive'] = 'all',
+                 sort: Literal['name_asc', 'name_desc', 'drivers_desc', 'pending_desc'] = 'name_asc',
+                 limit: Annotated[int, Query(ge=1, le=100)] = 25,
+                 offset: Annotated[int, Query(ge=0, le=1000000)] = 0):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return tenants.read(str(admin.id), search=search, status=status, sort=sort, limit=limit, offset=offset)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Tenant management is unavailable. Check tenant storage setup and retry.') from None
+
+
+@router.get('/tenants/{tenant_id}')
+def tenant_details(tenant_id: UUID, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return tenants.read(str(admin.id), str(tenant_id))
+    except database.DatabaseError:
+        raise HTTPException(503, 'Company details are unavailable. Please retry.') from None
+
+
+async def tenant_change(request, response, admin, tenant_id=None):
+    response.headers['Cache-Control'] = 'private, no-store'
+    if request.headers.get('content-type', '').split(';')[0].lower() != 'application/json':
+        raise HTTPException(415, 'Use a JSON company request.')
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > tenants.MAX_BODY_BYTES:
+            raise HTTPException(413, 'Company request exceeds 128 KiB.')
+        body.extend(chunk)
+    try:
+        change = tenants.TenantInput.model_validate_json(body)
+    except ValidationError:
+        raise HTTPException(422, 'Use a readable company name, valid zones and the current revision.') from None
+    if tenant_id is not None and change.id != tenant_id:
+        raise HTTPException(422, 'The company identifier does not match.')
+    try:
+        return await run_in_threadpool(tenants.save, str(admin.id), change, tenant_id is None)
+    except database.DatabaseError:
+        raise HTTPException(503, 'Company save could not be confirmed. Refresh before retrying.') from None
+
+
+@router.post('/tenants', status_code=201)
+async def create_tenant(request: Request, response: Response, admin: Administrator):
+    return await tenant_change(request, response, admin)
+
+
+@router.put('/tenants/{tenant_id}')
+async def update_tenant(tenant_id: UUID, request: Request, response: Response, admin: Administrator):
+    return await tenant_change(request, response, admin, tenant_id)
 
 
 @router.post('/parking/structure/publication/{action}')

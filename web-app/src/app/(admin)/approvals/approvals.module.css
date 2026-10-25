@@ -41,6 +41,14 @@
 .applicant { background: var(--background); padding: 16px; border-radius: 10px; overflow-wrap: anywhere; }
 .applicant small { display: block; color: var(--text-muted); }
 .applicant p { margin-top: 8px; font-size: 14px; }
+.applicantDetails { margin: 0; border: 1px solid var(--border); }
+.applicantDetails > div { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: baseline; gap: 16px; }
+.applicantDetails > div + div { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.applicantDetails dt { color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.applicantDetails dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.applicantName { font-size: 15px; font-weight: 600; }
+.applicantId { color: var(--text-muted); font-family: ui-monospace, monospace; font-size: 12px; }
+.applicantDetails + .companyField { margin-top: 20px; }
 .companyField { display: grid; gap: 8px; }
 .companyField label { font-weight: 600; }
 .dialogActions { display: flex; justify-content: flex-end; gap: 12px; }
@@ -53,4 +61,7 @@
   .pagination { flex-wrap: wrap; padding: 16px; }
   .dialog { padding: 24px; }
   .dialogActions { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .applicantDetails > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }

@@ -57,7 +57,11 @@ export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess
       onConfirm={submit} onCancel={() => { if (!inFlight.current) onDismiss(uncertain); }} pending={submitting} error={error}
       pendingLabel="Submitting…" cancelLabel={uncertain ? 'Close and Refresh' : 'Cancel'} confirmLabel={approve ? 'Confirm Approval' : 'Confirm Rejection'}
       disabled={uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
-        <div className={styles.applicant}><strong>{applicant.full_name || 'Name not provided'}</strong><small>{applicant.id}</small><p>Requested company: {applicant.requested_company?.name || 'Not provided'}</p></div>
+        <dl className={`${styles.applicant} ${styles.applicantDetails}`}>
+          <div><dt>Driver Name</dt><dd className={styles.applicantName}>{applicant.full_name || 'Name not provided'}</dd></div>
+          <div><dt>Driver ID</dt><dd className={styles.applicantId}>{applicant.id}</dd></div>
+          <div><dt>Requested Company</dt><dd>{applicant.requested_company?.name || 'Not provided'}</dd></div>
+        </dl>
         {approve && <div className={styles.companyField}>
           {loading ? <p role="status">Loading available companies…</p> : companyError ? <div><p className={styles.error} role="alert">{companyError}</p><button type="button" className={styles.secondary} onClick={() => { setLoading(true); setCompanyError(''); setAttempt((value) => value + 1); }}>Retry Companies</button></div> : <>
             <label htmlFor="assigned-company">Assigned Company</label>

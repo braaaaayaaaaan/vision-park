@@ -1,0 +1,44 @@
+.table { min-width: 960px; }
+.table th, .table td { padding: 14px 20px; }
+.table tbody th { background: var(--surface); color: var(--text); white-space: normal; text-align: left; min-width: 220px; }
+.table tbody tr:hover th, .table tbody tr:hover td { background: var(--background); }
+.table tbody tr:last-child th, .table tbody tr:last-child td { border-bottom: 0; }
+.table td { font-variant-numeric: tabular-nums; }
+.nameButton { padding: 0; border: 0; background: transparent; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.nameButton:hover { text-decoration: underline; }
+.detailsHeading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.detailsHeading h3 { margin: 0; overflow-wrap: anywhere; font-size: 23px; }
+.info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.info > div, .stats > div { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.info dt, .stats dt { color: var(--text-muted); font-size: 12px; }
+.info dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.info .sessionCount { font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.driverStats { display: grid; gap: 14px; }
+.driverStats h3 { margin: 0; font-size: 16px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0; }
+.stats dd { margin: 0; font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.zoneSection { display: grid; gap: 14px; }
+.zoneSection h3 { font-size: 16px; margin: 0; }
+.notice { background: var(--background); color: var(--text-muted); border: 1px solid var(--border); padding: 12px 16px; border-radius: 10px; font-size: 13px; }
+.level { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.level h4 { margin: 0; padding: 10px 14px; background: var(--background); font-size: 14px; }
+.level ul { list-style: none; padding: 0; margin: 0; }
+.level li { display: grid; gap: 4px; padding: 12px 14px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.zoneDetails { margin-top: 6px; min-width: 0; }
+.zoneDetails summary { width: fit-content; color: var(--primary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.zoneDetails summary:hover { text-decoration: underline; }
+.zoneMetadata { margin: 10px 0 0; padding: 12px; border-radius: 8px; background: var(--background); }
+.zoneMetadata dt { color: var(--text-muted); font-size: 12px; }
+.zoneMetadata dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.zoneMetadata code { font-size: 12px; }
+.editor { width: min(640px, calc(100% - 32px)); }
+.field { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.field input { width: 100%; min-width: 0; border: 1px solid var(--input-border); border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 400; color: var(--text); background: var(--surface); }
+.check, .zoneOption { display: flex; gap: 12px; align-items: start; cursor: pointer; font-size: 14px; }
+.check input, .zoneOption input { accent-color: var(--primary); width: 18px; height: 18px; flex-shrink: 0; margin-top: 3px; }
+.zoneFieldset { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; margin: 0; }
+.zoneFieldset legend { font-size: 14px; font-weight: 600; padding: 0 6px; }
+.zoneOption { padding: 10px 0; }
+.zoneOption span { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.zoneOption small { color: var(--text-muted); font-size: 12px; }
+@media (max-width: 600px) { .info { grid-template-columns: minmax(0, 1fr); } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .detailsHeading { flex-wrap: wrap; } }
