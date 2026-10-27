@@ -65,7 +65,12 @@ class AuthController extends ChangeNotifier {
             ? AuthStatus.approved
             : AuthStatus.blocked;
         if (status == AuthStatus.blocked) message = profile.statusMessage;
-        if (status == AuthStatus.approved) this.profile = profile;
+        // Retain verified driver identity for payment-only access, without
+        // granting parking eligibility or opening the driver shell.
+        if (status == AuthStatus.approved ||
+            (status == AuthStatus.blocked && profile.role == 'driver')) {
+          this.profile = profile;
+        }
       }
     } on AuthFailure catch (error) {
       if (_disposed || epoch != _epoch) return;

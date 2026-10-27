@@ -31,7 +31,7 @@ export async function levelManagementRequest(request, path) {
     if (!response.ok) {
       const data = await response.json().catch(() => null);
       const conflicts = {
-        duplicate_number: 'A level number is already in use. Refresh and choose unique numbers; nothing was saved.',
+        duplicate_number: 'A level number is already in use. Refresh and choose unique numbers. Nothing was saved.',
         stale: 'This level has already been changed. Please refresh and review before trying again.',
         active: 'Active levels cannot be deleted. No changes were made.',
         has_dependencies: 'This level has zones, navigation or other associated records and cannot be deleted. No changes were made.',

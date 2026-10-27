@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 export const initialState = { loading: true, uploading: false, levels: [], error: '', success: '', conflict: false };
 export function floorPlanState(state, action) {
   switch (action.type) {
@@ -20,7 +21,7 @@ export function fileError(file) {
   return '';
 }
 export async function floorPlanRequest(path = '', options = {}) {
-  const response = await fetch(`/api/parking-structure${path}`, { ...options, cache: 'no-store' });
+  const response = await authenticatedFetch(`/api/parking-structure${path}`, { ...options, cache: 'no-store' });
   if ([401, 403].includes(response.status)) {
     window.location.replace(`/login?reason=${response.status === 401 ? 'expired' : 'denied'}`);
   }

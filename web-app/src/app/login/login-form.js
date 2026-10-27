@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import { loginAdministrator } from '../../lib/auth-client.mjs';
 import styles from './page.module.css';
 
 export default function LoginForm({ message }) {
@@ -14,10 +15,7 @@ export default function LoginForm({ message }) {
     setPending(true);
     setError('');
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.get('email'), password: data.get('password') }),
-      });
+      const response = await loginAdministrator({ email: data.get('email'), password: data.get('password') });
       form.elements.password.value = '';
       if (!response.ok) {
         const result = await response.json();
@@ -27,9 +25,9 @@ export default function LoginForm({ message }) {
       }
       // A full navigation discards any previously cached administrator UI.
       window.location.replace('/overview');
-    } catch {
+    } catch (failure) {
       form.elements.password.value = '';
-      setError('Unable to connect. Check your connection and try again.');
+      setError(failure.message || 'Unable to connect. Check your connection and try again.');
       setPending(false);
     }
   }

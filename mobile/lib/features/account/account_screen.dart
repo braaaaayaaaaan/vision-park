@@ -4,6 +4,9 @@ import '../../data/models/driver_models.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/services/password_change.dart';
 import '../../shared/widgets/empty_state_card.dart';
+import '../payments/payments_controller.dart';
+import '../payments/payments_screen.dart';
+import '../payments/wallet_cards.dart';
 import 'account_controller.dart';
 import 'change_password_screen.dart';
 import 'widgets/account_confirmation.dart';
@@ -17,6 +20,9 @@ class AccountScreen extends StatefulWidget {
     this.profile,
     this.passwordChange,
     this.onSignOut,
+    this.paymentsController,
+    this.isVisible = true,
+    this.onPaymentChanged,
     super.key,
   });
   final VoidCallback onVehiclesSelected;
@@ -24,6 +30,9 @@ class AccountScreen extends StatefulWidget {
   final AuthProfile? profile;
   final PasswordChangeService? passwordChange;
   final Future<void> Function()? onSignOut;
+  final PaymentsController? paymentsController;
+  final bool isVisible;
+  final VoidCallback? onPaymentChanged;
   @override
   State<AccountScreen> createState() => _AccountScreenState();
 }
@@ -32,6 +41,7 @@ class _AccountScreenState extends State<AccountScreen> {
   late final AccountController _controller;
   bool _signingOut = false;
   bool _changing = false;
+  bool _openingWallet = false;
   @override
   void initState() {
     super.initState();
@@ -81,6 +91,28 @@ class _AccountScreenState extends State<AccountScreen> {
       }
     } finally {
       if (mounted) setState(() => _changing = false);
+    }
+  }
+
+  Future<void> _openWallet([
+    WalletDestination destination = WalletDestination.overview,
+  ]) async {
+    final payments = widget.paymentsController;
+    if (payments == null || _openingWallet) return;
+    _openingWallet = true;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PaymentsScreen(
+            controller: payments,
+            initialDestination: destination,
+            onChanged: widget.onPaymentChanged,
+          ),
+        ),
+      );
+      if (mounted) widget.onPaymentChanged?.call();
+    } finally {
+      _openingWallet = false;
     }
   }
 
@@ -188,15 +220,30 @@ class _AccountScreenState extends State<AccountScreen> {
                     title: 'Your Profile Will Appear Here',
                     message: 'Not Connected. Sign in to view your profile.',
                   ),
+                if (widget.paymentsController != null) ...[
+                  const SizedBox(height: 24),
+                  AnimatedBuilder(
+                    animation: widget.paymentsController!,
+                    builder: (context, _) => WalletAccountCard(
+                      balance: widget.paymentsController!.wallet?.balance,
+                      loading: widget.paymentsController!.loading,
+                      unavailable:
+                          widget.paymentsController!.error != null ||
+                          !widget.paymentsController!.isCurrentOwner,
+                      onOpen: () => _openWallet(),
+                      onTransactions: () =>
+                          _openWallet(WalletDestination.transactions),
+                      onSettings: () => _openWallet(WalletDestination.settings),
+                    ),
+                  ),
+                ],
                 heading('Security'),
                 Card(
                   margin: EdgeInsets.zero,
                   child: ListTile(
                     minTileHeight: 64,
                     minVerticalPadding: 8,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     leading: SizedBox(
                       width: 24,
                       child: Icon(

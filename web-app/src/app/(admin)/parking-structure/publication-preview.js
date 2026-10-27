@@ -1,4 +1,5 @@
 'use client';
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { useEffect, useRef, useState } from 'react';
 import shared from './parking-structure.module.css';
 import styles from './publication-preview.module.css';
@@ -35,7 +36,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
     pending.current=true;setLoading(true);setReport(null);setError('');setSuccess('');
     const request=new AbortController();controller.current=request;
     try{
-      const response=await fetch('/api/parking-structure/publication/preview',{method:'POST',headers:{'Content-Type':'application/json'},
+      const response=await authenticatedFetch('/api/parking-structure/publication/preview',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({level_ids:levelIds,tenant_permissions:Object.entries(choices).map(([zone_id,tenant_ids])=>({zone_id,tenant_ids}))}),cache:'no-store',signal:request.signal});
       if([401,403].includes(response.status)){window.location.replace(`/login?reason=${response.status===401?'expired':'denied'}`);return;}
       const data=await response.json();if(request.signal.aborted)return;
@@ -54,7 +55,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
     pending.current=true;setLoading(true);setError('');setSuccess('');onPublishingChange?.(true);
     const request=new AbortController();controller.current=request;
     try{
-      const response=await fetch('/api/parking-structure/publication/publish',{method:'POST',headers:{'Content-Type':'application/json'},
+      const response=await authenticatedFetch('/api/parking-structure/publication/publish',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({level_ids:levelIds,tenant_permissions:Object.entries(choices).map(([zone_id,tenant_ids])=>({zone_id,tenant_ids})),expected_fingerprint:report.fingerprint,confirm:true}),cache:'no-store',signal:request.signal});
       if([401,403].includes(response.status)){window.location.replace(`/login?reason=${response.status===401?'expired':'denied'}`);return;}
       const data=await response.json();if(request.signal.aborted)return;

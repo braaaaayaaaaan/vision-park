@@ -1,4 +1,5 @@
 'use client';
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { useEffect, useRef, useState } from 'react';
 import shared from './parking-structure.module.css';
 import map from './calibration.module.css';
@@ -51,7 +52,7 @@ export default function StructureValidation({ levels, disabled, publishing=false
     pending.current = true; setLoading(true); setError(''); setReport(null); setRequired([]); setStale(false);
     const request = new AbortController(); controller.current = request;
     try {
-      const response = await fetch('/api/parking-structure/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await authenticatedFetch('/api/parking-structure/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level_ids: chosen }), cache: 'no-store', signal: request.signal });
       if ([401, 403].includes(response.status)) { window.location.replace(`/login?reason=${response.status === 401 ? 'expired' : 'denied'}`); return; }
       const result = await response.json();

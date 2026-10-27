@@ -16,6 +16,9 @@ class NavigationScreen extends StatefulWidget {
     this.isVisible = true,
     this.onParkingConfirmed,
     this.voiceGuidance,
+    this.refreshRevision = 0,
+    this.paymentSessionIds = const {},
+    this.onPaymentSelected,
     super.key,
   });
   final NavigationController? controller;
@@ -23,6 +26,9 @@ class NavigationScreen extends StatefulWidget {
   final bool isVisible;
   final VoidCallback? onParkingConfirmed;
   final RouteVoiceGuidance? voiceGuidance;
+  final int refreshRevision;
+  final Set<String> paymentSessionIds;
+  final ValueChanged<String>? onPaymentSelected;
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -41,7 +47,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 
   Future<void> _confirmParking() async {
-    if (_dialogOpen || !_controller.canConfirm) return;
+    if (_dialogOpen ||
+        !_controller.canConfirm ||
+        widget.paymentSessionIds.contains(
+          _controller.data?.parking?.session.id,
+        )) {
+      return;
+    }
     _voice.pause();
     final parking = _controller.data!.parking!;
     setState(() => _dialogOpen = true);
@@ -77,7 +89,16 @@ class _NavigationScreenState extends State<NavigationScreen> {
   void didUpdateWidget(covariant NavigationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.isVisible) _voice.pause();
-    if (widget.isVisible && !oldWidget.isVisible) _controller.load();
+    if (widget.isVisible &&
+        (!oldWidget.isVisible ||
+            widget.refreshRevision != oldWidget.refreshRevision)) {
+      _controller.load();
+    }
+    if (widget.paymentSessionIds.contains(
+      _controller.data?.parking?.session.id,
+    )) {
+      _voice.pause();
+    }
   }
 
   @override
@@ -112,6 +133,26 @@ class _NavigationScreenState extends State<NavigationScreen> {
       animation: _controller,
       builder: (context, _) {
         final parking = _controller.data?.parking;
+        if (parking != null &&
+            widget.paymentSessionIds.contains(parking.session.id)) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const EmptyStateCard(
+                  icon: Icons.payment_rounded,
+                  title: 'Payment Required',
+                  message: 'Review your outstanding payment to continue.',
+                ),
+                FilledButton(
+                  onPressed: () =>
+                      widget.onPaymentSelected?.call(parking.session.id),
+                  child: const Text('Review Payment'),
+                ),
+              ],
+            ),
+          );
+        }
         final ready =
             _controller.status == NavigationStatus.ready &&
             parking != null &&

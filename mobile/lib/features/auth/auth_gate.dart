@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import '../../data/repositories/history_repository.dart';
+import '../../data/repositories/payment_repository.dart';
+import '../../data/services/payment_operations.dart';
+import '../payments/payments_controller.dart';
+import '../payments/payments_screen.dart';
 import '../../data/repositories/vehicle_repository.dart';
 import '../../data/repositories/assigned_route_repository.dart';
 import '../../data/repositories/availability_repository.dart';
@@ -34,6 +38,7 @@ class AuthGate extends StatefulWidget {
     this.routeRepository,
     this.vehicleRepository,
     this.historyRepository,
+    this.paymentRepository,
     super.key,
   });
   final AuthRepository repository;
@@ -42,6 +47,7 @@ class AuthGate extends StatefulWidget {
   final AssignedRouteRepository? routeRepository;
   final VehicleRepository? vehicleRepository;
   final HistoryRepository? historyRepository;
+  final PaymentRepository? paymentRepository;
   final bool startWithRegistration;
   final EmailVerificationController? emailVerification;
   final PasswordRecoveryController? passwordRecovery;
@@ -59,6 +65,25 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Timer? _verifiedTimer;
   bool _advancing = false;
   bool _leavingRecovery = false;
+  PaymentsController? _payments;
+
+  PaymentsController? _driverPayments() {
+    final repository = widget.paymentRepository;
+    final profile = _controller.profile;
+    if (repository == null ||
+        profile?.role != 'driver' ||
+        repository.ownerId != profile?.id) {
+      return null;
+    }
+    if (_payments?.owner != profile!.id) {
+      _payments?.dispose();
+      _payments = PaymentsController(
+        repository,
+        PreferencesPaymentOperations(),
+      );
+    }
+    return _payments;
+  }
 
   @override
   void initState() {
@@ -157,6 +182,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     if (widget.passwordRecovery == null) _recovery.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
+    _payments?.dispose();
     super.dispose();
   }
 
@@ -196,6 +222,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             routeRepository: widget.routeRepository,
             vehicleRepository: widget.vehicleRepository,
             historyRepository: widget.historyRepository,
+            paymentRepository: widget.paymentRepository,
+            paymentsController: _driverPayments(),
           );
         case AuthStatus.signedOut:
           if (_registering) {
@@ -253,6 +281,22 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_controller.status == AuthStatus.blocked &&
+                    _controller.profile?.role == 'driver' &&
+                    widget.paymentRepository != null)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    label: const Text('Wallet and Payments'),
+                    onPressed: () async {
+                      final payments = _driverPayments();
+                      if (payments == null) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PaymentsScreen(controller: payments),
+                        ),
+                      );
+                    },
+                  ),
                 FilledButton(
                   onPressed: _controller.refresh,
                   child: const Text('Check Again'),

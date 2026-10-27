@@ -37,10 +37,30 @@ function supabaseConfig() {
   return { url, key };
 }
 
-async function request(url, options = {}) {
+export function authDiagnostic(stage, outcome, { appStatus, upstreamStatus, startedAt } = {}) {
+  if (process.env.NODE_ENV !== 'development' || process.env.AUTH_DIAGNOSTICS !== 'true') return;
+  // Only fixed caller labels, bounded statuses and timing; never input/error objects.
+  const validStatus = value => Number.isInteger(value) && value >= 100 && value <= 599;
+  console.info('[auth_diagnostic]', JSON.stringify({
+    stage, outcome,
+    ...(validStatus(appStatus) ? { app_status: appStatus } : {}),
+    ...(validStatus(upstreamStatus) ? { upstream_status: upstreamStatus } : {}),
+    ...(Number.isFinite(startedAt) ? { elapsed_ms: Math.round(Math.max(0, performance.now() - startedAt) * 100) / 100 } : {}),
+    at: new Date().toISOString(),
+  }));
+}
+
+async function request(url, options = {}, diagnosticStage) {
+  const startedAt = performance.now();
   try {
-    return await fetch(url, { ...options, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10000) });
-  } catch { throw new AuthError('unavailable'); }
+    const response = await fetch(url, { ...options, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10000) });
+    if (diagnosticStage) authDiagnostic(diagnosticStage, 'response_received', { upstreamStatus: response.status, startedAt });
+    return response;
+  } catch (error) {
+    if (diagnosticStage) authDiagnostic(diagnosticStage,
+      error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 'timeout' : 'transport_unavailable', { startedAt });
+    throw new AuthError('unavailable');
+  }
 }
 
 export function isAdministrator(profile) {
@@ -52,7 +72,7 @@ export async function verifyAdministrator(accessToken) {
   if (!accessToken) throw new AuthError('expired', 401);
   const response = await request(`${baseUrl(process.env.BACKEND_BASE_URL)}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
-  });
+  }, 'fastapi_verification_request');
   if (response.status === 401) throw new AuthError('expired', 401);
   if (response.status === 403) throw new AuthError('denied', 403);
   if (!response.ok) throw new AuthError('unavailable');
@@ -66,7 +86,7 @@ export async function exchangeToken(grant, body) {
   const { url, key } = supabaseConfig();
   const response = await request(`${url}/auth/v1/token?grant_type=${grant}`, {
     method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
+  }, grant === 'password' ? 'supabase_password_request' : undefined);
   if (response.status === 429) throw new AuthError('rate', 429);
   if ([400, 401, 403, 422].includes(response.status)) throw new AuthError(grant === 'password' ? 'credentials' : 'expired', 401);
   if (!response.ok) throw new AuthError('unavailable');
@@ -78,7 +98,13 @@ export async function exchangeToken(grant, body) {
   return session;
 }
 
-export async function restoreSession(accessToken, refreshToken) {
+// Page/data requests must never rotate tokens or mutate browser cookies.
+// Only the browser-coordinated refresh endpoint calls refreshSession.
+export async function restoreSession(accessToken) {
+  return { profile: await verifyAdministrator(accessToken), session: null };
+}
+
+export async function refreshSession(accessToken, refreshToken) {
   try {
     const profile = await verifyAdministrator(accessToken);
     return { profile, session: null };

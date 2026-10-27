@@ -862,7 +862,7 @@ class _ParkingMapState extends State<ParkingMap>
                     : Theme.of(context).textTheme.titleSmall,
               ),
               if (!widget.navigationLayout)
-                const Text('Simulated vehicle · Not live location tracking.'),
+                const Text('Route preview. Not live location tracking.'),
               if (!path.canPlay)
                 Text(
                   path.crossesLevels

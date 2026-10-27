@@ -6,6 +6,8 @@ import { occupancyBand, occupancyBands, occupancyPercentage } from './overview-u
 import { fetchOverview } from './overview-client';
 import { formatMalaysiaDate, formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 import styles from './overview.module.css';
+import FinancialSummary from '../payments/financial-summary';
+import { todayPaymentQuery } from '../../../lib/payment-contracts.mjs';
 
 const number = (value) => value.toLocaleString('en-MY');
 const percent = (value) => value === null ? 'N/A' : `${value.toLocaleString('en-MY', { maximumFractionDigits: 1 })}%`;
@@ -61,6 +63,7 @@ export default function ParkingOverview() {
       </section>
       <TodaySessions />
     </>}
+    <FinancialSummary query={data ? `start_date=${data.reporting_date}&end_date=${data.reporting_date}` : todayPaymentQuery()} revision={revision} />
   </div>;
 }
 

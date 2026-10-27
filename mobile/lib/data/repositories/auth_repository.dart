@@ -209,12 +209,28 @@ class RemoteAuthRepository implements AuthRepository {
   Future<dynamic> deleteAuthenticated(String path) =>
       _request(path, protected: true, method: 'DELETE');
 
+  /// Payment writes retain their exact body and key across the existing single
+  /// authentication refresh retry. Never retry uncertain writes with a new key.
+  Future<dynamic> paymentAuthenticated(
+    String path, {
+    String method = 'GET',
+    Map<String, Object>? body,
+    String? idempotencyKey,
+  }) => _request(
+    path,
+    protected: true,
+    method: method,
+    body: body,
+    idempotencyKey: idempotencyKey,
+  );
+
   Future<dynamic> _request(
     String path, {
     Map<String, Object>? body,
     bool protected = false,
     String? method,
     bool image = false,
+    String? idempotencyKey,
   }) async {
     try {
       for (var attempt = 0; attempt < 2; attempt++) {
@@ -226,6 +242,7 @@ class RemoteAuthRepository implements AuthRepository {
           headers['Authorization'] =
               'Bearer ${await identity.accessToken(refresh: attempt > 0)}';
         }
+        if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
         final request =
             http.Request(
                 method ?? (body == null ? 'GET' : 'POST'),
@@ -261,6 +278,38 @@ class RemoteAuthRepository implements AuthRepository {
           }
         }
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          if (path.startsWith('payments/')) {
+            dynamic detail;
+            try {
+              detail = (jsonDecode(response.body) as Map)['detail'];
+            } catch (_) {}
+            final code = detail is Map ? detail['code'] : null;
+            const messages = {
+              'payments_inactive': 'Parking payments are not activated.',
+              'finance_schema_unavailable':
+                  'Payment services are unavailable. Try again later.',
+              'stale': 'This setting changed. Refresh before saving again.',
+              'stale_quote':
+                  'This quotation changed. Refresh the payment request.',
+              'quote_expired':
+                  'This quotation expired. Renew it before paying.',
+              'in_progress':
+                  'A payment is processing. Check the existing transaction.',
+              'already_paid':
+                  'This charge is already paid. Refresh to open its receipt.',
+              'manual_required':
+                  'Enable automatic payment or choose a test card.',
+              'payment_not_found': 'The payment record is not available.',
+              'receipt_not_found': 'The receipt is not available yet.',
+              'idempotency_conflict': 'This request changed. Check the original payment before trying again.',
+            };
+            throw AuthFailure(
+              messages[code] ?? 'Payment could not be confirmed. Refresh or retry the same request.',
+              code: messages.containsKey(code)
+                  ? code as String
+                  : 'payment_unavailable',
+            );
+          }
           if (response.statusCode == 409 && path.startsWith('vehicles')) {
             // Only recognized application codes select specific local feedback.
             // Never display an arbitrary database/backend message.

@@ -6,7 +6,6 @@ import { zoneDraftRequest } from '@/lib/zone-drafts-api.mjs';
 import { nodeZoneRequest } from '@/lib/zone-entrances-api.mjs';
 import { structureValidationRequest } from '@/lib/structure-validation-api.mjs';
 import { publicationRequest } from '@/lib/publication-api.mjs';
-import { setSessionCookies, clearSessionCookies } from '@/lib/auth.mjs';
 
 async function handle(request, context) {
   const { path = [] } = await context.params;
@@ -20,8 +19,7 @@ async function handle(request, context) {
   const response = result.image
     ? new NextResponse(result.image, { status: result.status, headers: { ...headers, 'Content-Type': 'image/png' } })
     : NextResponse.json(result.body, { status: result.status, headers });
-  if (result.clear) clearSessionCookies(response);
-  else if (result.session) setSessionCookies(response, result.session);
+
   return response;
 }
 export const GET = handle;

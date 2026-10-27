@@ -222,7 +222,7 @@ RouteInstructionPlan generateRouteInstructions(RouteGeometry geometry) {
     );
     if (turn == RouteTurn.review) {
       return RouteInstructionPlan._invalid(
-        'A near-reversal needs administrator review; no U-turn is assumed.',
+        'This route needs administrator review. No U-turn is assumed.',
       );
     }
     if (turn == RouteTurn.left || turn == RouteTurn.right) {

@@ -17,7 +17,7 @@ function OccupancyChart({ history }) {
   const stride = Math.max(1, Math.ceil(points.length / 6));
   return <section className={styles.panel} aria-labelledby="historical-occupancy-title">
     <h2 id="historical-occupancy-title">Historical Parking Occupancy</h2>
-    <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints; today uses the refresh time.'}</p>
+    <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints. Today uses the latest refresh.'}</p>
     {points.length === 0 ? <p className={styles.empty}>No reporting checkpoints available</p> : <>
       {points.every((point) => point.occupied === 0) && <p className={styles.empty}>No eligible confirmed sessions at these checkpoints</p>}
       <div className={styles.chartScroll}><svg className={local.lineChart} viewBox={`0 0 ${width} 290`} aria-label="Historical Confirmed Occupancy Line Chart">

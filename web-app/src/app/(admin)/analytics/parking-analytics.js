@@ -7,6 +7,7 @@ import AnalyticsChart from './analytics-chart';
 import UtilisationCharts from './utilisation-charts';
 import styles from '../overview/overview.module.css';
 import filtersStyle from './analytics.module.css';
+import FinancialSummary from '../payments/financial-summary';
 
 const movementsSeries = [{ key: 'entries', label: 'Entries', colour: 'var(--chart-primary)' }, { key: 'exits', label: 'Exits', colour: 'var(--chart-comparative)' }];
 const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: 'var(--chart-supporting)' }];
@@ -63,6 +64,7 @@ export default function ParkingAnalytics() {
       <AnalyticsChart id="duration-distribution" title="Parking duration distribution" description="Completed sessions with valid timestamps and an exit in the reporting period." rows={data.durations.distribution.map((bucket) => ({ ...bucket, period: bucket.label }))} series={durationSeries} unit="Completed Sessions" axis="Parking Duration" />
       <UtilisationCharts data={data} />
     </>}
+    <FinancialSummary query={request.query} revision={request.version} chart />
   </div>;
 }
 function Kpi({ title, value, detail }) { return <section className={styles.kpi}><h2>{title}</h2><strong style={{ fontSize: 'clamp(22px, 2vw, 30px)', overflowWrap: 'anywhere' }}>{value}</strong><p>{detail}</p></section>; }

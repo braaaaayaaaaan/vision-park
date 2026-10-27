@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { vehicleReadQuery } from '../../../lib/vehicle-read-contracts.mjs';
 import { normalizeRejectionReason } from '../../../lib/vehicle-rejection.mjs';
 
@@ -12,7 +13,7 @@ export function vehiclesQuery(filters, offset = 0) {
 }
 
 async function readRequest(url, options = {}) {
-  const response = await fetch(url, { ...options, cache: 'no-store' });
+  const response = await authenticatedFetch(url, { ...options, cache: 'no-store' });
   if ([401, 403].includes(response.status)) {
     window.location.replace(`/login?reason=${response.status === 401 ? 'expired' : 'denied'}`);
     throw Object.assign(new Error('Administrator access could not be verified. Returning to sign in.'), { status: response.status });
