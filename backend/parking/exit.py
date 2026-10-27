@@ -1,28 +1,25 @@
-"""Close existing sessions from exit recognition; one handler per recording run."""
+"""Resolve exits through payment settlement, or the disabled-mode legacy path."""
 
 from dataclasses import asdict
-import re
 from threading import Lock
 
 from backend import database as db
 from backend.anpr.events import RecognitionEvent
+from backend.anpr import persistence
 from backend.parking.sessions import SessionError, close_parking
 
 
 class ExitEventHandler:
-    """Serialised, in-memory duplicate protection, not durable replay prevention.
+    """Opt-in durable bindings; legacy mode retains per-run duplicate protection."""
 
-    Remember attempts before I/O and pin resolved pairs before closure. Even an
-    ambiguous failure must not cause another track to resolve a newer session.
-    Explicit retries of a known pair belong to the existing closure endpoint.
-    """
-
-    def __init__(self, exit_camera_ids: set[str]):
+    def __init__(self, exit_camera_ids: set[str], *, recording=None):
         self.exit_camera_ids = frozenset(exit_camera_ids)
         self._seen: set[str] = set()
         self._plates: dict[str, dict] = {}
         self._vehicles: dict[str, dict] = {}
         self._lock = Lock()
+        self.integration = persistence.enabled()
+        self.recording = recording
 
     def __call__(self, event: RecognitionEvent) -> dict:
         result = {"event": asdict(event)}
@@ -30,10 +27,20 @@ class ExitEventHandler:
             return {**result, "status": "ignored", "code": "not_exit"}
         if not isinstance(event.camera_id, str) or event.camera_id not in self.exit_camera_ids:
             return {**result, "status": "rejected", "code": "unmapped_camera"}
-        if (not isinstance(event.event_id, str) or not event.event_id.strip()
-                or not isinstance(event.plate_number, str)
-                or not re.fullmatch(r"[A-Z0-9]{1,32}", event.plate_number)):
+        if not persistence.valid_event(event):
             return {**result, "status": "rejected", "code": "invalid_event"}
+        if self.integration:
+            event_key = None
+            try:
+                registered = persistence.register(event,self.recording)
+                if registered['status']!='registered':
+                    return {**result,'status':'rejected','code':registered['status']}
+                event_key = registered['event']['event_id']
+                outcome = persistence.exit_payment(event_key)
+                return {**result,**outcome,'recovered':registered.get('recovered',False)}
+            except db.DatabaseError as error:
+                return {**result,**getattr(error,'binding',{}),'event_id':event_key,'status':'error','code':'database_unavailable',
+                    'message':'Exit outcome is unconfirmed. Recover the same playback/event; do not resolve a new session.'}
         with self._lock:
             target = self._plates.get(event.plate_number, {})
             if event.event_id in self._seen:
@@ -62,7 +69,7 @@ class ExitEventHandler:
                 target["parking_session_id"] = session["id"]
                 closure = close_parking(target["parking_session_id"], vehicle_id)
             except SessionError as error:
-                return {**result, **target, "status": "rejected", "code": error.code,
+                return {**result, **target, "status": "payment_required" if error.code=='payment_required' else "rejected", "code": error.code,
                         "message": str(error)}
             except db.DatabaseError as error:
                 return {**result, **target, "status": "error", "code": "database_unavailable",

@@ -16,10 +16,14 @@ class HistoryScreen extends StatefulWidget {
     this.controller,
     this.historyRepository,
     this.isVisible = true,
+    this.refreshRevision = 0,
+    this.onReceiptSelected,
     super.key,
   });
   final HistoryRepository? historyRepository;
   final bool isVisible;
+  final int refreshRevision;
+  final ValueChanged<String>? onReceiptSelected;
   final HistoryController? controller;
 
   @override
@@ -54,7 +58,11 @@ class _HistoryScreenState extends State<HistoryScreen>
   @override
   void didUpdateWidget(covariant HistoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isVisible && !oldWidget.isVisible) _controller.load();
+    if (widget.isVisible &&
+        (!oldWidget.isVisible ||
+            widget.refreshRevision != oldWidget.refreshRevision)) {
+      _controller.load();
+    }
   }
 
   @override
@@ -288,6 +296,9 @@ class _HistoryScreenState extends State<HistoryScreen>
                             key: ValueKey(session.id),
                             session: session,
                             plate: _controller.plateFor(session),
+                            onReceipt: widget.onReceiptSelected == null
+                                ? null
+                                : () => widget.onReceiptSelected!(session.id),
                           ),
                         ),
                     if (ready && _controller.nextCursor != null) ...[

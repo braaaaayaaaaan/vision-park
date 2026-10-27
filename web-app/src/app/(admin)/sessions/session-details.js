@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { formatAssignedZone, formatDuration, formatTimestamp, sessionLabels } from './sessions-client.mjs';
 import styles from '../approvals/approvals.module.css';
 import local from './sessions.module.css';
+import SessionPayment from './session-payment';
 
 function DetailFields({ fields }) {
   return <dl className={local.fields}>{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not available'}</dd></div>)}</dl>;
@@ -41,6 +42,7 @@ export default function SessionDetails({ session, onClose }) {
           {session.duration_seconds !== null && <p className={local.note}>Duration from entry to exit.</p>}
         </section>
       </div>
+      <SessionPayment key={session.id} sessionId={session.id} />
       <details className={local.reference}><summary>Session Reference</summary>
         <DetailFields fields={[
           ['Session ID', session.id],

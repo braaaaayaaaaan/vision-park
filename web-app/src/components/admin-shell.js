@@ -1,15 +1,19 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AUTH_GENERATION, logoutAdministrator } from '../lib/auth-client.mjs';
 import styles from "./admin-shell.module.css";
 
 const navigation = [
   ["/overview", "Overview"], ["/analytics", "Analytics"],
   ["/approvals", "Approvals"], ["/vehicles", "Vehicles"], ["/tenants", "Tenants"],
   ["/sessions", "Sessions"], ["/parking-structure", "Parking Structure"],
+  ["/parking-rates", "Parking Rates"], ["/payments", "Payments"],
 ];
 
 const navigationIcons = {
+  "/parking-rates": "M4 4h16v16H4z M8 8h8 M8 12h4 M8 16h8",
+  "/payments": "M3 5h18v14H3z M3 9h18 M7 15h4",
   "/tenants": "M3 21V7h10v14 M13 3h8v18 M1 21h22 M6 11h4 M6 15h4 M16 7h2 M16 11h2 M16 15h2",
   "/overview": "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   "/analytics": "M3 3v18h18 M7 16v-5 M12 16V7 M17 16V4",
@@ -23,6 +27,28 @@ export default function AdminShell({ children }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
+  useEffect(() => {
+    const sync = event => {
+      if (event.key === AUTH_GENERATION && event.oldValue !== null) window.location.reload();
+    };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+  async function signOut(event) {
+    event.preventDefault();
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError('');
+    try {
+      const response = await logoutAdministrator();
+      if (!response.ok) throw new Error('Unable to sign out. Reload the page and try again.');
+      window.location.replace(response.url || '/login');
+    } catch (error) {
+      setSignOutError(error.message || 'Unable to sign out. Please try again.');
+      setSigningOut(false);
+    }
+  }
   const title = navigation.find(([href]) => href === pathname)?.[1] ?? "Administration";
   return (
     <div className={styles.shell}>
@@ -52,8 +78,9 @@ export default function AdminShell({ children }) {
       <div className={styles.workspace}>
         <header className={styles.header}>
           <div><p className={styles.eyebrow}>VisionPark Admin</p><p className={styles.pageTitle}>{title}</p></div>
-          <form action="/api/auth/logout" method="post" onSubmit={() => setSigningOut(true)}>
+          <form action="/api/auth/logout" method="post" onSubmit={signOut}>
             <button className={styles.signOut} type="submit" disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+            {signOutError && <p role="alert">{signOutError}</p>}
           </form>
         </header>
         <main id="main-content" tabIndex={-1} className={styles.main}>

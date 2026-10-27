@@ -9,10 +9,12 @@ class HistorySessionCard extends StatelessWidget {
   const HistorySessionCard({
     required this.session,
     required this.plate,
+    this.onReceipt,
     super.key,
   });
   final ParkingSession session;
   final String plate;
+  final VoidCallback? onReceipt;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +135,12 @@ class HistorySessionCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
               ),
             ],
+            if (onReceipt != null)
+              TextButton.icon(
+                onPressed: onReceipt,
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text('View Payment Receipt'),
+              ),
           ],
         ),
       ),

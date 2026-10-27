@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { analyticsQuery } from '../analytics/analytics-client.mjs';
 import { formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 
@@ -32,7 +33,7 @@ export function sessionsQuery(filters, offset = 0, now = new Date()) {
   return params.toString();
 }
 export async function fetchSessions(query, signal) {
-  const response = await fetch(`/api/sessions?${query}`, { cache: 'no-store', signal });
+  const response = await authenticatedFetch(`/api/sessions?${query}`, { cache: 'no-store', signal });
   if ([401, 403].includes(response.status)) {
     window.location.replace(`/login?reason=${response.status === 401 ? 'expired' : 'denied'}`);
     throw new Error('Administrator access could not be verified. Returning to sign in.');

@@ -490,9 +490,16 @@ def get_publication_state() -> dict:
     return result
 
 
-def reserve_zone(vehicle_id: str, zone_id: str, expected_revision: int | None = None) -> dict:
+def reserve_zone(vehicle_id: str, zone_id: str, expected_revision: int | None = None, *,
+                 anpr_event_id: str | None = None, allocation_context: dict | None = None) -> dict:
     # Never fall back to a non-atomic client-side insert if the RPC is missing.
     params = {"p_vehicle_id": vehicle_id, "p_zone_id": zone_id}
+    if anpr_event_id is not None:
+        result = _execute(get_supabase().rpc('reserve_anpr_parking_zone',dict(params,p_event_id=anpr_event_id,
+            p_expected_revision=expected_revision,p_allocation=allocation_context))).data
+        if not isinstance(result,dict) or 'status' not in result:
+            raise DatabaseError('ANPR reservation returned an invalid response.')
+        return result
     if expected_revision is not None:
         params['p_expected_revision'] = expected_revision
     result = _execute(get_supabase().rpc('reserve_parking_zone_at_revision' if expected_revision is not None else 'reserve_parking_zone', params)).data

@@ -5,6 +5,7 @@ from backend.api.anpr import router as anpr_router
 from backend.api.parking import router as parking_router
 from backend.api.vehicles import router as vehicles_router
 from backend.api.history import router as history_router
+from backend.api.payments import router as payments_router, admin_router as admin_payments_router
 
 # initialise the backend application
 app = FastAPI()
@@ -21,3 +22,5 @@ app.include_router(history_router, prefix="/parking", tags=["Parking"])
 app.include_router(vehicles_router, prefix="/vehicles", tags=["Vehicles"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/admin", tags=["Administration"])
+app.include_router(payments_router, prefix="/payments", tags=["Simulated Payments"])
+app.include_router(admin_payments_router, prefix="/admin/payments", tags=["Administrator Payments"])

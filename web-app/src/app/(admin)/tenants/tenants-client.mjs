@@ -1,7 +1,8 @@
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { tenantInput, tenantQuery, validateTenantResponse } from '../../../lib/tenant-contracts.mjs';
 
 async function request(url, options) {
-  const response = await fetch(url, { cache: 'no-store', ...options });
+  const response = await authenticatedFetch(url, { cache: 'no-store', ...options });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const error = new Error(data?.error || 'Company information could not be confirmed. Refresh before retrying.');

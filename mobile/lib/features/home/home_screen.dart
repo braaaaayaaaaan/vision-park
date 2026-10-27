@@ -26,6 +26,10 @@ class HomeScreen extends StatefulWidget {
     this.onSignOut,
     this.fullName,
     this.companyName,
+    this.paymentSection,
+    this.paymentSessionIds = const {},
+    this.onRefreshPayments,
+    this.onActiveParkingChanged,
     super.key,
   });
 
@@ -39,6 +43,10 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onSignOut;
   final String? fullName;
   final String? companyName;
+  final Widget? paymentSection;
+  final Set<String> paymentSessionIds;
+  final Future<void> Function()? onRefreshPayments;
+  final ValueChanged<bool>? onActiveParkingChanged;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -59,10 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
         );
     _controller.load();
     _controller.refreshParking();
+    _controller.addListener(_parkingChanged);
     _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
   }
+
+  void _parkingChanged() => widget.onActiveParkingChanged?.call(
+    _controller.activeSessions.isNotEmpty,
+  );
 
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
@@ -76,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _greetingTimer.cancel();
+    _controller.removeListener(_parkingChanged);
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
@@ -136,7 +150,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     _controller.availabilityStatus ==
                                         HomeStatus.loading
                                 ? null
-                                : _controller.refreshParking,
+                                : () {
+                                    _controller.refreshParking();
+                                    widget.onRefreshPayments?.call();
+                                  },
                             icon: const Icon(Icons.refresh_rounded),
                           ),
                         IconButton.filledTonal(
@@ -147,6 +164,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.large),
+                    if (widget.paymentSection != null) ...[
+                      widget.paymentSection!,
+                      const SizedBox(height: AppSpacing.small),
+                    ],
                     if (_controller.availabilityRepository != null)
                       _availabilitySection(tenant)
                     else if (_controller.status == HomeStatus.ready &&
@@ -254,10 +275,13 @@ class _HomeScreenState extends State<HomeScreen> {
             index++
           ) ...[
             if (index > 0) const SizedBox(height: AppSpacing.large),
-            ActiveSessionCard(
-              parking: _controller.activeSessions[index],
-              onViewRoute: () => widget.onTabSelected(1),
-            ),
+            if (!widget.paymentSessionIds.contains(
+              _controller.activeSessions[index].session.id,
+            ))
+              ActiveSessionCard(
+                parking: _controller.activeSessions[index],
+                onViewRoute: () => widget.onTabSelected(1),
+              ),
           ],
         ],
       );

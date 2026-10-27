@@ -71,6 +71,7 @@ def close_parking(session_id: str, vehicle_id: str) -> dict:
         raise SessionError("invalid_identifier", "Session and vehicle IDs must be UUIDs.", 422) from None
     result = db.close_session(session_id, vehicle_id)
     errors = {
+        "payment_required": ("Successful parking payment is required before completion. Open the outstanding payment request.", 409),
         "session_not_found": ("No session matches this session and vehicle ID.", 404),
         "invalid_session_status": ("Only allocated or occupied sessions can be closed; completed retries are allowed.", 409),
         "invalid_session_state": ("The session has inconsistent timestamps for closure.", 409),

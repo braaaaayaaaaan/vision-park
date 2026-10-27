@@ -40,7 +40,7 @@ export async function crossLevelRequest(request) {
     });
     if ([401, 403].includes(response.status)) throw new AuthError(response.status === 401 ? 'expired' : 'denied', response.status);
     if (!response.ok) return { status: [409, 413, 415, 422].includes(response.status) ? response.status : 503, session,
-      body: { error: response.status === 409 ? 'Ramp connections, endpoint drafts or reference calibration changed. Refresh and review; local edits are retained.' :
+      body: { error: response.status === 409 ? 'Ramp connections or their reference data changed. Refresh and review. Your edits are retained.' :
         response.status === 422 ? 'Use current ramp nodes on different levels, unique directions and confirmed calibrated ramp traces.' : 'Ramp request could not be confirmed. Refresh before retrying.' } };
     return { status: 200, session, body: validateRampResponse(await response.json(), batch) };
   } catch (error) {

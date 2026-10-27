@@ -49,7 +49,7 @@ def rank_zones(tenant_id: str, permissions: list[dict], zones: list[dict],
     return sorted(candidates, key=lambda item: (item["route"].distance_meters, item["zone"]["id"]))
 
 
-def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
+def allocate_parking(plate_number: str, entrance_node_id: str, *, anpr_event_id: str | None = None) -> dict:
     """Shared by the protected allocation endpoint and entrance ANPR consumer."""
     vehicle = db.get_vehicle(plate_number)
     if vehicle is None:
@@ -81,11 +81,23 @@ def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
 
     for candidate in candidates:
         zone, level, route = candidate["zone"], candidate["level"], candidate["route"]
-        reservation = db.reserve_zone(vehicle["id"], zone["id"], expected_revision=publication['revision'])
+        context = dict(plate_number=vehicle['plate_number'],zone_id=zone['id'],zone_name=zone['name'],
+            level_id=level['id'],level_name=level['name'],level_number=level['level_number'],
+            distance_meters=float(route.distance_meters),route_node_ids=route.node_ids)
+        if anpr_event_id:
+            reservation = db.reserve_zone(vehicle['id'],zone['id'],expected_revision=publication['revision'],
+                anpr_event_id=anpr_event_id,allocation_context=context)
+        else:
+            reservation = db.reserve_zone(vehicle["id"], zone["id"], expected_revision=publication['revision'])
         status = reservation["status"]
         if status == "allocated":
             if not reservation.get("session_id"):
                 raise db.DatabaseError("Reservation response is missing the session ID; check active sessions before retrying.")
+            if anpr_event_id:
+                saved = reservation.get('allocation')
+                if not isinstance(saved,dict) or saved.get('parking_session_id')!=reservation['session_id'] or saved.get('plate_number')!=plate_number:
+                    raise db.DatabaseError('Stored ANPR allocation is inconsistent.')
+                return saved
             return {
                 "plate_number": vehicle["plate_number"],
                 "zone_id": zone["id"], "zone_name": zone["name"],
@@ -98,6 +110,8 @@ def allocate_parking(plate_number: str, entrance_node_id: str) -> dict:
         if status in {"zone_full", "zone_unavailable", "zone_not_authorised"}:
             continue  # Capacity/permissions may have changed since the read snapshot.
         messages = {
+            "stale_event": ("A newer stay exists. This old entrance event cannot admit the vehicle again.",409),
+            "event_rejected": ("This entrance event was already rejected. Use a new physical recognition.",409),
             "configuration_changed": ("Parking configuration changed. Request a fresh allocation.", 409),
             "unknown_vehicle": ("The plate is no longer registered.", 404),
             "registration_not_approved": ("Vehicle registration is no longer approved.", 403),

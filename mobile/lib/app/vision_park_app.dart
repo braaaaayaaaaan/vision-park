@@ -1,4 +1,5 @@
 import '../data/repositories/history_repository.dart';
+import '../data/repositories/payment_repository.dart';
 import '../data/repositories/vehicle_repository.dart';
 import '../data/repositories/assigned_route_repository.dart';
 import '../data/repositories/availability_repository.dart';
@@ -27,6 +28,7 @@ class VisionParkApp extends StatelessWidget {
     this.routeRepository,
     this.vehicleRepository,
     this.historyRepository,
+    this.paymentRepository,
     this.startupError,
     this.initialRoute,
     super.key,
@@ -41,6 +43,7 @@ class VisionParkApp extends StatelessWidget {
   final AssignedRouteRepository? routeRepository;
   final VehicleRepository? vehicleRepository;
   final HistoryRepository? historyRepository;
+  final PaymentRepository? paymentRepository;
   final String? startupError;
   final String? initialRoute;
 
@@ -80,6 +83,7 @@ class VisionParkApp extends StatelessWidget {
             routeRepository: routeRepository,
             vehicleRepository: vehicleRepository,
             historyRepository: historyRepository,
+            paymentRepository: paymentRepository,
             startWithRegistration: name == '/register',
           ),
   );

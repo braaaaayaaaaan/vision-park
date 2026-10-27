@@ -1,5 +1,6 @@
+import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 export async function fetchOverview(signal) {
-  const response = await fetch('/api/overview', { cache: 'no-store', signal });
+  const response = await authenticatedFetch('/api/overview', { cache: 'no-store', signal });
   if ([401, 403].includes(response.status)) {
     window.location.replace(`/login?reason=${response.status === 401 ? 'expired' : 'denied'}`);
     throw new Error('Administrator access could not be verified. Returning to sign in.');

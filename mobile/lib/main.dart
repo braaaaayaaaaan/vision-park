@@ -1,4 +1,5 @@
 import 'data/repositories/history_repository.dart';
+import 'data/repositories/payment_repository.dart';
 import 'data/repositories/vehicle_repository.dart';
 import 'data/repositories/assigned_route_repository.dart';
 import 'data/repositories/availability_repository.dart';
@@ -62,6 +63,7 @@ Future<void> main() async {
         routeRepository: RemoteAssignedRouteRepository(repository),
         vehicleRepository: RemoteVehicleRepository(repository),
         historyRepository: RemoteHistoryRepository(repository),
+        paymentRepository: RemotePaymentRepository(repository),
       ),
     );
   } catch (_) {
