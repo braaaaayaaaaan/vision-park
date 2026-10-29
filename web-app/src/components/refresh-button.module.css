@@ -1,0 +1,15 @@
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 6px 14px 6px 6px; border: 1px solid #bfdbfe; border-radius: 12px; background: var(--surface); color: var(--primary); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease; }
+.icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border-radius: 8px; background: var(--primary); color: white; }
+.icon svg { transition: transform 160ms ease; }
+.button:not(:disabled):hover { background: var(--primary-soft); border-color: var(--primary); }
+.button:not(:disabled):hover .icon svg { transform: rotate(30deg); }
+.button:not(:disabled):active .icon { background: var(--primary-hover); }
+.button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.button:disabled { opacity: .65; cursor: not-allowed; }
+.button[aria-busy="true"] .icon svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .button, .icon svg { transition: none; }
+  .button[aria-busy="true"] .icon svg { animation: none; }
+  .button:not(:disabled):hover .icon svg { transform: none; }
+}

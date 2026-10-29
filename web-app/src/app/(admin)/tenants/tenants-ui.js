@@ -2,13 +2,16 @@ import { metrics } from '../../../lib/tenant-contracts.mjs';
 import common from '../vehicles/vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
 import styles from './tenants.module.css';
+import MetricIcon from '../../../components/metric-icon';
+import overview from '../overview/overview.module.css';
 
 export function TenantStatus({ active }) {
   return <span className={active ? shared.badge : common.inactive}>{active ? 'Active' : 'Inactive'}</span>;
 }
 export function TenantSummary({ data, loading }) {
-  return <section className={common.metrics} aria-label="Tenant Summary" aria-busy={loading}>
-    {metrics.map(([key, label]) => <article className={common.metric} key={key}><h2>{label}</h2>
+  return <section className={`${overview.kpis} ${overview.alignedKpis}`} aria-label="Tenant Summary" aria-busy={loading}>
+    {metrics.map(([key, label]) => <article className={`${overview.kpi} ${overview.overviewStat}`} key={key}>
+      <div className={overview.statHeader}><MetricIcon name={key === 'total_companies' ? 'companies' : key === 'approved_drivers' ? 'approved' : key === 'pending_approvals' ? 'pending' : 'drivers'} large solid /><h2>{label}</h2></div>
       <strong className={loading ? common.skeletonNumber : ''}>{loading ? <span className={shared.srOnly}>Loading {label}</span> : data ? data[key].toLocaleString('en-MY') : '—'}</strong>
       <p>{key === 'total_companies' ? 'Active and inactive companies' : key === 'registered_drivers' ? 'All driver registration statuses' : key === 'approved_drivers' ? 'Approved driver accounts' : 'Awaiting a registration decision'}</p>
     </article>)}
@@ -37,7 +40,7 @@ export function ZoneList({ zones, zoneIds, inactive = false }) {
   const allowed = zones.filter(zone => zoneIds.includes(zone.id));
   const levels = [...new Set(allowed.map(zone => zone.level_id))];
   return <section className={styles.zoneSection}><h3>Authorised Parking Levels and Zones</h3>
-    <p className={common.muted}>First Come, First Serve (FCFS). Authorised companies share each zone&apos;s capacity. Access does not reserve spaces.</p>
+    <p className={common.muted}>Operates based on a "First Come, First Serve (FCFS)" basis. Authorised companies share each zone's capacity.</p>
     {inactive && <p className={styles.notice}>This company is inactive. Saved permissions take effect after reactivation.</p>}
     {!allowed.length ? <p className={styles.notice}>No parking zones are authorised. Drivers cannot receive a parking allocation until access is granted.</p> :
       levels.map(level => <div key={level} className={styles.level}><h4>{allowed.find(zone => zone.level_id === level).level_name}</h4>

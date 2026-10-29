@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../data/models/payment_models.dart';
-import '../../shared/formatting/malaysian_date_time.dart';
+import '../../shared/vision_park_brand.dart';
 
 class PaymentPanel extends StatelessWidget {
   const PaymentPanel({required this.children, super.key});
@@ -34,19 +34,13 @@ class PaymentField extends StatelessWidget {
               ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 3),
-        SelectableText(value),
+        SelectableText(
+          value,
+          // SelectableText also saves a scroll offset; keep it separate from
+          // both the enclosing page and any expansion panel's boolean state.
+          key: PageStorageKey(('payment-field', label, value)),
+        ),
       ],
-    ),
-  );
-}
-
-class SimulationNotice extends StatelessWidget {
-  const SimulationNotice({super.key});
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 8),
-    child: Text(
-      'Demo payments only. No real money is processed.',
     ),
   );
 }
@@ -63,54 +57,72 @@ class PaymentRequiredCard extends StatelessWidget {
   final bool inline;
   @override
   Widget build(BuildContext context) {
-    final children = <Widget>[
-      Row(
-        children: [
-          Icon(
-            Icons.payment_rounded,
-            color: Theme.of(context).colorScheme.primary,
+    final theme = Theme.of(context);
+    final amount = charge.amount == null
+        ? 'Awaiting Quotation'
+        : myr(charge.amount!);
+    final details = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const BrandIconBadge(Icons.payments_outlined, size: 32),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Payment Required', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 2),
+              Text(
+                '${charge.plate} · $amount',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Review Payment',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Payment Required',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-        ],
+        ),
+      ],
+    );
+    final content = Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
+        child: Padding(
+          padding: inline
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.large,
+                  vertical: 12,
+                ),
+          child: details,
+        ),
       ),
-      const SizedBox(height: 12),
-      Text(charge.plate, style: Theme.of(context).textTheme.titleMedium),
-      Text(
-        charge.amount == null ? 'Awaiting Quotation' : myr(charge.amount!),
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
-      Text(
-        'Parking Duration: ${charge.duration == null ? 'Unavailable' : MalaysianDateTime.formatDuration(charge.duration!)}',
-      ),
-      const Text(
-        'Your parking session stays active until payment is confirmed.',
-      ),
-      ExpansionTile(
-        title: const Text('View Session Details'),
-        tilePadding: EdgeInsets.zero,
-        children: [PaymentField('Parking Session', charge.sessionId)],
-      ),
-      FilledButton.icon(
-        onPressed: onOpen,
-        icon: const Icon(Icons.arrow_forward_rounded),
-        label: const Text('Review Payment'),
-      ),
-    ];
-    if (inline) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
-      );
-    }
+    );
+    if (inline) return content;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: PaymentPanel(children: children),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(clipBehavior: Clip.antiAlias, child: content),
     );
   }
 }

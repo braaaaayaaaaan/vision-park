@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import RefreshButton from '../../../components/refresh-button';
+import { useCallback, useState } from 'react';
+import useResource from '../vehicles/use-vehicle-resource';
 import HourlyChart from './hourly-chart';
 import TodaySessions from './today-sessions';
 import { occupancyBand, occupancyBands, occupancyPercentage } from './overview-utils.mjs';
@@ -8,39 +10,36 @@ import { formatMalaysiaDate, formatMalaysiaDateTime } from '../../../lib/date-fo
 import styles from './overview.module.css';
 import FinancialSummary from '../payments/financial-summary';
 import { todayPaymentQuery } from '../../../lib/payment-contracts.mjs';
+import MetricIcon from '../../../components/metric-icon';
+import OvernightAlerts from '../sessions/overnight-alerts';
 
 const number = (value) => value.toLocaleString('en-MY');
 const percent = (value) => value === null ? 'N/A' : `${value.toLocaleString('en-MY', { maximumFractionDigits: 1 })}%`;
 const localTime = (value) => value ? formatMalaysiaDateTime(value) : '—';
 
 export default function ParkingOverview() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchOverview(controller.signal).then((result) => {
-      if (!controller.signal.aborted) { setData(result); setLoading(false); }
-    }).catch((failure) => {
-      if (!controller.signal.aborted) { setError(failure.message || 'Unable to load the parking overview.'); setLoading(false); }
-    });
-    return () => controller.abort();
-  }, [revision]);
-  function refresh() { setLoading(true); setData(null); setError(''); setRevision((value) => value + 1); }
+  const load = useCallback(signal => fetchOverview(signal), []);
+  const { data, loading, error } = useResource(`overview:${revision}`, load, 15000);
+  function refresh() { setRevision(value => value + 1); }
+  const occupancy = data ? occupancyPercentage(data.totals) : null;
+  const occupancyStatus = occupancyBand(occupancy).label;
 
   return <div className={styles.page}>
     <div className={styles.heading}>
-      <div><h1>Today&apos;s Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
-      <button className={styles.refresh} onClick={refresh} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+      <div><h1>Today&apos;s Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last Refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
+      <RefreshButton onClick={refresh} loading={loading} />
     </div>
-    {loading ? <div className={styles.panel} role="status" aria-live="polite">Loading parking overview…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={refresh}>Try Again</button></div> : data && <>
+    {loading ? <div className={styles.panel} role="status" aria-live="polite">Loading parking overview…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={refresh}>Try Again</button></div> : data &&
       <div className={styles.kpis}>
-        <Kpi title="Occupancy rate" value={percent(occupancyPercentage(data.totals))} detail={`${number(data.totals.occupied)} occupied out of ${number(data.totals.usable_capacity)} spaces`} />
-        <Kpi title="Available spaces" value={number(data.totals.available)} detail={`${number(data.totals.reserved)} allocated spaces`} />
-        <Kpi title="Today's entries" value={number(data.today_entries)} detail="Recorded entry timestamps" />
-        <Kpi title="Today's exits" value={number(data.today_exits)} detail="Recorded exit timestamps" />
+        <Kpi icon="occupancy" accent={occupancyStatus === 'Full' ? 'red' : occupancyStatus === 'Nearly Full' ? 'amber' : 'blue'} title="Occupancy Rate" value={percent(occupancy)} detail={`${number(data.totals.occupied)} occupied out of ${number(data.totals.usable_capacity)} spaces`} />
+        <Kpi icon="parking" accent="green" title="Available Spaces" value={number(data.totals.available)} detail={`${number(data.totals.reserved)} allocated spaces`} />
+        <Kpi icon="entry" title="Today's Entries" value={number(data.today_entries)} detail="Recorded entry timestamps" />
+        <Kpi icon="exit" accent="green" title="Today's Exits" value={number(data.today_exits)} detail="Recorded exit timestamps" />
       </div>
+    }
+    <OvernightAlerts compact revision={revision} />
+    {!loading && !error && data && <>
       <HourlyChart hours={data.hourly} />
       <section className={styles.panel} aria-labelledby="levels-title">
         <h2 id="levels-title">Occupancy by Level</h2>
@@ -63,10 +62,14 @@ export default function ParkingOverview() {
       </section>
       <TodaySessions />
     </>}
-    <FinancialSummary query={data ? `start_date=${data.reporting_date}&end_date=${data.reporting_date}` : todayPaymentQuery()} revision={revision} />
+    <FinancialSummary query={data ? `start_date=${data.reporting_date}&end_date=${data.reporting_date}` : todayPaymentQuery()} revision={revision} live />
   </div>;
 }
 
-function Kpi({ title, value, detail }) {
-  return <section className={styles.kpi}><h2>{title}</h2><strong>{value}</strong><p>{detail}</p></section>;
+function Kpi({ icon, accent = 'blue', title, value, detail }) {
+  return <section className={`${styles.kpi} ${styles.overviewStat}`} data-metric={icon} data-accent={accent}>
+    <div className={styles.statHeader}><MetricIcon name={icon} large solid /><h2>{title}</h2></div>
+    <strong>{value}</strong>
+    <p>{detail}</p>
+  </section>;
 }

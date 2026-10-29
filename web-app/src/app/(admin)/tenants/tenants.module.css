@@ -1,3 +1,5 @@
+.heading { flex-wrap: wrap; }
+.headerActions { flex-wrap: wrap; align-items: center; }
 .table { min-width: 960px; }
 .table th, .table td { padding: 14px 20px; }
 .table tbody th { background: var(--surface); color: var(--text); white-space: normal; text-align: left; min-width: 220px; }

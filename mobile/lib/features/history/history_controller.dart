@@ -32,6 +32,66 @@ class HistoryController extends ChangeNotifier {
   int days = 7;
   String? vehicleId;
   bool _disposed = false;
+  bool _refreshing = false;
+
+  /// Re-read the loaded window, retaining filters and the number of visible rows.
+  Future<void> refreshInBackground() async {
+    if (_disposed ||
+        _refreshing ||
+        loadingMore ||
+        status == HistoryStatus.loading ||
+        historyRepository == null) {
+      return;
+    }
+    _refreshing = true;
+    final request = ++_request;
+    final target = sessions.length;
+    final records = <ParkingSession>[];
+    String? cursor;
+    try {
+      HistoryPage? latest;
+      do {
+        final page = await historyRepository!.getHistory(
+          days: days,
+          vehicleId: vehicleId,
+          cursor: cursor,
+        );
+        if (_disposed || request != _request) return;
+        if ((latest != null && latest.totalSessions != page.totalSessions) ||
+            (page.nextCursor != null &&
+                (page.nextCursor == cursor || page.sessions.isEmpty))) {
+          throw const FormatException();
+        }
+        latest = page;
+        records.addAll(page.sessions);
+        cursor = page.nextCursor;
+      } while (cursor != null && records.length < target);
+      if (records.map((item) => item.id).toSet().length != records.length ||
+          (cursor == null && records.length != latest.totalSessions)) {
+        throw const FormatException();
+      }
+      sessions = List.unmodifiable(records);
+      vehicles = latest.vehicles;
+      _total = latest.totalSessions;
+      nextCursor = cursor;
+      _loadedDay = MalaysianDateTime.startOfDayUtc(_clock());
+      status = HistoryStatus.ready;
+      message = null;
+    } on AuthFailure catch (error) {
+      if (_disposed || request != _request) return;
+      sessions = const [];
+      vehicles = const [];
+      _total = null;
+      nextCursor = null;
+      status = HistoryStatus.error;
+      message = error.message;
+    } catch (_) {
+      // Keep the last successful snapshot and retry on the next visible tick.
+    } finally {
+      _refreshing = false;
+      if (!_disposed && request == _request) notifyListeners();
+    }
+  }
 
   List<ParkingSession> get filteredSessions {
     if (historyRepository != null) return sessions;
@@ -151,7 +211,10 @@ class HistoryController extends ChangeNotifier {
   }
 
   Future<void> loadMore() async {
-    if (nextCursor == null || loadingMore || status != HistoryStatus.ready) {
+    if (nextCursor == null ||
+        loadingMore ||
+        _refreshing ||
+        status != HistoryStatus.ready) {
       return;
     }
     await _loadRemote(more: true);

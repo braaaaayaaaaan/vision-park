@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 import '../../data/repositories/assigned_route_repository.dart';
 import '../../data/models/driver_models.dart';
+import '../../data/models/dashboard_models.dart';
 import '../../shared/widgets/empty_state_card.dart';
+import '../../shared/visible_poller.dart';
 import 'navigation_controller.dart';
 import 'route_voice_guidance.dart';
 import 'widgets/parking_confirmation.dart';
@@ -19,6 +21,7 @@ class NavigationScreen extends StatefulWidget {
     this.refreshRevision = 0,
     this.paymentSessionIds = const {},
     this.onPaymentSelected,
+    this.requestedAllocation,
     super.key,
   });
   final NavigationController? controller;
@@ -29,6 +32,7 @@ class NavigationScreen extends StatefulWidget {
   final int refreshRevision;
   final Set<String> paymentSessionIds;
   final ValueChanged<String>? onPaymentSelected;
+  final ActiveParking? requestedAllocation;
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -37,6 +41,7 @@ class NavigationScreen extends StatefulWidget {
 class _NavigationScreenState extends State<NavigationScreen> {
   late final NavigationController _controller;
   late final RouteVoiceGuidance _voice;
+  late final VisiblePoller _poller;
   bool _dialogOpen = false;
   bool _mapTouchActive = false;
 
@@ -82,7 +87,29 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _controller =
         widget.controller ??
         NavigationController(routeRepository: widget.routeRepository);
-    if (widget.isVisible) _controller.load();
+    if (widget.isVisible) _loadSelection();
+    _poller = VisiblePoller(
+      refresh: () => _controller.load(background: true),
+      isVisible: () =>
+          mounted &&
+          widget.isVisible &&
+          !_dialogOpen &&
+          ModalRoute.of(context)?.isCurrent != false,
+    );
+  }
+
+  void _loadSelection({bool background = false}) {
+    final requested = widget.requestedAllocation;
+    if (requested != null) {
+      if (requested.session.status == ParkingSessionStatus.occupied) {
+        _controller.openSession(requested);
+      } else {
+        _controller.openAllocation(requested);
+      }
+    } else {
+      _controller.clearAllocationTarget();
+      _controller.load(background: background);
+    }
   }
 
   @override
@@ -91,8 +118,19 @@ class _NavigationScreenState extends State<NavigationScreen> {
     if (!widget.isVisible) _voice.pause();
     if (widget.isVisible &&
         (!oldWidget.isVisible ||
-            widget.refreshRevision != oldWidget.refreshRevision)) {
-      _controller.load();
+            widget.refreshRevision != oldWidget.refreshRevision ||
+            !identical(
+              widget.requestedAllocation,
+              oldWidget.requestedAllocation,
+            ))) {
+      if (!identical(
+        widget.requestedAllocation,
+        oldWidget.requestedAllocation,
+      )) {
+        _loadSelection();
+      } else {
+        _controller.load(background: oldWidget.isVisible);
+      }
     }
     if (widget.paymentSessionIds.contains(
       _controller.data?.parking?.session.id,
@@ -103,6 +141,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   @override
   void dispose() {
+    _poller.dispose();
     _voice.pause();
     if (widget.voiceGuidance == null) _voice.dispose();
     if (widget.controller == null) _controller.dispose();
@@ -111,7 +150,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   Widget _parkButton() => FilledButton.icon(
     onPressed: _controller.canConfirm && !_dialogOpen ? _confirmParking : null,
-    icon: const Icon(Icons.local_parking_rounded, size: 18),
+    icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
     label: Text(
       _controller.confirming ? 'Confirming Parking...' : "I've Parked",
     ),
@@ -124,7 +163,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
       );
     }
     final message = _controller.confirmationMessage;
-    return message == null ? null : Text(message);
+    return message == null
+        ? null
+        : Text(
+            message,
+            style: _controller.confirmationSucceeded
+                ? const TextStyle(color: Color(0xFF15803D))
+                : null,
+          );
   }
 
   @override
@@ -140,6 +186,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
             child: Column(
               children: [
                 const EmptyStateCard(
+                  compact: true,
                   icon: Icons.payment_rounded,
                   title: 'Payment Required',
                   message: 'Review your outstanding payment to continue.',
@@ -250,7 +297,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     else if (!_controller.hasActiveSession)
                       const EmptyStateCard(
                         compact: true,
-                        icon: Icons.local_parking_outlined,
+                        icon: Icons.directions_car_outlined,
                         title: 'No Active Parking Session',
                         message: 'Navigation requires an active parking allocation. No route is currently available.',
                       )

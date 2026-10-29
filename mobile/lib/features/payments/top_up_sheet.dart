@@ -250,7 +250,12 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                     const SizedBox(height: 16),
                     Semantics(
                       liveRegion: true,
-                      child: Text(controller.actionMessage!),
+                      child: Text(
+                        controller.actionMessage!,
+                        style: controller.actionSucceeded
+                            ? const TextStyle(color: Color(0xFF24613D))
+                            : null,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -263,13 +268,6 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                     child: Text(recovering ? 'Retry Top Up' : 'Continue'),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'No real money is processed.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                 ],
               ),
             ),

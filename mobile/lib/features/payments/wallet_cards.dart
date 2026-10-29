@@ -177,7 +177,7 @@ class WalletAccountCard extends StatelessWidget {
                 color: theme.colorScheme.primary,
               ),
             ),
-            title: const Text('Wallet & Payments'),
+            title: const Text('Wallet and Payments'),
             subtitle: Text(
               unavailable
                   ? 'Balance Unavailable'

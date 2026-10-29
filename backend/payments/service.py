@@ -160,9 +160,10 @@ def top_up(user_id, change, client_key):
 
 
 @checked
-def wallet_history(user_id, limit, offset, kind=None):
+def wallet_history(user_id, limit, offset, kind=None, start=None, end=None):
     meta = context()
-    rows, total = data.ledger_page(str(user_id), limit, offset, kind)
+    first, last = date_range(start, end, meta['server_time'])
+    rows, total = data.ledger_page(str(user_id), limit, offset, kind, first, last)
     items = [models.LedgerEntry.model_validate(row) for row in rows]
     if any(item.user_id != UUID(str(user_id)) or (kind and item.entry_type != kind) for item in items):
         raise ValueError('Ledger scope mismatch')

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../data/repositories/history_repository.dart';
+import '../../data/repositories/status_reminder_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/services/payment_operations.dart';
 import '../payments/payments_controller.dart';
@@ -12,6 +13,7 @@ import '../../data/repositories/availability_repository.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_shell.dart';
+import '../home/allocation_notifications.dart';
 import '../../app/app_theme.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/active_session_repository.dart';
@@ -34,6 +36,7 @@ class AuthGate extends StatefulWidget {
     this.passwordRecovery,
     this.passwordChange,
     this.activeSessionRepository,
+    this.statusReminderRepository,
     this.availabilityRepository,
     this.routeRepository,
     this.vehicleRepository,
@@ -43,6 +46,7 @@ class AuthGate extends StatefulWidget {
   });
   final AuthRepository repository;
   final ActiveSessionRepository? activeSessionRepository;
+  final StatusReminderRepository? statusReminderRepository;
   final AvailabilityRepository? availabilityRepository;
   final AssignedRouteRepository? routeRepository;
   final VehicleRepository? vehicleRepository;
@@ -66,12 +70,33 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   bool _advancing = false;
   bool _leavingRecovery = false;
   PaymentsController? _payments;
+  AllocationNotifications? _allocations;
+  String? _allocationOwner;
+
+  AllocationNotifications _driverAllocations() {
+    final owner = _controller.profile!.id;
+    if (_allocationOwner != owner || _allocations == null) {
+      _allocationOwner = owner;
+      _allocations = AllocationNotifications();
+    }
+    return _allocations!;
+  }
+
+  void _allocationAuthChanged() {
+    if (!widget.repository.hasSession ||
+        _controller.status == AuthStatus.signedOut ||
+        _controller.status == AuthStatus.blocked) {
+      _allocations = null;
+      _allocationOwner = null;
+    }
+  }
 
   PaymentsController? _driverPayments() {
     final repository = widget.paymentRepository;
     final profile = _controller.profile;
     if (repository == null ||
         profile?.role != 'driver' ||
+        profile?.approvalStatus != 'approved' ||
         repository.ownerId != profile?.id) {
       return null;
     }
@@ -91,6 +116,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     _registering = widget.startWithRegistration;
     WidgetsBinding.instance.addObserver(this);
     _controller = AuthController(widget.repository)..refresh();
+    _controller.addListener(_allocationAuthChanged);
     _verification = widget.emailVerification ?? EmailVerificationController();
     _recovery = widget.passwordRecovery ?? PasswordRecoveryController();
     _verification.onRecoveryLink = (link) {
@@ -181,6 +207,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     if (widget.emailVerification == null) _verification.dispose();
     if (widget.passwordRecovery == null) _recovery.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    _controller.removeListener(_allocationAuthChanged);
     _controller.dispose();
     _payments?.dispose();
     super.dispose();
@@ -214,10 +241,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           );
         case AuthStatus.approved:
           return AppShell(
+            key: ValueKey(_controller.profile!.id),
+            allocationNotifications: _driverAllocations(),
             passwordChange: widget.passwordChange,
             profile: _controller.profile,
             onSignOut: _controller.signOut,
             activeSessionRepository: widget.activeSessionRepository,
+            statusReminderRepository: widget.statusReminderRepository,
             availabilityRepository: widget.availabilityRepository,
             routeRepository: widget.routeRepository,
             vehicleRepository: widget.vehicleRepository,
@@ -283,6 +313,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
               children: [
                 if (_controller.status == AuthStatus.blocked &&
                     _controller.profile?.role == 'driver' &&
+                    _controller.profile?.approvalStatus == 'approved' &&
                     widget.paymentRepository != null)
                   OutlinedButton.icon(
                     icon: const Icon(Icons.account_balance_wallet_outlined),

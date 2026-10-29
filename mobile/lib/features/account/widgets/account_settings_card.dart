@@ -93,7 +93,7 @@ class _HelpContent extends StatelessWidget {
             'Entrance cameras read your plate. Recognition is separate from approval and does not guarantee parking access.',
           ),
           (
-            Icons.local_parking_outlined,
+            Icons.garage_outlined,
             'Parking Allocation',
             'Requires tenant permission, available zone capacity and a reachable route.',
           ),

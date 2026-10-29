@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import shared from './parking-structure.module.css';
 import map from './calibration.module.css';
 import styles from './structure-validation.module.css';
+import checkboxStyles from '../../../components/selection-checkbox.module.css';
 import PublicationPreview from './publication-preview';
 import { formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 
@@ -67,7 +68,7 @@ export default function StructureValidation({ levels, disabled, publishing=false
     <div className={map.heading}><h2>Configuration Validation</h2><button className={shared.button} disabled={disabled || publishing || loading || !chosen.length} onClick={validate}>{loading ? 'Validating…' : 'Validate Configuration'}</button></div>
     <p className={shared.note}>Configure the parking structure first before selecting the relevant parking levels.</p>
     <fieldset className={styles.scope} disabled={disabled || publishing || loading}><legend>Included Levels</legend>
-      <div className={styles.choices}>{levels.map(level => <label key={level.id}><input type="checkbox" checked={chosen.includes(level.id)} disabled={!chosen.includes(level.id) && chosen.length >= 64}
+      <div className={styles.choices}>{levels.map(level => <label key={level.id}><input className={checkboxStyles.checkbox} type="checkbox" checked={chosen.includes(level.id)} disabled={!chosen.includes(level.id) && chosen.length >= 64}
         onChange={event => selection(event.target.checked ? [...chosen, level.id] : chosen.filter(id => id !== level.id))} />{level.name}{!level.floor_plan ? ' (no floor plan)' : ''}</label>)}</div>
       {!levels.length && <p>No parking levels available.</p>}
       <div className={map.toolbar}><button type="button" className={shared.button} disabled={levels.filter(level => level.floor_plan).length > 64} onClick={() => selection(levels.filter(level => level.floor_plan).map(level => level.id))}>Select Configured Levels</button>
@@ -127,7 +128,7 @@ export default function StructureValidation({ levels, disabled, publishing=false
           </li>;
         })}</ul>
         <div className={styles.coverageScope}><span className={styles.scopeLabel}>Levels Checked</span><ul className={styles.levelChips} aria-label="Levels Checked">{report.levels.map(level => <li key={level.id}>{level.name}</li>)}</ul>
-          {report.ramp_revisions.length > 0 && <span>{report.ramp_revisions.length} cross-level connections</span>}</div>
+          {report.ramp_revisions.length > 0 && <span>{report.ramp_revisions.length} Cross-Level Connections</span>}</div>
       <details className={styles.technical}><summary>Technical Details</summary>
         <div className={styles.revisionCards}>{report.levels.map(level => <div key={level.id}><h4>{level.name}</h4><dl>
           {[['Floor Plan', level.floor_plan_revision], ['Calibration', level.calibration_revision], ['Node Draft', level.draft_revision], ['Validated Distances', level.distances_validated_revision]].map(([label, revision]) => <div key={label}><dt>{label}</dt><dd>{revision ?? 'Missing'}</dd></div>)}

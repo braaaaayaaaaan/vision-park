@@ -1,4 +1,5 @@
 "use client";
+import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useState } from 'react';
 import { analyticsQuery, fetchAnalytics } from './analytics-client.mjs';
 import { formatMalaysiaDate, formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
@@ -8,8 +9,10 @@ import UtilisationCharts from './utilisation-charts';
 import styles from '../overview/overview.module.css';
 import filtersStyle from './analytics.module.css';
 import FinancialSummary from '../payments/financial-summary';
+import MetricIcon from '../../../components/metric-icon';
+import OverviewNotice from '../overview/overview-notice';
 
-const movementsSeries = [{ key: 'entries', label: 'Entries', colour: 'var(--chart-primary)' }, { key: 'exits', label: 'Exits', colour: 'var(--chart-comparative)' }];
+const movementsSeries = [{ key: 'entries', label: 'Entries', colour: '#16A34A' }, { key: 'exits', label: 'Exits', colour: '#DC2626' }];
 const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: 'var(--chart-supporting)' }];
 const number = (value) => value.toLocaleString('en-MY');
 const hour = (value) => value === null ? 'N/A' : `${String(value.hour).padStart(2, '0')}:00–${String((value.hour + 1) % 24).padStart(2, '0')}:00`;
@@ -41,7 +44,7 @@ export default function ParkingAnalytics() {
   function field(key, value) { setDraft((current) => ({ ...current, [key]: value })); }
   const lastRefreshed = data ? formatMalaysiaDateTime(data.generated_at) : '—';
   return <div className={styles.page}>
-    <div className={styles.heading}><div><h1>Parking Analytics</h1><p className={styles.muted}>{data ? `${formatMalaysiaDate(data.start_date)} to ${formatMalaysiaDate(data.end_date)} · Malaysia time · ${data.level_id ? data.levels.find((item) => item.id === data.level_id)?.name : 'All levels'}` : 'Historical vehicle movements and parking durations'}</p><p className={styles.muted}>Last refreshed: {lastRefreshed}{data ? ' MYT' : ''}</p></div><button className={styles.refresh} disabled={loading} onClick={() => load(applied)}>Refresh</button></div>
+    <div className={styles.heading}><div><h1>Parking Analytics</h1><p className={styles.muted}>{data ? `${formatMalaysiaDate(data.start_date)} to ${formatMalaysiaDate(data.end_date)} · Malaysia Time · ${data.level_id ? data.levels.find((item) => item.id === data.level_id)?.name : 'All Levels'}` : 'Historical vehicle movements and parking durations'}</p><p className={styles.muted}>Last Refreshed: {lastRefreshed}{data ? ' MYT' : ''}</p></div><RefreshButton loading={loading} onClick={() => load(applied)} /></div>
     <form className={styles.panel} onSubmit={(event) => { event.preventDefault(); load(draft); }}>
       <div className={filtersStyle.filters}>
         <label>Reporting Period<select value={draft.preset} disabled={loading} onChange={(event) => field('preset', event.target.value)}><option value="1">Today</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="custom">Custom Date Range</option></select></label>
@@ -53,18 +56,24 @@ export default function ParkingAnalytics() {
     </form>
     {loading ? <div className={styles.panel} role="status">Loading parking analytics…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={() => load(applied)}>Try Again</button></div> : data && <>
       <h2 className={filtersStyle.sectionTitle}>Parking Movements and Durations</h2>
-      <div className={styles.kpis}>
-        <Kpi title="Total entries" value={number(data.summary.total_entries)} detail="Entry timestamps in range" />
-        <Kpi title="Total exits" value={number(data.summary.total_exits)} detail="Exit timestamps in range" />
-        <Kpi title="Average parking duration" value={duration(data.summary.average_duration_seconds)} detail={`${number(data.durations.valid_completed_sessions)} valid completed sessions`} />
-        <Kpi title="Peak entry hour" value={hour(data.summary.peak_entry_hour)} detail={data.summary.peak_entry_hour ? `${number(data.summary.peak_entry_hour.count)} entries · hourly total` : 'No entries in range'} />
+      <div className={`${styles.kpis} ${styles.alignedKpis}`}>
+        <Kpi icon="entry" title="Total Entries" value={number(data.summary.total_entries)} detail="Entry timestamps in range" />
+        <Kpi icon="exit" title="Total Exits" value={number(data.summary.total_exits)} detail="Exit timestamps in range" />
+        <Kpi icon="sessions" title="Average Parking Duration" value={duration(data.summary.average_duration_seconds)} detail={`${number(data.durations.valid_completed_sessions)} valid completed sessions`} />
+        <Kpi icon="vehicles" title="Peak Entry Hour" value={hour(data.summary.peak_entry_hour)} detail={data.summary.peak_entry_hour ? `${number(data.summary.peak_entry_hour.count)} entries · Hourly Total` : 'No entries in range'} emptyDetail={!data.summary.peak_entry_hour} />
       </div>
-      <AnalyticsChart id="entry-exit-trends" title="Vehicle entry and exit trends" description={data.granularity === 'hour' ? 'Hourly totals for the selected Malaysia calendar day.' : 'Daily totals by following the Malaysia calendar date.'} rows={data.movements.map(row => ({ ...row, period: data.granularity === 'hour' ? row.period : formatMalaysiaDate(row.period) }))} series={movementsSeries} unit="Vehicles" axis={data.granularity === 'hour' ? 'Hour of Day (MYT)' : 'Calendar Date (DD-MM-YYYY)'} />
-      <HourlyChart hours={data.hourly_pattern} title="Hourly traffic pattern" description="Totals for each Malaysia-local hour across the selected period, not hourly averages." emptyMessage="No entries or exits in this selection" />
-      <AnalyticsChart id="duration-distribution" title="Parking duration distribution" description="Completed sessions with valid timestamps and an exit in the reporting period." rows={data.durations.distribution.map((bucket) => ({ ...bucket, period: bucket.label }))} series={durationSeries} unit="Completed Sessions" axis="Parking Duration" />
+      <AnalyticsChart id="entry-exit-trends" title="Vehicle Entry and Exit Trends" description={data.granularity === 'hour' ? 'Hourly totals for the selected Malaysia calendar day.' : 'Daily totals by following the Malaysia calendar date.'} rows={data.movements.map(row => ({ ...row, period: data.granularity === 'hour' ? row.period : formatMalaysiaDate(row.period) }))} series={movementsSeries} unit="Vehicles" axis={data.granularity === 'hour' ? 'Hour of Day (MYT)' : 'Calendar Date (DD-MM-YYYY)'} />
+      <HourlyChart hours={data.hourly_pattern} title="Hourly Traffic Pattern" description="Totals for each Malaysia-local hour across the selected period, not hourly averages." emptyMessage="No entries or exits in this selection" />
+      <AnalyticsChart id="duration-distribution" title="Parking Duration Distribution" description="Completed sessions with valid timestamps and an exit in the reporting period." rows={data.durations.distribution.map((bucket) => ({ ...bucket, period: bucket.label }))} series={durationSeries} unit="Completed Sessions" axis="Parking Duration" />
       <UtilisationCharts data={data} />
     </>}
     <FinancialSummary query={request.query} revision={request.version} chart />
   </div>;
 }
-function Kpi({ title, value, detail }) { return <section className={styles.kpi}><h2>{title}</h2><strong style={{ fontSize: 'clamp(22px, 2vw, 30px)', overflowWrap: 'anywhere' }}>{value}</strong><p>{detail}</p></section>; }
+function Kpi({ icon, title, value, detail, emptyDetail = false }) {
+  return <section className={`${styles.kpi} ${styles.overviewStat}`}>
+    <div className={styles.statHeader}><MetricIcon name={icon} large solid /><h2>{title}</h2></div>
+    <strong>{value}</strong>
+    {emptyDetail ? <OverviewNotice><p>{detail}</p></OverviewNotice> : <p>{detail}</p>}
+  </section>;
+}

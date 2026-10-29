@@ -30,6 +30,7 @@ class ParkingMap extends StatefulWidget {
     this.parkingAction,
     this.parkingFeedback,
     this.voiceGuidance,
+    this.onRouteLevelChanged,
     super.key,
   });
   final ParkingGraph graph;
@@ -45,6 +46,7 @@ class ParkingMap extends StatefulWidget {
   final Widget? parkingAction;
   final Widget? parkingFeedback;
   final RouteVoiceGuidance? voiceGuidance;
+  final ValueChanged<String>? onRouteLevelChanged;
   @override
   State<ParkingMap> createState() => _ParkingMapState();
 }
@@ -68,6 +70,16 @@ class _ParkingMapState extends State<ParkingMap>
   Size? _viewport;
   bool _fullPlan = false;
   final _pointers = <int>{};
+  final _verifiedImages = <String, Uint8List>{};
+  final _imageLoads = <String, Future<Uint8List>>{};
+  int _routeEpoch = 0, _waitRequest = 0, _playRequest = 0;
+  double _lastPreviewValue = 0;
+  bool _handlingTransition = false;
+  bool _followRoute = true, _resumeAfterLoad = false;
+  bool _resumeScheduled = false;
+  String? _requestedLevel, _waitingLevel;
+  String? get _activeLevel => _previewPath?.levelAt(_preview.value);
+  bool get _showVehicle => widget.levelId == _activeLevel;
   MapFloorPlan? get _plan => widget.graph.levels
       .where((level) => level.id == widget.levelId)
       .firstOrNull
@@ -82,6 +94,7 @@ class _ParkingMapState extends State<ParkingMap>
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
+    _preview.addListener(_advanceFloor);
     _preview.addListener(_followVehicle);
     _preview.addListener(_syncVoice);
     _preview.addStatusListener((status) {
@@ -93,7 +106,136 @@ class _ParkingMapState extends State<ParkingMap>
     _transformation.addListener(_constrainViewport);
     _instructionPlan = generateRouteInstructions(_geometry);
     widget.voiceGuidance?.setPlan(_instructionPlan);
+    _resetPath();
     _load();
+  }
+
+  void _resetPath() {
+    _pausePlayback();
+    _stopFollowingVehicle();
+    _lastPreviewValue = 0;
+    _handlingTransition = true;
+    _preview.reset();
+    _handlingTransition = false;
+    _previewPath = RoutePreviewPath(
+      _geometry.orderedNodes,
+      segmentMetres: _instructionPlan.error == null
+          ? _instructionPlan.segmentMetres
+          : null,
+    );
+    if (_previewPath!.canPlay) _preview.duration = _previewPath!.duration;
+    _followRoute = true;
+    _requestedLevel = null;
+    _waitingLevel = null;
+    ++_waitRequest;
+  }
+
+  void _selectRouteLevel(String level) {
+    if (!_followRoute || widget.levelId == level || _requestedLevel == level) {
+      return;
+    }
+    _requestedLevel = level;
+    final epoch = _routeEpoch;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          epoch == _routeEpoch &&
+          _followRoute &&
+          _requestedLevel == level) {
+        widget.onRouteLevelChanged?.call(level);
+      }
+    });
+  }
+
+  void _advanceFloor() {
+    if (_handlingTransition) return;
+    final value = _preview.value;
+    final change = _previewPath?.nextFloorChange(_lastPreviewValue, value);
+    _lastPreviewValue = value;
+    if (change == null) return;
+    final (boundary, level) = change;
+    // A long frame may have completed the controller before listeners run.
+    final resume =
+        widget.previewEnabled &&
+        (_preview.isAnimating || _preview.status == AnimationStatus.completed);
+    _waitingLevel = level;
+    _handlingTransition = true;
+    _preview.stop();
+    _preview.value = boundary;
+    _lastPreviewValue = boundary;
+    _handlingTransition = false;
+    _stopFollowingVehicle();
+    _selectRouteLevel(level);
+    _waitForRouteImage(level, resume: resume);
+  }
+
+  Future<void> _waitForRouteImage(String level, {required bool resume}) async {
+    final request = ++_waitRequest;
+    _waitingLevel = level;
+    _resumeAfterLoad = resume;
+    _syncVoice();
+    try {
+      await _verifiedImage(level);
+      if (!mounted || request != _waitRequest) return;
+      _waitingLevel = null;
+      setState(() {});
+      _tryResume();
+    } catch (_) {
+      if (!mounted || request != _waitRequest) return;
+      // Keep the exact boundary. Follow/Play can retry without replaying a leg.
+      setState(() => _resumeAfterLoad = false);
+    }
+  }
+
+  void _tryResume() {
+    if (!_resumeAfterLoad ||
+        _resumeScheduled ||
+        _waitingLevel != null ||
+        !widget.previewEnabled ||
+        !_verifiedImages.containsKey(_activeLevel) ||
+        (_followRoute && (!_showVehicle || _bytes == null || _loading))) {
+      return;
+    }
+    _resumeScheduled = true;
+    final request = _playRequest;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || request != _playRequest) return;
+      _resumeScheduled = false;
+      if (!_resumeAfterLoad ||
+          !widget.previewEnabled ||
+          _waitingLevel != null ||
+          (_followRoute && (!_showVehicle || _bytes == null || _loading))) {
+        return;
+      }
+      _resumeAfterLoad = false;
+      if (_followRoute && _showVehicle && _viewport != null) {
+        _beginFollowingVehicle();
+      }
+      _preview.forward();
+      _syncVoice();
+      setState(() {});
+    });
+  }
+
+  void _playFollowingRoute() {
+    final level = _activeLevel;
+    if (level == null) return;
+    _followRoute = true;
+    _selectRouteLevel(level);
+    if (_showVehicle && _bytes == null && !_loading) _load();
+    if (_showVehicle && _bytes != null && !_loading && _waitingLevel == null) {
+      _beginFollowingVehicle();
+      _preview.forward();
+    } else {
+      _waitForRouteImage(level, resume: true);
+    }
+  }
+
+  void _restartPreview() {
+    widget.voiceGuidance?.restart();
+    _resetPath();
+    final level = _activeLevel;
+    if (level != null) _selectRouteLevel(level);
+    if (_viewport != null && _showVehicle) _fit(_viewport!, fullPlan: false);
   }
 
   void _beginFollowingVehicle() {
@@ -115,7 +257,8 @@ class _ParkingMapState extends State<ParkingMap>
     final viewport = _viewport, plan = _plan;
     final position = _previewPath?.position(_preview.value);
     final heading = _previewPath?.heading(_preview.value, smooth: true);
-    if (!_followingVehicle ||
+    if (!_showVehicle ||
+        !_followingVehicle ||
         viewport == null ||
         plan == null ||
         position == null ||
@@ -179,6 +322,9 @@ class _ParkingMapState extends State<ParkingMap>
   }
 
   void _pausePlayback() {
+    ++_playRequest;
+    _resumeScheduled = false;
+    _resumeAfterLoad = false;
     widget.voiceGuidance?.pause();
     _preview.stop();
     _camera.stop();
@@ -189,7 +335,7 @@ class _ParkingMapState extends State<ParkingMap>
     widget.voiceGuidance?.update(
       progress: segment == null ? null : _instructionPlan.progressAt(segment),
       playing: _preview.isAnimating && widget.previewEnabled,
-      complete: _preview.isCompleted,
+      complete: _preview.isCompleted && _waitingLevel == null,
     );
   }
 
@@ -216,11 +362,21 @@ class _ParkingMapState extends State<ParkingMap>
       widget.voiceGuidance?.setPlan(_instructionPlan);
     }
     if (!widget.previewEnabled) _pausePlayback();
+    if (oldWidget.levelId != widget.levelId) {
+      if (_requestedLevel == widget.levelId) {
+        _requestedLevel = null;
+      } else {
+        _followRoute = false;
+        _requestedLevel = null;
+      }
+    }
     if (!_sameInstructionData(oldWidget, widget)) {
       _instructionPlan = generateRouteInstructions(_geometry);
       widget.voiceGuidance?.setPlan(_instructionPlan);
-      _stopFollowingVehicle();
-      _preview.reset();
+      ++_routeEpoch;
+      _verifiedImages.clear();
+      _imageLoads.clear();
+      _resetPath();
     }
     if (!_sameMap(oldWidget, widget) ||
         oldWidget.levelId != widget.levelId ||
@@ -260,6 +416,7 @@ class _ParkingMapState extends State<ParkingMap>
                 l.floorPlan?.height,
                 l.floorPlan?.revision,
                 l.floorPlan?.publicationRevision,
+                l.floorPlan?.imagePath,
               ),
             )
             .toList(),
@@ -273,6 +430,7 @@ class _ParkingMapState extends State<ParkingMap>
                 l.floorPlan?.height,
                 l.floorPlan?.revision,
                 l.floorPlan?.publicationRevision,
+                l.floorPlan?.imagePath,
               ),
             )
             .toList(),
@@ -325,11 +483,7 @@ class _ParkingMapState extends State<ParkingMap>
   }
 
   Future<void> _load() async {
-    widget.voiceGuidance?.restart();
     _stopFollowingVehicle();
-    _preview.reset();
-    _previewPath = RoutePreviewPath(_geometry.orderedNodes);
-    if (_previewPath!.canPlay) _preview.duration = _previewPath!.duration;
     final request = ++_request;
     _bytes = null;
     _viewport = null;
@@ -349,40 +503,24 @@ class _ParkingMapState extends State<ParkingMap>
       }
       return;
     }
-    var phase = 'image_request';
     try {
       if (kDebugMode) {
         debugPrint(
           'Navigation floor plan: image_request_started level=${widget.levelId}',
         );
       }
-      final bytes = await load!(plan!);
-      phase = 'image_decode';
-      // Verify decoded dimensions before drawing any overlay.
-      final codec = await ui.instantiateImageCodec(bytes);
-      try {
-        final frame = await codec.getNextFrame();
-        final aligned =
-            frame.image.width == plan.width &&
-            frame.image.height == plan.height;
-        frame.image.dispose();
-        if (!aligned) {
-          phase = 'image_dimensions';
-          throw const FormatException('Image dimensions changed');
-        }
-      } finally {
-        codec.dispose();
-      }
+      final bytes = await _verifiedImage(widget.levelId);
       if (mounted && request == _request) {
         setState(() {
           _bytes = bytes;
           _loading = false;
         });
+        _tryResume();
       }
     } catch (_) {
       if (kDebugMode) {
         debugPrint(
-          'Navigation floor plan: ${phase}_failed level=${widget.levelId}',
+          'Navigation floor plan: image_request_failed level=${widget.levelId}',
         );
       }
       if (mounted && request == _request) {
@@ -391,6 +529,44 @@ class _ParkingMapState extends State<ParkingMap>
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<Uint8List> _verifiedImage(String levelId) async {
+    final cached = _verifiedImages[levelId];
+    if (cached != null) return cached;
+    final pending = _imageLoads[levelId];
+    if (pending != null) return pending;
+    final plan = widget.graph.levels
+        .where((l) => l.id == levelId)
+        .firstOrNull
+        ?.floorPlan;
+    final load = widget.loadFloorPlan;
+    if (plan == null || load == null) {
+      throw const FormatException('Missing floor plan');
+    }
+    final epoch = _routeEpoch;
+    final future = () async {
+      final bytes = await load(plan);
+      final codec = await ui.instantiateImageCodec(bytes);
+      try {
+        final frame = await codec.getNextFrame();
+        final aligned =
+            frame.image.width == plan.width &&
+            frame.image.height == plan.height;
+        frame.image.dispose();
+        if (!aligned) throw const FormatException('Image dimensions changed');
+      } finally {
+        codec.dispose();
+      }
+      if (mounted && epoch == _routeEpoch) _verifiedImages[levelId] = bytes;
+      return bytes;
+    }();
+    _imageLoads[levelId] = future;
+    try {
+      return await future;
+    } finally {
+      if (epoch == _routeEpoch) _imageLoads.remove(levelId);
     }
   }
 
@@ -411,7 +587,7 @@ class _ParkingMapState extends State<ParkingMap>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed &&
-        (_preview.isAnimating || _camera.isAnimating)) {
+        (_preview.isAnimating || _camera.isAnimating || _resumeAfterLoad)) {
       setState(_pausePlayback);
     }
   }
@@ -608,12 +784,17 @@ class _ParkingMapState extends State<ParkingMap>
                                           geometry: geometry,
                                           levelId: widget.levelId,
                                           routeColour: scheme.primary,
-                                          previewPosition: _previewPath
-                                              ?.position(_preview.value),
-                                          previewHeading: _previewPath?.heading(
-                                            _preview.value,
-                                            smooth: true,
-                                          ),
+                                          previewPosition: _showVehicle
+                                              ? _previewPath?.position(
+                                                  _preview.value,
+                                                )
+                                              : null,
+                                          previewHeading: _showVehicle
+                                              ? _previewPath?.heading(
+                                                  _preview.value,
+                                                  smooth: true,
+                                                )
+                                              : null,
                                           markerScale:
                                               1 /
                                               _transformation.value
@@ -692,11 +873,7 @@ class _ParkingMapState extends State<ParkingMap>
                   const Color(0xFFB45309),
                 ),
               _legend(Icons.trip_origin, 'Entrance', scheme.primary),
-              _legend(
-                Icons.local_parking_rounded,
-                'Assigned Zone',
-                scheme.primary,
-              ),
+              _legend(Icons.garage_outlined, 'Assigned Zone', scheme.primary),
               _legend(Icons.swap_vert_rounded, 'Ramp', const Color(0xFF7B4FA3)),
             ],
           ),
@@ -771,11 +948,11 @@ class _ParkingMapState extends State<ParkingMap>
             _fit(_viewport!, fullPlan: true);
           },
         ),
-        if (_preview.isAnimating && !_followingVehicle)
+        if (_preview.isAnimating && !_followingVehicle && _showVehicle)
           IconButton(
             tooltip: 'Follow Vehicle',
             icon: const Icon(Icons.center_focus_strong_rounded),
-            onPressed: () => setState(_beginFollowingVehicle),
+            onPressed: () => setState(_playFollowingRoute),
           ),
       ];
       return Material(
@@ -831,7 +1008,8 @@ class _ParkingMapState extends State<ParkingMap>
           _bytes != null &&
           !_loading &&
           validCoordinates;
-      final complete = _preview.isCompleted;
+      final complete = _preview.isCompleted && _waitingLevel == null;
+      final playing = _preview.isAnimating || _resumeAfterLoad;
       final segment = path.segmentAt(_preview.value);
       final guidance = segment == null
           ? null
@@ -866,10 +1044,16 @@ class _ParkingMapState extends State<ParkingMap>
               if (!path.canPlay)
                 Text(
                   path.crossesLevels
-                      ? 'Cross-floor playback is coming in Stage 2B. You can still switch floors manually.'
+                      ? 'Cross-floor preview requires verified ramp distances.'
                       : 'This route has no distance to preview.',
                 ),
-              if (!path.crossesLevels) ...[
+              if (_waitingLevel != null)
+                Text(
+                  _loading || _resumeAfterLoad
+                      ? 'Waiting for the next floor plan.'
+                      : 'Floor plan unavailable. Retry to continue.',
+                ),
+              ...[
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: path.canPlay ? _preview.value : 0,
@@ -888,56 +1072,60 @@ class _ParkingMapState extends State<ParkingMap>
                 runSpacing: 8,
                 children: [
                   FilledButton.icon(
-                    onPressed: !enabled || complete
+                    onPressed:
+                        (!enabled && !playing) ||
+                            !widget.previewEnabled ||
+                            complete
                         ? null
                         : () => setState(() {
-                            if (_preview.isAnimating) {
+                            if (playing) {
                               _pausePlayback();
                             } else {
-                              _beginFollowingVehicle();
-                              _preview.forward();
+                              _playFollowingRoute();
                             }
                           }),
                     icon: Icon(
-                      _preview.isAnimating
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                     ),
-                    label: Text(_preview.isAnimating ? 'Pause' : 'Play'),
+                    label: Text(playing ? 'Pause' : 'Play'),
                   ),
                   if (widget.navigationLayout)
                     IconButton(
                       tooltip: 'Restart',
                       icon: const Icon(Icons.replay_rounded),
                       onPressed: enabled
-                          ? () => setState(() {
-                              widget.voiceGuidance?.restart();
-                              _stopFollowingVehicle();
-                              _preview.reset();
-                              _fit(_viewport!, fullPlan: false);
-                            })
+                          ? () => setState(_restartPreview)
                           : null,
                     )
                   else
                     OutlinedButton.icon(
                       onPressed: enabled
-                          ? () => setState(() {
-                              widget.voiceGuidance?.restart();
-                              _stopFollowingVehicle();
-                              _preview.reset();
-                              _fit(_viewport!, fullPlan: false);
-                            })
+                          ? () => setState(_restartPreview)
                           : null,
                       icon: const Icon(Icons.replay_rounded),
                       label: const Text('Restart'),
                     ),
                   if (!widget.navigationLayout && widget.voiceGuidance != null)
                     _voiceControl(),
+                  if (!_followRoute || !_showVehicle || _waitingLevel != null)
+                    OutlinedButton.icon(
+                      onPressed:
+                          widget.previewEnabled && path.canPlay && !_loading
+                          ? () => setState(_playFollowingRoute)
+                          : null,
+                      icon: const Icon(Icons.center_focus_strong_rounded),
+                      label: Text(
+                        _waitingLevel != null && !_resumeAfterLoad
+                            ? 'Retry Floor Plan'
+                            : 'Follow Route',
+                      ),
+                    ),
                   if (!widget.navigationLayout &&
                       _preview.isAnimating &&
-                      !_followingVehicle)
+                      !_followingVehicle &&
+                      _showVehicle)
                     OutlinedButton.icon(
-                      onPressed: () => setState(_beginFollowingVehicle),
+                      onPressed: () => setState(_playFollowingRoute),
                       icon: const Icon(Icons.center_focus_strong_rounded),
                       label: const Text('Follow vehicle'),
                     ),
@@ -1066,12 +1254,7 @@ class ParkingMapPainter extends CustomPainter {
       _marker(canvas, point(route.first), Icons.trip_origin, routeColour);
     }
     if (route.last.levelId == levelId) {
-      _marker(
-        canvas,
-        point(route.last),
-        Icons.local_parking_rounded,
-        routeColour,
-      );
+      _marker(canvas, point(route.last), Icons.garage_outlined, routeColour);
     }
     if (previewPosition != null) {
       // Heading is applied once in image space. The common camera transform

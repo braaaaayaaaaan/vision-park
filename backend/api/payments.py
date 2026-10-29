@@ -78,8 +78,9 @@ async def top_up(request: Request, driver: Driver, idempotency_key: Key):
 
 @router.get('/wallet/transactions')
 def ledger(driver: Driver, limit: Limit = 30, offset: Offset = 0,
-           entry_type: Literal['mock_top_up','parking_debit'] | None = None):
-    return service.wallet_history(driver.id, limit, offset, entry_type)
+           entry_type: Literal['mock_top_up','parking_debit'] | None = None,
+           start_date: date | None = None, end_date: date | None = None):
+    return service.wallet_history(driver.id, limit, offset, entry_type, start_date, end_date)
 
 
 @router.get('/requests')

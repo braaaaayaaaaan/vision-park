@@ -103,6 +103,9 @@ export function validateTransaction(row) {
   validateTariff(c.tariff);
   if (c.tariff.id !== c.tariff_version_id || (s.current_vehicle != null && (s.current_vehicle.id !== s.vehicle_id || typeof s.current_vehicle.plate_number !== 'string')) ||
       (c.current_driver != null && (c.current_driver.id !== c.user_id || typeof c.current_driver.full_name !== 'string'))) fail();
+  const driver = c.current_driver, company = driver?.tenant;
+  if ((driver?.tenant_id != null && !uuid(driver.tenant_id)) ||
+      (company != null && (!uuid(company.id) || company.id !== driver.tenant_id || typeof company.name !== 'string'))) fail();
   if ((a.method === 'zero' && a.amount_sen !== 0) || (a.status !== 'succeeded' && (a.settled_at !== null || a.receipt_number !== null))) fail();
   if (a.status === 'succeeded' && (c.status !== 'paid' || s.status !== 'completed' || a.amount_sen !== c.amount_sen || a.quote_revision !== c.quote_revision ||
       !timestamp(a.settled_at) || !a.receipt_number || a.settled_at !== c.paid_at || a.settled_at !== s.exit_time)) fail();

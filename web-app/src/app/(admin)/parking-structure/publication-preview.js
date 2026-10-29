@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { useEffect, useRef, useState } from 'react';
 import shared from './parking-structure.module.css';
@@ -161,7 +162,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
     <div className={styles.publishActions}>
       <div role="status"><strong className={styles.readiness} data-state={readinessState}>{readiness}</strong><p>{loading?'Please wait while your request is confirmed.':report?disabled?'Save any configuration edits, then refresh the preview.':choicesChanged?'Refresh the preview to review your company selections.':report.can_publish?'Review the whole-facility impact before confirming publication.':'Resolve the issues above, then refresh the preview.':success?'The published configuration is now in use.':'Select Included Levels above, then prepare a preview of the saved drafts.'}</p></div>
       <div className={styles.actions}>
-        <button type="button" className={shared.button} disabled={disabled||loading||!levelIds.length} onClick={preview}>{loading?'Please wait…':report?'Refresh Preview':'Preview Publication'}</button>
+        <RefreshButton label={report ? 'Refresh Preview' : 'Preview Publication'} loading={loading} disabled={disabled||!levelIds.length} onClick={preview} />
         <button type="button" className={`${shared.button} ${shared.primary}`} disabled={!canPublish} onClick={publish}>Publish Configuration</button>
       </div>
     </div>

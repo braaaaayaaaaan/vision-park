@@ -196,7 +196,7 @@ class _VehicleCardState extends State<VehicleCard> {
               Row(
                 children: [
                   Icon(
-                    Icons.local_parking_outlined,
+                    Icons.directions_car_outlined,
                     size: 18,
                     color: colors.onSurfaceVariant,
                   ),

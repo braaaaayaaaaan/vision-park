@@ -1,6 +1,8 @@
 import { attemptLabels, methodLabels, myr } from '../../../lib/payment-contracts.mjs';
 import { formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 import styles from './payments.module.css';
+import overview from '../overview/overview.module.css';
+import MetricIcon from '../../../components/metric-icon';
 
 export function PaymentMode({ data, disclosure = false }) {
   const inactive = data?.payment_mode === 'inactive';
@@ -37,14 +39,14 @@ export function CurrentRate({ tariff }) {
 
 export function PaymentSummaryCards({ data }) {
   const t = data.totals;
-  return <div className={styles.summaryCards}>{[
-    ['Parking Revenue', myr(t.parking_revenue_sen), 'Successful payments only', 'payment'],
-    ['Successful Payments', t.successful_payments.toLocaleString('en-MY'), `${t.zero_fee_payments.toLocaleString('en-MY')} with no charge`, 'rates'],
+  return <div className={`${overview.kpis} ${overview.alignedKpis}`}>{[
+    ['Parking Revenue', myr(t.parking_revenue_sen), 'Successful payments only', 'payments'],
+    ['Successful Payments', t.successful_payments.toLocaleString('en-MY'), `${t.zero_fee_payments.toLocaleString('en-MY')} with no charge`, 'receipt'],
     ['Outstanding Payments', myr(t.unpaid_quoted_sen), `${t.unpaid_quoted_charges.toLocaleString('en-MY')} quoted charges across all dates`, 'pending'],
     ['Wallet Top-Ups', myr(t.wallet_top_ups_sen), 'Excluded from parking revenue', 'wallet'],
-  ].map(([label, value, detail, icon], index) => <section key={label} className={`${styles.summaryCard} ${index === 0 ? styles.featuredSummary : ''}`}>
-    <div className={styles.summaryLabel}><h3>{label}</h3><span className={styles.summaryIcon}><PaymentIcon kind={icon} /></span></div>
-    <strong className={styles.summaryValue}>{value}</strong><p>{detail}</p>
+  ].map(([label, value, detail, icon]) => <section key={label} className={`${overview.kpi} ${overview.overviewStat}`}>
+    <div className={overview.statHeader}><MetricIcon name={icon} large solid /><h3>{label}</h3></div>
+    <strong>{value}</strong><p>{detail}</p>
   </section>)}</div>;
 }
 export function PaymentBadge({ status }) {
@@ -65,19 +67,19 @@ export function TariffFields({ tariff }) {
 export function TransactionFields({ transaction, grouped = false }) {
   const { attempt: a, charge: c } = transaction;
   const fields = [
-    ['Vehicle Plate', c.session.current_vehicle?.plate_number ?? 'Not Available', 'parking'], ['Company', 'Not Available', 'parking'],
+    ['Vehicle Plate', c.session.current_vehicle?.plate_number ?? 'Not Available', 'parking'], ['Company', c.current_driver?.tenant?.name || 'Not Provided', 'parking'],
     ['Driver', c.current_driver?.full_name ?? 'Not Available', 'parking'], ['Amount', myr(a.amount_sen), 'overview'],
     ['Payment Method', methodLabels[a.method], 'overview'], ['Payment Status', <PaymentBadge key="status" status={a.status} />, 'overview'],
     ['Charge Status', c.status === 'paid' ? 'Paid' : c.status === 'pending' ? 'Pending Payment' : 'Not Yet Quoted', 'payment'],
     ['Current Quoted Charge', c.amount_sen === null ? 'Not Yet Quoted' : myr(c.amount_sen), 'quote'],
     ['Transaction Reference', a.provider_reference, 'payment'], ['Receipt Number', a.receipt_number, 'payment'],
     ['Payment Requested', paymentTime(a.created_at), 'payment'], ['Payment and Exit Time', paymentTime(a.settled_at), 'payment'],
-    ['First Exit Detection', paymentTime(c.first_exit_detected_at), 'parking'], ['Current Quotation Valid Until', paymentTime(c.quote_expires_at), 'quote'],
+    ['First Exit Detection', paymentTime(c.first_exit_detected_at), 'parking'], ['Current Quotation Validity Period', paymentTime(c.quote_expires_at), 'quote'],
     ['Attempt Quote Revision', String(a.quote_revision), 'quote'], ['Current Quote Revision', String(c.quote_revision), 'quote'], ['Parking Session', c.session_id, 'parking'],
   ];
   if (!grouped) return <PaymentFields fields={fields} />;
   return <div className={styles.detailSections}>{[['Payment Record', 'payment'], ['Vehicle and Parking', 'parking'], ['Quotation', 'quote']].map(([label, key]) => <section key={key}>
-    <h3>{label}</h3>{key === 'parking' && <p className={styles.muted}>Vehicle and driver details reflect current records.</p>}
+    <h3>{label}</h3>{key === 'parking' && <p className={styles.muted}>Vehicle, driver and company details reflect current records.</p>}
     <PaymentFields fields={fields.filter(field => field[2] === key)} />
   </section>)}</div>;
 }

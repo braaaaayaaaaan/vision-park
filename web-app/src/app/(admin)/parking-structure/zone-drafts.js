@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
 import { floorPlanRequest } from './floor-plans-client.mjs';
@@ -71,7 +72,7 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
     <div className={layout.heading}><div><h2>Parking Zones</h2></div>
       <div className={layout.actions}>
         <button type="button" className={shared.button} disabled={busy || locked || !levelId || Boolean(form) || !data || data.zones.length >= 1000} onClick={() => begin()}>Add Zone</button>
-        <button type="button" className={shared.button} disabled={disabled || saving || !levelId} onClick={reload}>Refresh Zones</button>
+        <RefreshButton label="Refresh Zones" disabled={disabled || saving || !levelId} onClick={reload} />
       </div>
     </div>
     <label className={shared.field}>Parking Level<select value={levelId} disabled={disabled || saving || Boolean(form)} onChange={event => onLevelChange(event.target.value)}>

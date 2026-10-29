@@ -1,11 +1,22 @@
 import styles from './vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
+import MetricIcon from '../../../components/metric-icon';
+import overview from '../overview/overview.module.css';
 
 export const statusLabels = { approved: 'Approved', pending: 'Pending', rejected: 'Rejected' };
 const number = value => new Intl.NumberFormat('en').format(value);
 
 export function StatusBadge({ status, children }) {
-  return <span className={styles.badge} data-status={status}>{children ?? statusLabels[status]}</span>;
+  return <span className={styles.badge} data-status={status}>
+    {status === 'pending' && <svg className={styles.statusIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>}
+    {children ?? statusLabels[status]}
+  </span>;
+}
+export function InactiveBadge() {
+  return <span className={styles.inactive}>
+    <svg className={styles.statusIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="m6 6 12 12" /></svg>
+    Inactive
+  </span>;
 }
 export function RegistrationUsage({ counts }) {
   const usage = counts.counted >= counts.limit ? 'full' : counts.counted / counts.limit >= 0.6 ? 'warning' : 'available';
@@ -24,7 +35,7 @@ export function DriverIdentity({ driver }) {
     <strong>{driver.full_name || 'Name Unavailable'}</strong>
     <span className={styles.muted}>{driver.company_name || (driver.tenant_id ? 'Company Unavailable' : 'No Company Assigned')}</span>
     <div className={styles.badges}><StatusBadge status={driver.approval_status}>{statusLabels[driver.approval_status]} Account</StatusBadge>
-      {!driver.is_active && <span className={styles.inactive}>Inactive</span>}</div>
+      {!driver.is_active && <InactiveBadge />}</div>
   </div>;
 }
 export function DecisionActions({ vehicle, disabled, onDecision }) {
@@ -61,8 +72,9 @@ export function VehicleSummaryCards({ resource, tenantName, onRetry }) {
   ];
   return <section aria-label="Vehicle Registration Summary" aria-busy={resource.loading}>
     <div className={styles.summaryScope}>{resource.data?.scope.company_name || tenantName || 'All Companies'} <span>· All Registration Statuses</span></div>
-    <div className={styles.metrics}>{metrics.map(([key, label, description]) => <article className={styles.metric} key={key}>
-      <h2>{label}</h2><strong className={resource.loading ? styles.skeletonNumber : ''}>{resource.loading ? <span className={shared.srOnly}>Loading {label}</span> : resource.data ? number(resource.data[key]) : '—'}</strong>
+    <div className={`${overview.kpis} ${overview.alignedKpis}`}>{metrics.map(([key, label, description]) => <article className={`${overview.kpi} ${overview.overviewStat}`} key={key}>
+      <div className={overview.statHeader}><MetricIcon name={key === 'drivers_at_limit' ? 'drivers' : key === 'pending_approval' ? 'pending' : key === 'approved_vehicles' ? 'approved' : 'vehicles'} large solid /><h2>{label}</h2></div>
+      <strong className={resource.loading ? styles.skeletonNumber : ''}>{resource.loading ? <span className={shared.srOnly}>Loading {label}</span> : resource.data ? number(resource.data[key]) : '—'}</strong>
       <p>{description}</p>
     </article>)}</div>
     {resource.error && <div className={styles.summaryError}><p className={shared.error} role="alert">{resource.error}</p>

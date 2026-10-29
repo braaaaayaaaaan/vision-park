@@ -4,6 +4,7 @@ import styles from '../overview/overview.module.css';
 import shared from '../approvals/approvals.module.css';
 import local from './analytics.module.css';
 import { formatMalaysiaDate, formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
+import OverviewNotice from '../overview/overview-notice';
 
 const hourFormat = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
@@ -18,21 +19,21 @@ function OccupancyChart({ history }) {
   return <section className={styles.panel} aria-labelledby="historical-occupancy-title">
     <h2 id="historical-occupancy-title">Historical Parking Occupancy</h2>
     <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints. Today uses the latest refresh.'}</p>
-    {points.length === 0 ? <p className={styles.empty}>No reporting checkpoints available</p> : <>
-      {points.every((point) => point.occupied === 0) && <p className={styles.empty}>No eligible confirmed sessions at these checkpoints</p>}
+    {points.length === 0 ? <OverviewNotice><p>No reporting checkpoints available</p></OverviewNotice> : <>
+      {points.every((point) => point.occupied === 0) && <OverviewNotice><p>No eligible confirmed sessions at these checkpoints.</p></OverviewNotice>}
       <div className={styles.chartScroll}><svg className={local.lineChart} viewBox={`0 0 ${width} 290`} aria-label="Historical Confirmed Occupancy Line Chart">
-        <text x={left} y={18} className={local.axisText}>Confirmed occupied sessions</text>
+        <text x={left} y={18} className={local.axisText}>Confirmed Occupied Sessions</text>
         {[0, maximum / 2, maximum].map((value) => <g key={value}><line x1={left} x2={right} y1={y(value)} y2={y(value)} className={local.gridLine} /><text x={left - 10} y={y(value) + 4} textAnchor="end" className={local.axisText}>{value}</text></g>)}
         <polyline points={points.map((point, index) => `${x(index)},${y(point.occupied)}`).join(' ')} className={local.occupancyLine} />
-        {points.map((point, index) => <g key={point.timestamp} tabIndex={0} className={local.point} role="img" aria-label={`${formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT: ${point.occupied} confirmed occupied sessions`}>
-          <title>{formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT · {point.occupied} confirmed occupied sessions</title>
+        {points.map((point, index) => <g key={point.timestamp} tabIndex={0} className={local.point} role="img" aria-label={`${formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT: ${point.occupied} Confirmed Occupied Sessions`}>
+          <title>{formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT · {point.occupied} Confirmed Occupied Sessions</title>
           <circle cx={x(index)} cy={y(point.occupied)} r={6} />
           {(index % stride === 0 || index === points.length - 1) && <text x={x(index)} y={244} textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'} className={local.axisText}>{label(point.timestamp)}</text>}
           <g className={local.lineTooltip} transform={`translate(${Math.min(right - 280, Math.max(left, x(index) - 140))},55)`}>
-            <rect width={280} height={56} rx={6} /><text x={12} y={22}>{formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT</text><text x={12} y={42}>{point.occupied} confirmed occupied sessions</text>
+            <rect width={280} height={56} rx={6} /><text x={12} y={22}>{formatMalaysiaDateTime(point.timestamp, { seconds: true })} MYT</text><text x={12} y={42}>{point.occupied} Confirmed Occupied Sessions</text>
           </g>
         </g>)}
-        <text x={width / 2} y={278} textAnchor="middle" className={local.axisText}>{history.checkpoint === 'hour_start' ? 'Reporting time (MYT)' : 'Reporting date (Malaysia)'}</text>
+        <text x={width / 2} y={278} textAnchor="middle" className={local.axisText}>{history.checkpoint === 'hour_start' ? 'Reporting time (MYT)' : 'Reporting Date (Malaysia)'}</text>
       </svg></div>
     </>}
   </section>;
@@ -40,8 +41,8 @@ function OccupancyChart({ history }) {
 
 function ComparisonChart({ rows, unit, empty, colour = 'var(--chart-comparative)' }) {
   const maximum = Math.max(1, ...rows.map((row) => row.count));
-  return rows.length === 0 ? <p className={styles.empty}>{empty}</p> : <>
-    {rows.every((row) => row.count === 0) && <p className={styles.empty}>No activity in this selection</p>}
+  return rows.length === 0 ? <OverviewNotice><p>{empty}</p></OverviewNotice> : <>
+    {rows.every((row) => row.count === 0) && <OverviewNotice><p>No activity in this selection</p></OverviewNotice>}
     <p className={local.comparisonUnit}>{unit}</p>
     <ul className={local.comparisons} style={{ '--series-colour': colour }}>{rows.map((row) => <li key={row.id}>
       <div className={local.comparisonLabel}><span>{row.name}</span><strong>{row.count.toLocaleString('en-MY')}</strong></div>
@@ -62,7 +63,7 @@ function ZoneBreakdown({ data, onClose }) {
     <div className={local.zoneDialogContent}>
       <header>
         <h2 id="zone-breakdown-title">Zone Breakdown</h2>
-        <p className={styles.muted}>{formatMalaysiaDate(data.start_date)} to {formatMalaysiaDate(data.end_date)} · Malaysia time</p>
+        <p className={styles.muted}>{formatMalaysiaDate(data.start_date)} to {formatMalaysiaDate(data.end_date)} · Malaysia Time</p>
         <p id="zone-breakdown-description" className={styles.muted}>Parking assignments by zone within each level. Counts represent demand, not occupancy or capacity utilisation.</p>
       </header>
       <div className={local.zoneCards}>
@@ -79,7 +80,7 @@ function ZoneBreakdown({ data, onClose }) {
 
 export default function UtilisationCharts({ data }) {
   const [showZones, setShowZones] = useState(false);
-  if (!data.historical_occupancy || !data.parking_demand || !data.tenant_activity) return <p className={styles.muted}>Historical occupancy and demand analytics are unavailable from this backend version.</p>;
+  if (!data.historical_occupancy || !data.parking_demand || !data.tenant_activity) return <OverviewNotice><p>Historical occupancy and demand analytics are unavailable from this backend version.</p></OverviewNotice>;
   const demand = data.parking_demand;
   const selected = data.level_id !== null;
   const rows = selected ? (demand.levels[0]?.zones ?? []).map((zone) => ({ ...zone, count: zone.assignments })) : demand.levels.map((level) => ({ ...level, count: level.assignments }));

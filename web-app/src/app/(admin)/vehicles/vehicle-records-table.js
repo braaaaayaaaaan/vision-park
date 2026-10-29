@@ -3,12 +3,13 @@ import { useEffect, useRef } from 'react';
 import { DecisionActions, StatusBadge } from './vehicles-ui';
 import styles from './vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
+import checkboxStyles from '../../../components/selection-checkbox.module.css';
 
 function SelectionCheckbox({ mixed = false, title, ...props }) {
   const input = useRef(null);
   useEffect(() => { if (input.current) input.current.indeterminate = mixed; }, [mixed]);
   return <label className={styles.checkboxControl} title={title}>
-    <input ref={input} type="checkbox" aria-checked={mixed ? 'mixed' : props.checked} {...props} />
+    <input className={checkboxStyles.checkbox} ref={input} type="checkbox" aria-checked={mixed ? 'mixed' : props.checked} {...props} />
   </label>;
 }
 

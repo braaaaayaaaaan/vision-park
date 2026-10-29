@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import useConfirmation from '../../../components/use-confirmation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { floorPlanRequest } from './floor-plans-client.mjs';
@@ -128,7 +129,7 @@ export default function CrossLevelRamps({ levels: initialLevels, disabled, onDir
   const sourceLabel = rampLabel(start?.code ?? 'Select source ramp', levels.find(item => item.id === form.from_level_id)?.name);
   const destinationLabel = rampLabel(end?.code ?? 'Select destination ramp', levels.find(item => item.id === form.to_level_id)?.name);
   return <section className={map.section} aria-label="Configure Multi-Level Ramps" aria-busy={busy}>
-    <div className={map.heading}><h2>Configure Multi-Level Ramps</h2><button className={map.button} disabled={busy} onClick={() => refresh()}>Refresh Ramps</button></div>
+    <div className={map.heading}><h2>Configure Multi-Level Ramps</h2><RefreshButton label="Refresh Ramps" loading={loading} disabled={busy} onClick={() => refresh()} /></div>
     <p className={map.note}>Connect the saved ramp nodes on different levels using calibrated path traces.</p>
     {error && <p className={map.error} role="alert">{error}{locked ? ' Refresh before retrying. Local edits are retained until you confirm discarding them.' : ''}</p>}
     {message && <p className={map.success} role="status">{message}</p>}

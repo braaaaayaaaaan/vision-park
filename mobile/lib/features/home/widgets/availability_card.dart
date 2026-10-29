@@ -4,6 +4,8 @@ import '../../../app/app_theme.dart';
 import '../../../data/models/dashboard_models.dart';
 import 'dashboard_card.dart';
 import 'occupancy_indicator.dart';
+import '../../../shared/vision_park_brand.dart';
+import '../../../shared/summary_cards.dart';
 
 class AvailabilityCard extends StatelessWidget {
   const AvailabilityCard({
@@ -20,6 +22,7 @@ class AvailabilityCard extends StatelessWidget {
     final theme = Theme.of(context);
     return DashboardCard(
       title: 'Parking Availability',
+      icon: Icons.garage_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -27,11 +30,7 @@ class AvailabilityCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.business_rounded,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
+                const BrandIconBadge(Icons.business_rounded, size: 32),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -49,24 +48,16 @@ class AvailabilityCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.medium),
           ],
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _Summary(
-                    value: availability.availableSpaces,
-                    label: 'Spaces Available',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _Summary(
-                    value: availability.accessibleZoneCount,
-                    label: 'Accessible Zones',
-                  ),
-                ),
-              ],
+          SummaryCards(
+            first: SummaryMetric(
+              icon: Icons.directions_car_outlined,
+              value: '${availability.availableSpaces}',
+              title: 'Spaces Available',
+            ),
+            second: SummaryMetric(
+              icon: Icons.grid_view_rounded,
+              value: '${availability.accessibleZoneCount}',
+              title: 'Accessible Zones',
             ),
           ),
           const SizedBox(height: AppSpacing.medium),
@@ -143,37 +134,6 @@ class AvailabilityCard extends StatelessWidget {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Summary extends StatelessWidget {
-  const _Summary({required this.value, required this.label});
-
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$value',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          Text(label, style: theme.textTheme.labelMedium),
         ],
       ),
     );

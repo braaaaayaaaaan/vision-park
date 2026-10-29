@@ -1,4 +1,5 @@
 import 'data/repositories/history_repository.dart';
+import 'data/repositories/status_reminder_repository.dart';
 import 'data/repositories/payment_repository.dart';
 import 'data/repositories/vehicle_repository.dart';
 import 'data/repositories/assigned_route_repository.dart';
@@ -59,6 +60,7 @@ Future<void> main() async {
           verifier: SupabaseEmailVerifier(Supabase.instance.client),
         ),
         activeSessionRepository: RemoteActiveSessionRepository(repository),
+        statusReminderRepository: RemoteStatusReminderRepository(repository),
         availabilityRepository: RemoteAvailabilityRepository(repository),
         routeRepository: RemoteAssignedRouteRepository(repository),
         vehicleRepository: RemoteVehicleRepository(repository),

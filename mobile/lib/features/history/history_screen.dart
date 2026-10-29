@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_theme.dart';
 import '../../shared/formatting/malaysian_date_time.dart';
 import '../../shared/widgets/empty_state_card.dart';
+import '../../shared/visible_poller.dart';
 import 'history_controller.dart';
 import 'widgets/history_session_card.dart';
 import 'widgets/history_summary.dart';
@@ -34,6 +35,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     with WidgetsBindingObserver {
   late final HistoryController _controller;
   late final Timer _timer;
+  late final VisiblePoller _poller;
 
   @override
   void initState() {
@@ -43,15 +45,25 @@ class _HistoryScreenState extends State<HistoryScreen>
         widget.controller ??
         HistoryController(historyRepository: widget.historyRepository);
     if (widget.isVisible) _controller.load();
+    _poller = VisiblePoller(
+      refresh: _controller.refreshInBackground,
+      isVisible: () =>
+          mounted &&
+          widget.isVisible &&
+          ModalRoute.of(context)?.isCurrent != false,
+    );
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (widget.isVisible) _controller.refreshPeriod();
+      if (widget.isVisible &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _controller.refreshPeriod();
+      }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && widget.isVisible) {
-      _controller.load();
+      _controller.refreshInBackground();
     }
   }
 
@@ -61,7 +73,11 @@ class _HistoryScreenState extends State<HistoryScreen>
     if (widget.isVisible &&
         (!oldWidget.isVisible ||
             widget.refreshRevision != oldWidget.refreshRevision)) {
-      _controller.load();
+      if (_controller.status == HistoryStatus.disconnected) {
+        _controller.load();
+      } else {
+        _controller.refreshInBackground();
+      }
     }
   }
 
@@ -69,6 +85,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
+    _poller.dispose();
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }

@@ -114,9 +114,22 @@ class ZoneLabel(BaseModel):
     level: LevelLabel | None = None
 
 
+class CompanyLabel(BaseModel):
+    id: UUID
+    name: str
+
+
 class DriverLabel(BaseModel):
     id: UUID
     full_name: str
+    tenant_id: UUID | None = None
+    tenant: CompanyLabel | None = None
+
+    @model_validator(mode='after')
+    def company_identity(self):
+        if self.tenant and self.tenant.id != self.tenant_id:
+            raise ValueError('Driver company identity mismatch')
+        return self
 
 
 class SessionContext(BaseModel):

@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useCallback, useRef, useState } from 'react';
 import ConfirmationDialog from '../../../components/confirmation-dialog';
 import useResource from '../vehicles/use-vehicle-resource';
@@ -64,7 +65,7 @@ export function RateForm({ latest, onClose, onSaved, onReload }) {
       {error && <p role="alert" className={shared.error}>{error}</p>}
       {reloadRequired && <p className={styles.notice}>Reload versions to check whether your rates were published.</p>}
       <div className={shared.actions}><button className={shared.secondary} type="button" disabled={busy} onClick={onClose}>Cancel</button>
-        {reloadRequired ? <button className={shared.secondary} type="button" onClick={onReload}>Reload Versions</button> : <button className={shared.primary} disabled={busy}>Review New Rates</button>}</div>
+        {reloadRequired ? <RefreshButton label="Reload Versions" onClick={onReload} /> : <button className={shared.primary} disabled={busy}>Review New Rates</button>}</div>
     </form>
     {review && <ConfirmationDialog title="Publish New Parking Rates?" description="These rates cannot be edited or deleted after publication. Existing sessions keep their assigned rates."
       confirmLabel="Publish Rates" pendingLabel="Publishing…" onConfirm={publish} onCancel={() => setReview(null)}>

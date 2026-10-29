@@ -90,11 +90,10 @@ class RouteInstructionPlan {
 
   bool get canSynchronizePreview =>
       error == null &&
-      !crossesLevels &&
-      segmentPixels.any((length) => (length ?? 0) > 1e-6);
+      (segmentPixels.any((length) => (length ?? 0) > 1e-6) ||
+          (crossesLevels && segmentMetres.any((length) => length > 0)));
 
   /// Uses the preview's segment/fraction, never total metres * pixel progress.
-  /// Cross-floor synchronization remains disabled until Stage 2B defines it.
   RouteInstructionProgress? progressAt(RouteSegmentProgress position) {
     if (!canSynchronizePreview ||
         position.segmentIndex < 0 ||

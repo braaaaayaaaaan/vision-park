@@ -11,7 +11,7 @@ import styles from './payments.module.css';
 export default function TransactionDetails({ attemptId, onClose, trigger }) {
   const dialog = useRef(null), close = useRef(null);
   const load = useCallback(signal => fetchTransaction(attemptId, signal), [attemptId]);
-  const resource = useResource(`transaction:${attemptId}`, load);
+  const resource = useResource(`transaction:${attemptId}`, load, 15000);
   useEffect(() => {
     const element = dialog.current, origin = trigger ?? document.activeElement;
     element.showModal(); close.current?.focus();

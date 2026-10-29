@@ -72,17 +72,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
         if (!didPop && !controller.busy) widget.onReturnToSignIn();
       },
       child: AuthLayout(
-        inlineHeading: true,
-        onBack: controller.busy
-            ? null
-            : () {
-                widget.onReturnToSignIn();
-              },
-        icon: updated
-            ? Icons.check_circle_outline
-            : stage == RecoveryStage.checkEmail
-            ? Icons.mark_email_unread_outlined
-            : Icons.lock_reset_rounded,
+        centered: true,
         title: request
             ? 'Forgot Password'
             : create

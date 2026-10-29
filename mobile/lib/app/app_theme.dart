@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Reserved for parking occupancy, not general application or session status.
 abstract final class OccupancyColours {
@@ -15,7 +16,10 @@ abstract final class AppSpacing {
 }
 
 abstract final class AppTheme {
-  static const blue = Color(0xFF2563A9);
+  static const blue = Color(0xFF2563EB);
+  static const white = Color(0xFFFFFFFF);
+  static const navy = Color(0xFF0F1F3D);
+  static const blueSoft = Color(0xFFEFF6FF);
   static const background = Color(0xFFF4F7FB);
   static const ink = Color(0xFF172B45);
   static const cornerRadius = 20.0;
@@ -38,10 +42,18 @@ abstract final class AppTheme {
       });
 
   static ThemeData get light {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: blue,
-      brightness: Brightness.light,
-    ).copyWith(primary: blue, surface: Colors.white, onSurface: ink);
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: blue,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: blue,
+          onPrimary: white,
+          primaryContainer: const Color(0xFFDBEAFE),
+          onPrimaryContainer: const Color(0xFF1E3A8A),
+          surface: white,
+          onSurface: ink,
+        );
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -86,19 +98,22 @@ abstract final class AppTheme {
         bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.5),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: background,
-        foregroundColor: ink,
+        backgroundColor: blue,
+        foregroundColor: white,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: base.textTheme.titleLarge?.copyWith(
-          color: ink,
+          color: white,
           fontWeight: FontWeight.w700,
         ),
       ),
       cardTheme: CardThemeData(
         color: scheme.surface,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        elevation: 1,
+        shadowColor: navy.withValues(alpha: .08),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(cornerRadius),

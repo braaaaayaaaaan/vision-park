@@ -1,6 +1,8 @@
 import shared from './approvals.module.css';
 import styles from './registration-approvals.module.css';
 import vehicles from '../vehicles/vehicles.module.css';
+import MetricIcon from '../../../components/metric-icon';
+import overview from '../overview/overview.module.css';
 
 const number = value => new Intl.NumberFormat('en').format(value);
 export default function RegistrationSummary({ resource, locked, onRetry }) {
@@ -14,8 +16,9 @@ export default function RegistrationSummary({ resource, locked, onRetry }) {
   const represented = data?.companies.filter(company => company.total > 0) ?? [];
   return <section aria-label="Driver Registration Summary" aria-busy={resource.loading}>
     <p className={vehicles.summaryScope}>All Companies</p>
-    <div className={vehicles.metrics}>{metrics.map(([key, label, description]) => <article key={key} className={vehicles.metric}>
-      <h2>{label}</h2><strong className={resource.loading ? vehicles.skeletonNumber : undefined}>
+    <div className={`${overview.kpis} ${overview.alignedKpis}`}>{metrics.map(([key, label, description]) => <article key={key} className={`${overview.kpi} ${overview.overviewStat}`}>
+      <div className={overview.statHeader}><MetricIcon name={key === 'represented_companies' ? 'companies' : key === 'pending_approvals' ? 'pending' : key === 'approved_accounts' ? 'approved' : 'drivers'} large solid /><h2>{label}</h2></div>
+      <strong className={resource.loading ? vehicles.skeletonNumber : undefined}>
         {resource.loading ? <span className={shared.srOnly}>Loading {label}</span> : data ? number(data[key]) : '—'}
       </strong><p>{description}</p>
     </article>)}</div>
@@ -24,7 +27,7 @@ export default function RegistrationSummary({ resource, locked, onRetry }) {
     {data && <details className={styles.companyBreakdown}>
       <summary>Company Breakdown <span className={vehicles.muted}>{number(data.total_registrations)} Driver Registrations</span></summary>
       <div className={styles.breakdownContent}>
-        <p className={vehicles.muted}>Approved drivers use their assigned company. Counts include every page.</p>
+        <p className={vehicles.muted}>Approved drivers use their assigned company.</p>
         {!data.total_registrations ? <p>No driver registrations yet.</p> : <div className={styles.breakdownScroll} tabIndex={0} aria-label="Scrollable Company Registration Breakdown">
           <table className={`${shared.table} ${styles.breakdownTable}`}>
             <caption className={shared.srOnly}>Full Driver Registration Counts by Company</caption>

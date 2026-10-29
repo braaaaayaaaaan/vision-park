@@ -72,9 +72,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       if (mounted) {
         setState(() {
           receipt = found;
-          error = found == null
-              ? 'No receipt found for this visit.'
-              : null;
+          error = found == null ? 'No receipt found for this visit.' : null;
         });
       }
     } catch (failure) {
@@ -142,10 +140,6 @@ class ReceiptContent extends StatelessWidget {
               myr(attempt.amount),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SimulationNotice(),
-            const Text(
-              'Your parking session is complete.',
             ),
             PaymentField('Vehicle Plate', transaction.charge.plate),
             PaymentField('Payment Method', switch (attempt.method) {

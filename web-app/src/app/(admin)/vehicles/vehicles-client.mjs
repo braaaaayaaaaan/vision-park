@@ -1,6 +1,7 @@
 import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { vehicleReadQuery } from '../../../lib/vehicle-read-contracts.mjs';
 import { normalizeRejectionReason } from '../../../lib/vehicle-rejection.mjs';
+import { notifyPendingApprovalsChanged } from '../../../lib/pending-approvals.mjs';
 
 export function vehiclesQuery(filters, offset = 0) {
   const params = new URLSearchParams({ limit: '25', offset: String(offset) });
@@ -37,7 +38,9 @@ export function fetchVehicleSummary(tenantId, signal) {
 
 export async function submitVehicleDecision(id, action, rejectionReason) {
   const body = action === 'reject' ? { rejection_reason: normalizeRejectionReason(rejectionReason) } : {};
-  return readRequest(`/api/vehicles/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const result = await readRequest(`/api/vehicles/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  notifyPendingApprovalsChanged('vehicles');
+  return result;
 }
 export function driversQuery(filters, offset = 0) {
   return vehicleReadQuery(new URLSearchParams({ search: filters.search ?? '', status: filters.status ?? '', tenant_id: filters.tenant_id ?? '', offset: String(offset) })).toString();

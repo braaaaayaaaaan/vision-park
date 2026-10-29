@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useId, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
 import { floorPlanRequest } from './floor-plans-client.mjs';
@@ -188,7 +189,7 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
     </section>
     <div className={styles.inspectorActions}>
       <button type="button" className={`${map.button} ${map.primary}`} disabled={!editable || (!dirty && !data?.needs_distance_revalidation)} onClick={save}>{saving ? 'Saving…' : data?.needs_distance_revalidation ? 'Recalculate and Save' : 'Save Draft'}</button>
-      <button type="button" className={map.button} disabled={busy} onClick={reload}>Reload Draft</button>
+      <RefreshButton label="Reload Draft" loading={loading} disabled={busy} onClick={reload} />
     </div>
     </aside>
     </div>
