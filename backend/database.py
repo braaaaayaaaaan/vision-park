@@ -16,6 +16,10 @@ _client_lock = Lock()
 ACTIVE_STATUSES = ("allocated", "occupied")
 
 
+def parking_reminder_rpc(name, params):
+    return _execute(get_supabase().rpc(name, params)).data
+
+
 def get_admin_parking_sessions(limit, offset, plate, status, level_id, start, end):
     vehicle = 'vehicle:vehicles!vehicle_id!inner' if plate else 'vehicle:vehicles!vehicle_id'
     zone = 'zone:parking_zones!zone_id!inner' if level_id else 'zone:parking_zones!zone_id'
@@ -42,6 +46,20 @@ def get_admin_parking_sessions(limit, offset, plate, status, level_id, start, en
             return [], first.count
         raise
     return result.data, result.count
+
+
+def get_overnight_candidates(kind, start, end):
+    """Page every candidate explicitly; current stays and exit-date history differ."""
+    def query():
+        q = get_supabase().table('parking_sessions').select(
+            'id,vehicle_id,zone_id,status,entry_time,parking_confirmed_at,exit_time,'
+            'user:users!user_id(full_name,tenant:tenants!tenant_id(name)),'
+            'vehicle:vehicles!vehicle_id(plate_number,owner:users!user_id(full_name,tenant:tenants!tenant_id(name))),'
+            'zone:parking_zones!zone_id(name,level_id,level:parking_levels!level_id(name))')
+        if kind == 'current':
+            return q.in_('status', list(ACTIVE_STATUSES)).is_('exit_time', 'null').lt('entry_time', start)
+        return q.eq('status', 'completed').gte('exit_time', start).lt('exit_time', end)
+    return _all_rows(query)
 
 
 def get_history_vehicles(user_id: str) -> list[dict]:

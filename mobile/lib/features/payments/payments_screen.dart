@@ -11,6 +11,9 @@ import 'checkout_screen.dart';
 import 'receipt_screen.dart';
 import 'top_up_sheet.dart';
 import 'wallet_cards.dart';
+import 'transaction_history_screen.dart';
+import 'transaction_entry.dart';
+import '../../shared/visible_poller.dart';
 
 enum WalletDestination { overview, topUp, transactions, settings, receipts }
 
@@ -35,10 +38,21 @@ class _PaymentsScreenState extends State<PaymentsScreen>
     with WidgetsBindingObserver {
   PaymentsController get controller => widget.controller;
   bool _openingCheckout = false, _openingAction = false;
+  late final VisiblePoller _poller;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _poller = VisiblePoller(
+      refresh: () => controller.refresh(history: true, background: true),
+      isVisible: () =>
+          mounted &&
+          widget.isVisible &&
+          !_openingCheckout &&
+          !_openingAction &&
+          controller.isCurrentOwner &&
+          ModalRoute.of(context)?.isCurrent != false,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.isVisible) unawaited(_refresh());
@@ -49,12 +63,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   }
 
   Future<void> _refresh() async {
-    if (controller.loading) {
-      await controller.loadEntries(reset: true);
-      await controller.loadReceipts(reset: true);
-    } else {
-      await controller.refresh(history: true);
-    }
+    await controller.refresh(history: true, background: true);
   }
 
   @override
@@ -77,6 +86,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _poller.dispose();
     super.dispose();
   }
 
@@ -130,8 +140,9 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   Future<void> _openActivity({bool receipts = false}) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              _WalletActivity(controller: controller, receipts: receipts),
+          builder: (_) => receipts
+              ? _WalletActivity(controller: controller, receipts: true)
+              : TransactionHistoryScreen(payments: controller),
         ),
       );
 
@@ -279,11 +290,13 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                           index++
                         ) ...[
                           if (index > 0) const Divider(),
-                          _walletEntry(
-                            context,
-                            controller,
-                            entries[index],
-                            compact: true,
+                          TransactionEntry(
+                            payments: controller,
+                            entry: entries[index],
+                            showDate: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ),
                           ),
                         ],
                       ],
@@ -317,7 +330,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
     if (widget.embedded) return content;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Wallet & Payments'),
+        title: const Text('Wallet and Payments'),
         actions: [
           AnimatedBuilder(
             animation: controller,
@@ -429,7 +442,12 @@ class _PaymentSettings extends StatelessWidget {
                 semanticsLabel: 'Saving Payment Settings',
               ),
             if (controller.actionMessage != null)
-              Text(controller.actionMessage!),
+              Text(
+                controller.actionMessage!,
+                style: controller.actionSucceeded
+                    ? const TextStyle(color: Color(0xFF24613D))
+                    : null,
+              ),
           ],
         ],
       ),
@@ -447,6 +465,28 @@ class _WalletActivity extends StatefulWidget {
 
 class _WalletActivityState extends State<_WalletActivity> {
   bool _loading = false;
+  late final VisiblePoller _poller;
+  @override
+  void initState() {
+    super.initState();
+    _poller = VisiblePoller(
+      refresh: () => widget.receipts
+          ? widget.controller.loadReceipts(reset: true, preserveCount: true)
+          : widget.controller.loadEntries(reset: true, preserveCount: true),
+      isVisible: () =>
+          mounted &&
+          !_loading &&
+          widget.controller.isCurrentOwner &&
+          ModalRoute.of(context)?.isCurrent != false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _poller.dispose();
+    super.dispose();
+  }
+
   Future<void> _load({bool reset = false}) async {
     if (_loading) return;
     setState(() => _loading = true);
@@ -534,10 +574,13 @@ class _WalletActivityState extends State<_WalletActivity> {
                           index++
                         ) ...[
                           if (index > 0) const Divider(),
-                          _walletEntry(
-                            context,
-                            controller,
-                            controller.entries[index],
+                          TransactionEntry(
+                            payments: controller,
+                            entry: controller.entries[index],
+                            showDate: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ),
                           ),
                         ],
                       if (more)
@@ -562,43 +605,6 @@ class _WalletActivityState extends State<_WalletActivity> {
     ),
   );
 }
-
-Widget _walletEntry(
-  BuildContext context,
-  PaymentsController controller,
-  WalletEntry entry, {
-  bool compact = false,
-}) => ListTile(
-  contentPadding: EdgeInsets.zero,
-  leading: CircleAvatar(
-    backgroundColor: Theme.of(context).colorScheme.primary
-        .withValues(alpha: .08),
-    child: Icon(
-      entry.kind == 'mock_top_up'
-          ? Icons.add_rounded
-          : Icons.local_parking_rounded,
-      color: Theme.of(context).colorScheme.primary,
-    ),
-  ),
-  title: Text(entry.kind == 'mock_top_up' ? 'Top Up' : 'Parking Deduction'),
-  subtitle: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        '${entry.kind == 'mock_top_up' ? '+' : '−'}${myr(entry.amount)}',
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-      Text(MalaysianDateTime.format(entry.createdAt)),
-      if (!compact) Text('Balance After: ${myr(entry.balanceAfter)}'),
-    ],
-  ),
-  trailing: entry.attemptId == null
-      ? null
-      : const Icon(Icons.chevron_right_rounded),
-  onTap: entry.attemptId == null
-      ? null
-      : () => openReceipt(context, controller, entry.attemptId!),
-);
 
 Widget _receiptEntry(
   BuildContext context,

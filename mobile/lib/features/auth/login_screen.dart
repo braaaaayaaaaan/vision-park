@@ -54,8 +54,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) => AuthLayout(
+    centered: true,
     title: 'Login',
-    description: 'Welcome to VisionPark. Sign in to your driver account.',
     child: Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,

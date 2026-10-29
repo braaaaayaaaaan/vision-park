@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
 import { floorPlanRequest } from './floor-plans-client.mjs';
@@ -218,7 +219,7 @@ export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyC
       links={links} disabled={!editable} onChange={value => { setLinks(value); setMessage(''); }} />}
     <div className={styles.inspectorActions}>
       <button type="button" className={`${map.button} ${map.primary}`} disabled={!editable || !dirty || Boolean(validation)} onClick={save}>{saving ? 'Saving…' : 'Save Draft'}</button>
-      <button type="button" className={map.button} disabled={busy} onClick={reload}>Reload Draft</button>
+      <RefreshButton label="Reload Draft" loading={loading} disabled={busy} onClick={reload} />
     </div>
     </aside>
     </div>

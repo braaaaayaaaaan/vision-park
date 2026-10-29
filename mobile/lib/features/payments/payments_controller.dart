@@ -25,8 +25,10 @@ class PaymentsController extends ChangeNotifier {
   final String? owner;
   late final StreamSubscription<void> _subscription;
   bool _disposed = false, loading = false, busy = false;
+  Future<void>? _refreshing;
   bool active = false;
   String? error, actionMessage;
+  bool actionSucceeded = false;
   DriverWallet? wallet;
   List<ParkingCharge> pending = [];
   List<WalletEntry> entries = [];
@@ -67,9 +69,30 @@ class PaymentsController extends ChangeNotifier {
       ? failure.message
       : 'Unable to load payment details. Try again.';
 
-  Future<void> refresh({bool history = false}) async {
-    if (loading || !isCurrentOwner || _disposed) return;
-    loading = true;
+  Future<void> refresh({bool history = false, bool background = false}) async {
+    final current = _refreshing;
+    if (current != null) {
+      await current;
+      if (!background && history && isCurrentOwner && !_disposed) {
+        await refresh(history: true);
+      }
+      return;
+    }
+    if (!isCurrentOwner || _disposed || (background && busy)) return;
+    final work = _refresh(history: history, background: background);
+    _refreshing = work;
+    try {
+      await work;
+    } finally {
+      _refreshing = null;
+    }
+  }
+
+  Future<void> _refresh({
+    required bool history,
+    required bool background,
+  }) async {
+    loading = !background || wallet == null;
     error = null;
     _notify();
     try {
@@ -95,8 +118,8 @@ class PaymentsController extends ChangeNotifier {
       pending = charges;
       topUpOperation = saved;
       if (history) {
-        await loadEntries(reset: true);
-        await loadReceipts(reset: true);
+        await loadEntries(reset: true, preserveCount: background);
+        await loadReceipts(reset: true, preserveCount: background);
       }
     } catch (failure) {
       error = message(failure);
@@ -106,43 +129,73 @@ class PaymentsController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadEntries({bool reset = false}) async {
+  bool _entriesLoading = false, _receiptsLoading = false;
+
+  Future<void> loadEntries({
+    bool reset = false,
+    bool preserveCount = false,
+  }) async {
+    if (_entriesLoading || _disposed || !isCurrentOwner) return;
+    _entriesLoading = true;
     try {
-      final page = paymentPage(
-        await send(
-          'wallet/transactions?limit=30&offset=${reset ? 0 : _entryOffset}',
-        ),
-        'entries',
-        WalletEntry.new,
-      );
-      entries = _merge(reset ? [] : entries, page.items, (item) => item.id);
+      final target = preserveCount ? entries.length : 0;
+      final items = <WalletEntry>[];
+      var offset = reset ? 0 : _entryOffset;
+      late PaymentPage<WalletEntry> page;
+      do {
+        page = paymentPage(
+          await send('wallet/transactions?limit=30&offset=$offset'),
+          'entries',
+          WalletEntry.new,
+        );
+        items.addAll(page.items);
+        offset = page.nextOffset;
+      } while (page.hasMore && items.length < target);
+      entries = _merge(reset ? [] : entries, items, (item) => item.id);
       moreEntries = page.hasMore;
       _entryOffset = page.nextOffset;
     } catch (failure) {
       error = message(failure);
+    } finally {
+      _entriesLoading = false;
     }
     _notify();
   }
 
-  Future<void> loadReceipts({bool reset = false}) async {
+  Future<void> loadReceipts({
+    bool reset = false,
+    bool preserveCount = false,
+  }) async {
+    if (_receiptsLoading || _disposed || !isCurrentOwner) return;
+    _receiptsLoading = true;
     try {
-      final page = paymentPage(
-        await send('receipts?limit=30&offset=${reset ? 0 : _receiptOffset}'),
-        'receipts',
-        PaymentTransaction.new,
-      );
-      if (page.items.any((item) => !item.isReceipt)) {
-        throw const FormatException();
-      }
+      final target = preserveCount ? receipts.length : 0;
+      final items = <PaymentTransaction>[];
+      var offset = reset ? 0 : _receiptOffset;
+      late PaymentPage<PaymentTransaction> page;
+      do {
+        page = paymentPage(
+          await send('receipts?limit=30&offset=$offset'),
+          'receipts',
+          PaymentTransaction.new,
+        );
+        if (page.items.any((item) => !item.isReceipt)) {
+          throw const FormatException();
+        }
+        items.addAll(page.items);
+        offset = page.nextOffset;
+      } while (page.hasMore && items.length < target);
       receipts = _merge(
         reset ? [] : receipts,
-        page.items,
+        items,
         (item) => item.attempt.id,
       );
       moreReceipts = page.hasMore;
       _receiptOffset = page.nextOffset;
     } catch (failure) {
       error = message(failure);
+    } finally {
+      _receiptsLoading = false;
     }
     _notify();
   }
@@ -155,8 +208,10 @@ class PaymentsController extends ChangeNotifier {
     if (busy || wallet == null) return;
     busy = true;
     actionMessage = null;
+    actionSucceeded = false;
     _notify();
     try {
+      await _refreshing;
       final result = await send(
         'wallet/preferences',
         method: 'PATCH',
@@ -166,7 +221,8 @@ class PaymentsController extends ChangeNotifier {
         },
       );
       wallet = DriverWallet(paymentMap(result['wallet']));
-      actionMessage = 'Automatic payment setting saved.';
+      actionMessage = 'Successfully saved the payment method!';
+      actionSucceeded = true;
     } catch (failure) {
       actionMessage = message(failure);
       await refresh();
@@ -180,8 +236,10 @@ class PaymentsController extends ChangeNotifier {
     if (busy || !isCurrentOwner) return;
     busy = true;
     actionMessage = null;
+    actionSucceeded = false;
     _notify();
     try {
+      await _refreshing;
       // Read durable state first, including after app restart. A different amount
       // cannot replace an unconfirmed credit.
       topUpOperation = await operations.read(owner!, 'topup');
@@ -208,9 +266,11 @@ class PaymentsController extends ChangeNotifier {
       }
       await operations.write(owner!, 'topup', null);
       topUpOperation = null;
-      actionMessage = 'Top-up successful.';
+      actionMessage = 'Successful top-up to the account wallet!';
+      actionSucceeded = true;
       await refresh(history: true);
     } catch (failure) {
+      actionSucceeded = false;
       actionMessage =
           '${message(failure)} Retry this top-up to check the result.';
     } finally {
@@ -238,7 +298,7 @@ class CheckoutController extends ChangeNotifier {
   bool busy = false, _disposed = false;
   Map<String, dynamic>? operation;
   Timer? _poll;
-  int _polls = 0;
+  Future<void>? _readingStatus;
   bool _paused = false;
   String get _operationName => 'checkout:$chargeId';
   PaymentAttempt? get attempt => request?.attempt;
@@ -253,6 +313,7 @@ class CheckoutController extends ChangeNotifier {
     error = null;
     _notify();
     try {
+      await _readingStatus;
       await action();
     } catch (failure) {
       error = payments.message(failure);
@@ -424,24 +485,49 @@ class CheckoutController extends ChangeNotifier {
 
   void resume() {
     _paused = false;
-    _polls = 0;
     unawaited(load());
+  }
+
+  Future<void> _pollStatus() async {
+    if (busy || _disposed || _paused || !payments.isCurrentOwner) return;
+    try {
+      final next = PaymentRequest(await payments.send('requests/$chargeId'));
+      if (_disposed || _paused) return;
+      if (next.charge.id != chargeId) throw const FormatException();
+      request = next;
+      if (next.charge.status == 'paid') await _receipt();
+      error = null;
+    } catch (_) {
+      // Retain the current checkout and retry a read. Never verify or pay here.
+    } finally {
+      _notify();
+    }
   }
 
   void _schedule() {
     _poll?.cancel();
     if (_disposed ||
         _paused ||
-        _polls >= 12 ||
-        attempt?.inFlight != true ||
+        !payments.isCurrentOwner ||
+        request?.meta.active != true ||
+        request?.charge.status != 'pending' ||
         receipt != null) {
       return;
     }
-    // Bounded read-only status polling. Reconciliation is an explicit action.
-    _poll = Timer(const Duration(seconds: 5), () {
-      _polls++;
-      unawaited(load());
-    });
+    // Read only. Payment verification/reconciliation remains an explicit action.
+    _poll = Timer(
+      Duration(seconds: attempt?.inFlight == true ? 5 : 15),
+      () async {
+        final work = _pollStatus();
+        _readingStatus = work;
+        try {
+          await work;
+        } finally {
+          _readingStatus = null;
+          if (!busy) _schedule();
+        }
+      },
+    );
   }
 
   @override

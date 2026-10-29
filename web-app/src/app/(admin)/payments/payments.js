@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useCallback, useState } from 'react';
 import useResource from '../vehicles/use-vehicle-resource';
 import { RecordsState } from '../vehicles/vehicles-ui';
@@ -15,7 +16,7 @@ export const initialPaymentFilters = { reference: '', status: '', method: '', dr
 export function PaymentTable({ transactions, onDetails }) {
   return <div className={shared.tableScroll}><table className={`${shared.table} ${styles.paymentTable}`}><thead><tr>{['Vehicle Plate', 'Company', 'Amount', 'Payment Method', 'Payment Status', 'Transaction Reference', 'Requested (MYT)', 'Actions'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
     <tbody>{transactions.map(({ attempt: a, charge: c }) => <tr key={a.id}>
-      <td><strong>{c.session.current_vehicle?.plate_number ?? 'Not Available'}</strong></td><td><span title="Company details are unavailable.">Not Provided</span></td><td className={styles.amount}>{myr(a.amount_sen)}</td><td>{methodLabels[a.method]}</td><td><PaymentBadge status={a.status} /></td>
+      <td><strong>{c.session.current_vehicle?.plate_number ?? 'Not Available'}</strong></td><td>{c.current_driver?.tenant?.name || 'Not Provided'}</td><td className={styles.amount}>{myr(a.amount_sen)}</td><td>{methodLabels[a.method]}</td><td><PaymentBadge status={a.status} /></td>
       <td className={styles.reference}>{a.provider_reference}</td><td>{paymentTime(a.created_at)}</td><td><button className={shared.secondary} aria-label={`View Payment ${a.provider_reference}`} onClick={event => onDetails(a.id, event.currentTarget)}>View Details</button></td>
     </tr>)}</tbody>
   </table></div>;
@@ -25,20 +26,19 @@ export default function Payments() {
   const [revision, setRevision] = useState(0), [error, setError] = useState(''), [selected, setSelected] = useState(null);
   const query = transactionQuery(applied, offset);
   const load = useCallback(signal => fetchTransactions(query, signal), [query]);
-  const resource = useResource(`payments:${query}:${revision}`, load), data = resource.data;
+  const resource = useResource(`payments:${query}:${revision}`, load, 15000), data = resource.data;
   const summaryQuery = new URLSearchParams(applied.start_date ? { start_date: applied.start_date, end_date: applied.end_date } : {}).toString();
   const loadSummary = useCallback(signal => fetchPaymentSummary(summaryQuery, signal), [summaryQuery]);
-  const summary = useResource(`payments-summary:${summaryQuery}:${revision}`, loadSummary);
+  const summary = useResource(`payments-summary:${summaryQuery}:${revision}`, loadSummary, 15000);
   function apply(event) {
     event.preventDefault(); try { transactionQuery(draft); setError(''); setApplied({ ...draft }); setOffset(0); setRevision(value => value + 1); } catch (cause) { setError(cause.message); }
   }
   const field = (key, value) => setDraft(old => ({ ...old, [key]: value }));
   const refresh = () => setRevision(value => value + 1);
   return <div className={`${common.page} ${styles.page}`}>
-    <header className={common.heading}><h1>Payments</h1><button className={shared.secondary} disabled={resource.loading} onClick={refresh}>Refresh</button></header>
+    <header className={common.heading}><h1>Payments</h1><RefreshButton loading={resource.loading} onClick={refresh} /></header>
     <section className={styles.summarySection} aria-labelledby="payment-summary-title" aria-busy={summary.loading}>
       <div className={styles.summaryHeading}><h2 id="payment-summary-title">Payment Summary</h2><span>{applied.start_date ? `${applied.start_date} to ${applied.end_date} · MYT` : 'Last 7 Days · MYT'}</span></div>
-      <p className={styles.summaryScope}>Building-wide. Date filters only.</p>
       {summary.loading ? <p className={styles.muted} role="status">Loading payment summary…</p> : summary.error ? <div className={styles.summaryError}><p role="alert">Payment summary is unavailable.</p><button className={shared.secondary} onClick={refresh}>Retry Summary</button></div> : <PaymentSummaryCards data={summary.data} />}
     </section>
     <PaymentMode data={data ?? summary.data} disclosure={!selected} />

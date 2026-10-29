@@ -1,6 +1,7 @@
 import styles from './overview.module.css';
+import OverviewNotice from './overview-notice';
 
-export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements', description = 'Recorded session entries and exits · Malaysia time', emptyMessage = 'No entries or exits recorded today' }) {
+export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements', description = 'Recorded session entries and exits.', emptyMessage = 'No entries or exits recorded today.' }) {
   const maximum = Math.max(1, ...hours.flatMap((hour) => [hour.entries, hour.exits]));
   const ceiling = Math.max(2, Math.ceil(maximum / 2) * 2);
   const empty = hours.every((hour) => hour.entries === 0 && hour.exits === 0);
@@ -8,7 +9,7 @@ export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements',
     <section className={styles.panel} aria-labelledby="movements-title">
       <div className={styles.sectionHeading}><h2 id="movements-title">{title}</h2><div className={styles.legend}><span><i className={styles.entryKey} />Entries</span><span><i className={styles.exitKey} />Exits</span></div></div>
       <p className={styles.muted}>{description}</p>
-      {empty && <p className={styles.empty}>{emptyMessage}</p>}
+      {empty && <OverviewNotice><p>{emptyMessage}</p></OverviewNotice>}
       <div className={styles.chartScroll}>
         <div className={styles.chart}>
           <p className={styles.axisTitle}>Vehicles</p>
@@ -25,7 +26,7 @@ export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements',
               })}
             </div>
           </div>
-          <p className={styles.xTitle}>Hour of day (00–23)</p>
+          <p className={styles.xTitle}>Hour of Day (00–23)</p>
         </div>
       </div>
     </section>

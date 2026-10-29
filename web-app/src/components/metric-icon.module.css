@@ -1,0 +1,2 @@
+.badge { display: inline-grid; place-items: center; align-self: center; grid-column: 1; grid-row: 1 / 4; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; color: var(--primary); background: var(--primary-soft); }
+.large { flex-basis: 56px; width: 56px; height: 56px; }

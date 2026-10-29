@@ -18,6 +18,7 @@ class NavigationController extends ChangeNotifier {
   String? message;
   bool confirming = false;
   String? confirmationMessage;
+  bool confirmationSucceeded = false;
   bool get hasConfirmationService =>
       routeRepository is ParkingConfirmationRepository;
   final DriverRepository? repository;
@@ -25,6 +26,30 @@ class NavigationController extends ChangeNotifier {
   NavigationData? data;
   String? selectedLevelId;
   bool _disposed = false;
+  bool _loadingAssigned = false;
+  Future<void>? _assignedRead;
+  ActiveParking? _requestedAllocation;
+
+  void clearAllocationTarget() => _requestedAllocation = null;
+
+  /// Revalidate an explicit notification target before fetching any route.
+  Future<void> openAllocation(ActiveParking allocation) async {
+    await _assignedRead;
+    if (_disposed || confirming || routeRepository == null) return;
+    _requestedAllocation = allocation;
+    await _loadAssigned(refreshSessions: true, requireAllocated: true);
+  }
+
+  /// A current session card may also point to an already parked vehicle.
+  Future<void> openSession(ActiveParking parking) async {
+    if (parking.session.status == ParkingSessionStatus.allocated) {
+      return openAllocation(parking);
+    }
+    await _assignedRead;
+    if (_disposed || confirming || routeRepository == null) return;
+    _requestedAllocation = parking;
+    await _loadAssigned(refreshSessions: true);
+  }
 
   bool get hasActiveSession =>
       data?.parking != null &&
@@ -42,7 +67,7 @@ class NavigationController extends ChangeNotifier {
     final parking = data?.parking;
     final route = parking?.route;
     if (route == null || geometry == null) {
-      return 'Route or map information is unavailable.';
+      return 'Route and map information are unavailable.';
     }
     if (route.sessionId != parking!.session.id ||
         parking.vehicle.id != parking.session.vehicleId ||
@@ -81,10 +106,18 @@ class NavigationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool background = false}) async {
     if (confirming) return;
     if (routeRepository != null) {
-      await _loadAssigned(refreshSessions: true);
+      final current = _assignedRead;
+      if (current != null) return current;
+      final work = _loadAssigned(refreshSessions: true, background: background);
+      _assignedRead = work;
+      try {
+        await work;
+      } finally {
+        _assignedRead = null;
+      }
       return;
     }
     final repository = this.repository;
@@ -111,40 +144,86 @@ class NavigationController extends ChangeNotifier {
   }
 
   Future<void> selectSession(String id) async {
-    if (confirming ||
+    await _assignedRead;
+    if (_disposed ||
+        confirming ||
         status == NavigationStatus.loading ||
         !sessions.any((item) => item.session.id == id)) {
       return;
     }
     selectedSessionId = id;
+    _requestedAllocation = null;
     await _loadAssigned(refreshSessions: false);
   }
 
-  Future<void> _loadAssigned({required bool refreshSessions}) async {
-    if (_disposed || status == NavigationStatus.loading) return;
-    status = NavigationStatus.loading;
-    data = null;
-    message = null;
-    confirmationMessage = null;
-    selectedLevelId = null;
-    notifyListeners();
+  Future<void> _loadAssigned({
+    required bool refreshSessions,
+    bool background = false,
+    bool requireAllocated = false,
+  }) async {
+    if (_disposed || _loadingAssigned || status == NavigationStatus.loading) {
+      return;
+    }
+    _loadingAssigned = true;
+    final previous = data;
+    final previousLevel = selectedLevelId;
+    final keepData = background && status == NavigationStatus.ready;
+    if (!background || status == NavigationStatus.disconnected) {
+      status = NavigationStatus.loading;
+      data = null;
+      selectedLevelId = null;
+      message = null;
+      confirmationMessage = null;
+      confirmationSucceeded = false;
+      notifyListeners();
+    }
     try {
       if (refreshSessions) {
         final result = await routeRepository!.getSessions();
         if (_disposed) return;
         sessions = result;
       }
-      final parking =
-          sessions
-              .where((item) => item.session.id == selectedSessionId)
-              .firstOrNull ??
-          sessions
-              .where(
-                (item) => item.session.status == ParkingSessionStatus.allocated,
-              )
-              .firstOrNull ??
-          sessions.firstOrNull;
+      final requested = _requestedAllocation;
+      final parking = requested != null
+          ? sessions
+                .where(
+                  (item) =>
+                      item.session.id == requested.session.id &&
+                      item.session.vehicleId == requested.session.vehicleId &&
+                      item.session.zoneId == requested.session.zoneId &&
+                      item.vehicle.id == requested.vehicle.id &&
+                      item.zone.id == requested.zone.id &&
+                      item.session.exitTime == null &&
+                      (!requireAllocated ||
+                          (item.session.status ==
+                                  ParkingSessionStatus.allocated &&
+                              item.session.confirmedAt == null)),
+                )
+                .firstOrNull
+          : sessions
+                    .where((item) => item.session.id == selectedSessionId)
+                    .firstOrNull ??
+                sessions
+                    .where(
+                      (item) =>
+                          item.session.status == ParkingSessionStatus.allocated,
+                    )
+                    .firstOrNull ??
+                sessions.firstOrNull;
       selectedSessionId = parking?.session.id;
+      final oldParking = previous?.parking;
+      if (keepData &&
+          parking != null &&
+          oldParking != null &&
+          parking.session.id == oldParking.session.id &&
+          parking.session.status == oldParking.session.status &&
+          parking.session.confirmedAt == oldParking.session.confirmedAt &&
+          parking.session.exitTime == oldParking.session.exitTime &&
+          parking.zone.id == oldParking.zone.id) {
+        // Session snapshots are cheap. Keep the existing route/map instance
+        // while its assignment is unchanged, including the selected floor.
+        return;
+      }
       final result =
           parking == null ||
               parking.session.status != ParkingSessionStatus.allocated
@@ -152,7 +231,15 @@ class NavigationController extends ChangeNotifier {
           : await routeRepository!.getRoute(parking);
       if (_disposed) return;
       data = result;
+      message = null;
       selectedLevelId =
+          (keepData &&
+                  result.graph?.levels.any(
+                        (level) => level.id == previousLevel,
+                      ) ==
+                      true
+              ? previousLevel
+              : null) ??
           geometry?.orderedNodes.firstOrNull?.levelId ??
           result.graph?.levels.firstOrNull?.id;
       status = NavigationStatus.ready;
@@ -160,16 +247,20 @@ class NavigationController extends ChangeNotifier {
       if (_disposed) return;
       message = error.message;
       status = NavigationStatus.error;
+      data = null;
     } catch (_) {
       if (_disposed) return;
       message =
           'Unable to load navigation. Check your connection and try again.';
-      status = NavigationStatus.error;
+      if (!keepData) status = NavigationStatus.error;
+    } finally {
+      _loadingAssigned = false;
+      if (!_disposed) notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<bool> confirmSelected(String sessionId) async {
+    await _assignedRead;
     if (!canConfirm ||
         !hasConfirmationService ||
         data!.parking!.session.id != sessionId) {
@@ -179,6 +270,7 @@ class NavigationController extends ChangeNotifier {
     final parking = previous.parking!;
     confirming = true;
     confirmationMessage = null;
+    confirmationSucceeded = false;
     notifyListeners();
     try {
       final session = await (routeRepository as ParkingConfirmationRepository)
@@ -210,7 +302,8 @@ class NavigationController extends ChangeNotifier {
         for (final item in sessions)
           item.session.id == session.id ? updated : item,
       ];
-      confirmationMessage = 'Parking confirmed. Your session is now occupied.';
+      confirmationMessage = 'Your parking has been confirmed. Your session is now marked as occupied.';
+      confirmationSucceeded = true;
       return true;
     } on AuthFailure catch (error) {
       if (!_disposed) confirmationMessage = error.message;

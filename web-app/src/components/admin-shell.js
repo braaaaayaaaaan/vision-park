@@ -1,7 +1,12 @@
 "use client";
+import BrandMark from "./brand-mark";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AUTH_GENERATION, logoutAdministrator } from '../lib/auth-client.mjs';
+import { formatMalaysiaDateTime } from '../lib/date-format.mjs';
+import useSidebarWidth from './use-sidebar-width';
+import usePendingApprovals from './use-pending-approvals';
+import useConfirmation from './use-confirmation';
 import styles from "./admin-shell.module.css";
 
 const navigation = [
@@ -23,11 +28,28 @@ const navigationIcons = {
   "/parking-structure": "M4 21V3h16v18 M2 21h20 M8 7h2 M14 7h2 M8 11h2 M14 11h2 M9 21v-6h6v6",
 };
 
-export default function AdminShell({ children }) {
+function MalaysiaClock() {
+  const [now, setNow] = useState(null);
+  useEffect(() => {
+    const first = setTimeout(() => setNow(new Date()), 0);
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => { clearTimeout(first); clearInterval(timer); };
+  }, []);
+  return <div className={styles.clock}>
+    <svg className={styles.clockIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" focusable="false"><path d={navigationIcons['/sessions']} /></svg>
+    <div><p className={styles.clockLabel}>Malaysia Time</p><time dateTime={now?.toISOString()}>{now ? `${formatMalaysiaDateTime(now)} MYT` : 'MYT (UTC+08:00)'}</time></div>
+  </div>;
+}
+
+export default function AdminShell({ children, administrator }) {
   const pathname = usePathname();
+  const sidebar = useSidebarWidth();
+  const pending = usePendingApprovals();
+  const account = useRef(null);
+  const accountName = administrator?.name || 'Administrator';
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState('');
+  const { requestConfirmation, confirmationDialog } = useConfirmation({ disabled: signingOut });
   useEffect(() => {
     const sync = event => {
       if (event.key === AUTH_GENERATION && event.oldValue !== null) window.location.reload();
@@ -35,28 +57,58 @@ export default function AdminShell({ children }) {
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, []);
-  async function signOut(event) {
-    event.preventDefault();
-    if (signingOut) return;
+  useEffect(() => {
+    const closeOutside = event => {
+      if (account.current?.open && !account.current.contains(event.target)) account.current.open = false;
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape' && account.current?.open) {
+        account.current.open = false;
+        account.current.querySelector('summary')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
+  function requestSignOut() {
+    if (account.current) {
+      account.current.open = false;
+      account.current.querySelector('summary')?.focus();
+    }
+    requestConfirmation({
+      title: 'Sign Out?',
+      variant: 'destructive',
+      description: 'Are you sure you want to sign out of VisionPark? You will need to sign in again to access the administrator dashboard.',
+      confirmLabel: 'Sign Out',
+      pendingLabel: 'Signing out…',
+      icon: <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3H4v18h6 M10 12h11 M16 7l5 5-5 5" /></svg>,
+    }, signOut);
+  }
+  async function signOut() {
+    if (signingOut) return false;
     setSigningOut(true);
-    setSignOutError('');
     try {
       const response = await logoutAdministrator();
       if (!response.ok) throw new Error('Unable to sign out. Reload the page and try again.');
       window.location.replace(response.url || '/login');
     } catch (error) {
-      setSignOutError(error.message || 'Unable to sign out. Please try again.');
       setSigningOut(false);
+      throw error;
     }
   }
-  const title = navigation.find(([href]) => href === pathname)?.[1] ?? "Administration";
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-admin-shell data-resizing={sidebar.dragging || undefined} style={{ '--sidebar-width': `${sidebar.width}px` }}>
       <a className={styles.skipLink} href="#main-content">Skip to Content</a>
       <aside className={styles.sidebar}>
         <div className={styles.brandRow}>
           <a className={styles.brand} href="/overview" aria-label="VisionPark Overview">
-            <span className={styles.brandMark} aria-hidden="true">V</span>
+            <span className={styles.brandMark} aria-hidden="true">
+              <BrandMark className={styles.brandImage} inverse />
+            </span>
             <span>VisionPark<small>Administration</small></span>
           </a>
           <button className={styles.menuButton} type="button" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(!menuOpen)}>
@@ -65,28 +117,45 @@ export default function AdminShell({ children }) {
         </div>
         <nav id="admin-navigation" aria-label="Administration" className={`${styles.navigation} ${menuOpen ? styles.navigationOpen : ""}`}>
           <p className={styles.navLabel}>Workspace</p>
-          {navigation.map(([href, label]) => (
-            <a key={href} href={href} className={`${styles.navLink} ${pathname === href ? styles.active : ""}`} aria-current={pathname === href ? "page" : undefined}>
-              <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-                <path d={navigationIcons[href]} />
-              </svg>
-              {label}
-            </a>
-          ))}
+          {navigation.map(([href, label]) => {
+            const count = href === '/approvals' ? pending.accounts : href === '/vehicles' ? pending.vehicles : null;
+            const description = href === '/approvals' ? 'pending account approvals' : 'pending vehicle registrations';
+            return (
+              <a key={href} href={href} className={`${styles.navLink} ${pathname === href ? styles.active : ""}`} aria-current={pathname === href ? "page" : undefined}>
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d={navigationIcons[href]} />
+                </svg>
+                <span className={styles.navText}>{label}</span>
+                {count > 0 && <span className={styles.navBadge} aria-label={`${count} ${description}`} title={`${count} ${description}`}>
+                  {count > 99 ? '99+' : count}
+                </span>}
+              </a>
+            );
+          })}
         </nav>
+        <div className={styles.resizeHandle} {...sidebar.separator} />
       </aside>
       <div className={styles.workspace}>
         <header className={styles.header}>
-          <div><p className={styles.eyebrow}>VisionPark Admin</p><p className={styles.pageTitle}>{title}</p></div>
-          <form action="/api/auth/logout" method="post" onSubmit={signOut}>
-            <button className={styles.signOut} type="submit" disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
-            {signOutError && <p role="alert">{signOutError}</p>}
-          </form>
+          <MalaysiaClock />
+          <details className={styles.account} ref={account}>
+            <summary className={styles.accountTrigger} aria-label="Administrator account">
+              <span className={styles.avatar} aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg></span>
+              <span className={styles.accountName}>{accountName}</span>
+              <svg className={styles.accountChevron} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
+            <div className={styles.accountPanel}>
+              <p className={styles.accountLabel}>Signed In As</p><p className={styles.accountIdentity}>{accountName}</p>
+              <p className={styles.accountRole}>Administrator</p>
+              <button className={styles.signOut} type="button" aria-haspopup="dialog" onClick={requestSignOut} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+            </div>
+          </details>
         </header>
         <main id="main-content" tabIndex={-1} className={styles.main}>
           {children}
         </main>
       </div>
+      {confirmationDialog}
     </div>
   );
 }

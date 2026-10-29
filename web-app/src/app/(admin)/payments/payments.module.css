@@ -60,16 +60,6 @@
 .summaryHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .summaryHeading span, .summaryScope { color: var(--text-muted); font-size: 12px; }
 .summaryScope { margin-top: -6px; }
-.summaryCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.summaryCard { padding: 20px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.summaryLabel { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-.summaryLabel h3 { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.5; }
-.summaryIcon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; background: var(--primary-soft); color: var(--primary); }
-.summaryValue { display: block; margin: 14px 0 8px; font-size: clamp(24px, 2.1vw, 32px); line-height: 1.25; letter-spacing: -.5px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.summaryCard p { font-size: 12px; color: var(--text-muted); }
-.featuredSummary { background: var(--primary); border-color: var(--primary); color: white; }
-.featuredSummary .summaryIcon { background: rgb(255 255 255 / 12%); color: white; }
-.featuredSummary p { color: rgb(255 255 255 / 82%); }
 .summaryError { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-muted); font-size: 13px; }
 .page .filters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .searchField { grid-column: span 2; }
@@ -81,9 +71,10 @@
 .amount { color: var(--primary); text-align: right; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .rateTable td:nth-child(3), .rateTable td:nth-child(4) { font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 .rateTable small { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-.rateTable .badge { margin-top: 6px; }
+.rateVersion { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; white-space: nowrap; }
+.rateVersion .badge { margin-inline-start: -10px; }
 .dialog { width: min(800px, calc(100% - 32px)); }
-.dialog .detailHeading { align-items: center; position: sticky; top: 0; background: var(--surface); z-index: 1; padding-block: 4px; }
+.dialog .detailHeading { align-items: center; padding-block: 4px; }
 .dialog .detailHeading h2 { margin: 0; }
 .dialog section { border: 0; border-radius: 0; padding: 20px 0 0; border-top: 1px solid var(--border); min-width: 0; }
 .dialog section h3 { margin: 0 0 16px; font-size: 15px; }
@@ -99,7 +90,7 @@
 .dialog .fields dt { font-size: 12px; }
 .dialog .modeNotice { border-top: 1px solid var(--border); padding-top: 16px; }
 @media (max-width: 1100px) {
-  .summaryCards, .page .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .searchField { grid-column: auto; }
 }
 @media (max-width: 760px) {
@@ -109,9 +100,6 @@
 @media (max-width: 650px) {
   .panel { padding: 18px; }
   .formGrid, .fields { grid-template-columns: minmax(0, 1fr); }
-  .summaryCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .summaryCard { padding: 16px; }
-  .summaryIcon { display: none; }
   .sectionHeading { padding: 20px; }
   .dialog { padding: 20px; }
 }
@@ -119,8 +107,4 @@
   .page .filters { grid-template-columns: minmax(0, 1fr); }
   .rateTerms { gap: 20px 16px; }
   .transactionHero { padding: 20px; }
-}
-@media (max-width: 360px) {
-  .summaryCards { grid-template-columns: minmax(0, 1fr); }
-  .summaryIcon { display: inline-flex; }
 }

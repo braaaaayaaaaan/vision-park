@@ -1,4 +1,5 @@
 import '../data/repositories/history_repository.dart';
+import '../data/repositories/status_reminder_repository.dart';
 import '../data/repositories/payment_repository.dart';
 import '../data/repositories/vehicle_repository.dart';
 import '../data/repositories/assigned_route_repository.dart';
@@ -24,6 +25,7 @@ class VisionParkApp extends StatelessWidget {
     this.passwordRecovery,
     this.passwordChange,
     this.activeSessionRepository,
+    this.statusReminderRepository,
     this.availabilityRepository,
     this.routeRepository,
     this.vehicleRepository,
@@ -39,6 +41,7 @@ class VisionParkApp extends StatelessWidget {
   final PasswordRecoveryController? passwordRecovery;
   final PasswordChangeService? passwordChange;
   final ActiveSessionRepository? activeSessionRepository;
+  final StatusReminderRepository? statusReminderRepository;
   final AvailabilityRepository? availabilityRepository;
   final AssignedRouteRepository? routeRepository;
   final VehicleRepository? vehicleRepository;
@@ -79,6 +82,7 @@ class VisionParkApp extends StatelessWidget {
             passwordRecovery: passwordRecovery,
             passwordChange: passwordChange,
             activeSessionRepository: activeSessionRepository,
+            statusReminderRepository: statusReminderRepository,
             availabilityRepository: availabilityRepository,
             routeRepository: routeRepository,
             vehicleRepository: vehicleRepository,

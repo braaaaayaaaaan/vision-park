@@ -18,6 +18,8 @@ from backend.auth import ApplicationUser, require_administrator
 from backend.parking.overview import ParkingOverview, aggregate_overview, reporting_period
 from backend.parking.analytics import ParkingAnalytics, aggregate_analytics, analytics_period
 from backend.parking.admin_sessions import AdminSessionPage, SessionStatus, session_record
+from backend.parking import overnight
+from backend.parking import status_reminders
 from backend.parking import floor_plans
 from backend.parking import calibration
 from backend.parking import node_drafts
@@ -31,6 +33,31 @@ from backend.parking import publication
 
 router = APIRouter(dependencies=[Depends(require_administrator)])
 Administrator = Annotated[ApplicationUser, Depends(require_administrator)]
+
+
+@router.get('/parking/status-reminders')
+def read_status_reminders(response: Response, admin: Administrator,
+                          session_ids: Annotated[str, Query(min_length=36, max_length=369)]):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        ids = [str(UUID(value)) for value in session_ids.split(',')]
+        if not 1 <= len(ids) <= 10 or len(set(ids)) != len(ids):
+            raise ValueError()
+    except ValueError:
+        raise HTTPException(422, 'Choose 1–10 distinct parking sessions.') from None
+    try:
+        return status_reminders.read(str(admin.id), ids)
+    except (database.DatabaseError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Parking reminders are unavailable. Check reminder storage setup and retry.') from None
+
+
+@router.post('/parking/status-reminders')
+def send_status_reminder(change: status_reminders.SendReminder, response: Response, admin: Administrator):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return status_reminders.send(str(admin.id), change)
+    except (database.DatabaseError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Reminder delivery could not be confirmed. Refresh before retrying the same request.') from None
 
 
 @router.get('/tenants')
@@ -406,6 +433,22 @@ def floor_plan_image(level_id: UUID, expected_revision: Annotated[int | None, Qu
                         headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
     except database.DatabaseError:
         raise HTTPException(503, 'Floor plan image is unavailable.') from None
+
+
+@router.get('/parking/sessions/overnight', response_model=overnight.OvernightPage)
+def overnight_sessions(response: Response, kind: Literal['current', 'past'] = 'current',
+                       limit: Annotated[int, Query(ge=1, le=100)] = 10,
+                       offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
+                       start_date: date | None = None, end_date: date | None = None):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return overnight.read(kind, limit, offset, start_date, end_date)
+    except ValidationError:
+        raise HTTPException(503, 'Overnight parking alerts are unavailable. Please retry.') from None
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from None
+    except (database.DatabaseError, KeyError, TypeError):
+        raise HTTPException(503, 'Overnight parking alerts are unavailable. Please retry.') from None
 
 
 @router.get('/parking/sessions', response_model=AdminSessionPage)

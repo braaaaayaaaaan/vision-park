@@ -16,9 +16,29 @@ from backend.parking.navigation_floor_plans import published_image_bytes
 from backend.database import DatabaseError
 from backend.parking.allocation import AllocationError, allocate_parking
 from backend.parking.sessions import ClosureResult, ConfirmationResult, SessionError, close_parking, confirm_parking
+from backend.parking import status_reminders
 
 router = APIRouter()
 allocation_key = APIKeyHeader(name="X-Allocation-Token", auto_error=False)
+
+
+@router.get('/status-reminders')
+def driver_status_reminders(response: Response, driver: Annotated[ApplicationUser, Depends(require_driver)]):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return status_reminders.read(str(driver.id))
+    except (DatabaseError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Parking reminders could not be loaded. Please retry.') from None
+
+
+@router.post('/status-reminders/{reminder_id}/response')
+def respond_to_status_reminder(reminder_id: UUID, change: status_reminders.DriverResponse, response: Response,
+                               driver: Annotated[ApplicationUser, Depends(require_driver)]):
+    response.headers['Cache-Control'] = 'private, no-store'
+    try:
+        return status_reminders.respond(str(driver.id), str(reminder_id), change)
+    except (DatabaseError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Your response could not be confirmed. Please retry.') from None
 
 
 @router.get("/sessions/{session_id}/route", response_model=AssignedRouteResponse)

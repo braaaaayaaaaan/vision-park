@@ -7,18 +7,49 @@
 .refresh:disabled { opacity: 0.6; cursor: wait; }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .kpi, .panel { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.kpi { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 16px; align-content: center; background: var(--kpi-surface, var(--surface)); border-color: var(--kpi-border, var(--border)); box-shadow: var(--card-shadow); }
+.overviewKpi { grid-template-columns: 56px minmax(0, 1fr); column-gap: 18px; }
+.alignedKpis { align-items: stretch; }
+.alignedKpis > .kpi { align-content: start; grid-template-rows: minmax(4.5em, auto) auto 1fr; }
+.alignedKpis > .kpi > h2, .alignedKpis > .kpi > h3 { margin: 0; color: var(--kpi-heading-color, var(--text-muted)); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.alignedKpis > .kpi > strong { font-size: clamp(21px, 2vw, 30px); line-height: 1.25; font-variant-numeric: tabular-nums; }
+/* Share the title, value, and description tracks across each row of cards. */
+@supports (grid-template-rows: subgrid) {
+  .alignedKpis > .kpi { grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; }
+}
+@media (max-width: 1200px) { .kpis.alignedKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .kpis.alignedKpis { grid-template-columns: minmax(0, 1fr); } }
+.kpi > h2, .kpi > h3, .kpi > strong, .kpi > p { grid-column: 2; overflow-wrap: anywhere; }
 .kpi h2 { color: var(--text-muted); font-size: 14px; font-weight: 600; }
-.kpi strong { display: block; margin: 12px 0; font-size: 32px; color: var(--primary); }
-.kpi p { color: var(--text-muted); font-size: 12px; }
+.kpi strong { display: block; margin: 12px 0; font-size: 32px; color: var(--kpi-value-color, var(--primary)); }
+.kpi p { color: var(--kpi-detail-color, var(--text-muted)); font-size: 12px; }
+.overviewStat { display: block; --stat-accent: #3B82F6; --kpi-surface: var(--surface); --kpi-border: var(--border); }
+.statHeader { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.statHeader > span { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; color: var(--stat-accent); background: var(--kpi-surface); }
+.statHeader svg { width: 32px; height: 32px; }
+.statHeader h2, .statHeader h3 { margin: 0; color: var(--text-muted); font-size: 14px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.overviewStat > strong { margin: 12px 0 4px; color: var(--text); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+/* Keep statistic headers, values, and descriptions aligned across each row. */
+.alignedKpis > .overviewStat { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(40px, auto) auto 1fr; }
+.alignedKpis > .overviewStat > strong, .alignedKpis > .overviewStat > p { grid-column: 1; }
+@supports (grid-template-rows: subgrid) {
+  .alignedKpis > .overviewStat { grid-template-rows: subgrid; }
+}
 .panel h2 { font-size: 20px; }
 .panel a { color: var(--primary); font-weight: 600; text-underline-offset: 4px; }
 .error { color: #a52a2a; margin-bottom: 16px; }
 .empty { padding: 24px 0; color: var(--text-muted); }
+.notice { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; padding: 14px 16px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; color: #854d0e; font-size: 13px; line-height: 1.6; }
+.notice > svg { flex: 0 0 20px; margin-top: 1px; color: #b45309; }
+.noticeContent { min-width: 0; overflow-wrap: anywhere; }
+.noticeContent > button { margin-top: 12px; }
+.overviewStat > .notice { grid-column: 1; margin-top: 0; }
+.overviewStat .notice p { color: inherit; font-size: inherit; }
 .legend { display: flex; gap: 20px; font-size: 13px; }
 .legend span { display: flex; align-items: center; gap: 8px; }
 .entryKey, .exitKey { width: 12px; height: 12px; display: inline-block; border-radius: 3px; }
-.entryKey, .entryBar { background: var(--chart-primary); }
-.exitKey, .exitBar { background: var(--chart-comparative); }
+.entryKey, .entryBar { background: #16A34A; }
+.exitKey, .exitBar { background: #DC2626; }
 .chartScroll { overflow-x: auto; }
 .chart { min-width: 650px; padding-top: 24px; }
 .axisTitle, .xTitle { font-size: 12px; color: var(--text-muted); }

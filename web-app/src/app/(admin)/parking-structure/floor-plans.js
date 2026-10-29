@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
 import { fileError, floorPlanRequest, floorPlanState, initialState, selectedLevelId } from './floor-plans-client.mjs';
@@ -88,9 +89,9 @@ export default function FloorPlans() {
   }
   return <div className={styles.page}>
     <div className={styles.heading}><div><h1>Parking Structure</h1><p>Manage parking levels, floor plans and draft navigation.</p></div>
-      <button className={styles.button} disabled={busy || calEditing} onClick={refresh}>Refresh</button></div>
+      <RefreshButton loading={state.loading} disabled={busy || calEditing} onClick={refresh} /></div>
     {state.success && <p className={styles.success} role="status">{state.success}</p>}
-    {state.error && <div className={styles.error} role="alert"><p>{state.error}</p><button className={styles.button} onClick={refresh} disabled={busy}>{state.conflict ? 'Refresh Latest Version' : 'Try Again'}</button></div>}
+    {state.error && <div className={styles.error} role="alert"><p>{state.error}</p><RefreshButton label={state.conflict ? 'Refresh Latest Version' : 'Try Again'} onClick={refresh} loading={state.loading} disabled={busy} /></div>}
     {nodeDirty || calEditing ? <p className={styles.note}>Save or discard current floor-plan edits before managing levels or zones.</p> : null}
     <StructureValidation key={`validation-${revision}`} levels={state.levels} disabled={draftBusy || nodeDirty || calEditing || levelDirty || zoneDirty || Boolean(state.error)} publishing={publishing} onPublishingChange={setPublishing} onPublished={levelsSaved} />
     <LevelManagement key={`levels-${revision}`} levels={state.levels} disabled={busy || nodeDirty || calEditing || zoneDirty || Boolean(state.error)} onSaved={levelsSaved} onDirtyChange={setLevelDirty} onSavingChange={setLevelSaving} />

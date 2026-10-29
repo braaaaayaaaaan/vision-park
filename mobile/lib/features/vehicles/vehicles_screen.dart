@@ -135,7 +135,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                             Text(
                               ready
                                   ? '${_controller.registrationUsage} / ${VehiclesController.registrationLimit} Registered Vehicles'
-                                  : 'Registration Usage Unavailable',
+                                  : 'Unavailable Registration Usage',
                               style: theme.textTheme.titleSmall,
                             ),
                             const SizedBox(height: 12),

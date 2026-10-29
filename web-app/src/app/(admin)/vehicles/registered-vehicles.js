@@ -1,4 +1,5 @@
 'use client';
+import RefreshButton from '../../../components/refresh-button';
 import { useCallback, useState } from 'react';
 import { driversQuery, vehiclesQuery, fetchDrivers, fetchVehicles, fetchVehicleSummary } from './vehicles-client.mjs';
 import useVehicleResource from './use-vehicle-resource';
@@ -19,7 +20,7 @@ export default function RegisteredVehicles() {
   const [offsets, setOffsets] = useState({ drivers: 0, vehicles: 0 });
   const [revision, setRevision] = useState(0), [companyRevision, setCompanyRevision] = useState(0);
   const [selection, setSelection] = useState(null), [drawer, setDrawer] = useState(null);
-  const [notice, setNotice] = useState(''), [inputError, setInputError] = useState('');
+  const [notice, setNotice] = useState(null), [inputError, setInputError] = useState('');
   const [checked, setChecked] = useState({ scope: null, ids: [] }), [bulkSelection, setBulkSelection] = useState(null);
   const [bulkResults, setBulkResults] = useState(null);
   const offset = offsets[view];
@@ -29,6 +30,9 @@ export default function RegisteredVehicles() {
   const records = useVehicleResource(scope, load);
   const loadSummary = useCallback(signal => fetchVehicleSummary(applied.tenant_id, signal), [applied.tenant_id]);
   const summary = useVehicleResource(`summary|${applied.tenant_id}|${revision}`, loadSummary);
+  const pendingCount = summary.data?.pending_approval;
+  const showPendingCount = Number.isSafeInteger(pendingCount) && pendingCount > 0;
+  const pendingDescription = `${pendingCount} vehicle registration${pendingCount === 1 ? '' : 's'} awaiting approval or rejection`;
   const companyResource = useVehicleResource(`companies|${companyRevision}`, loadCompanies);
   const companies = (companyResource.data ?? companyResource.previous)?.companies ?? [];
   const data = records.data, locked = Boolean(selection || bulkSelection);
@@ -55,19 +59,19 @@ export default function RegisteredVehicles() {
       driversQuery({ ...draft, search: view === 'drivers' ? draft.search : '' });
       if (view === 'vehicles') vehiclesQuery(draft);
       const searchKey = view === 'drivers' ? 'search' : 'plate';
-      setInputError(''); setNotice(''); resetChecked(); setBulkResults(null);
+      setInputError(''); setNotice(null); resetChecked(); setBulkResults(null);
       setApplied({ ...applied, tenant_id: draft.tenant_id, status: draft.status, [searchKey]: draft[searchKey] });
       setOffsets({ drivers: 0, vehicles: 0 });
     } catch (error) { setInputError(error.message); }
   }
-  function clear() { resetChecked(); setBulkResults(null); setDraft(initial); setApplied(initial); setOffsets({ drivers: 0, vehicles: 0 }); setInputError(''); setNotice(''); }
+  function clear() { resetChecked(); setBulkResults(null); setDraft(initial); setApplied(initial); setOffsets({ drivers: 0, vehicles: 0 }); setInputError(''); setNotice(null); }
   function chooseView(next) { resetChecked(); setView(next); setInputError(''); setOffsets(old => ({ ...old, [next]: 0 })); }
-  function decide(vehicle, action) { setNotice(''); setBulkResults(null); setSelection({ vehicle, action }); }
+  function decide(vehicle, action) { setNotice(null); setBulkResults(null); setSelection({ vehicle, action }); }
   return <div className={styles.page}>
     <header className={styles.heading}><div><h1>Registered Vehicles</h1><p>Review driver registration usage and manage individual vehicles.</p></div>
-      <button className={shared.secondary} disabled={records.loading || locked} onClick={() => { setNotice(''); reload(); setCompanyRevision(value => value + 1); }}>Refresh</button></header>
+      <RefreshButton loading={records.loading} disabled={locked} onClick={() => { setNotice(null); reload(); setCompanyRevision(value => value + 1); }} /></header>
     <VehicleSummaryCards resource={summary} tenantName={applied.tenant_id ? companies.find(company => company.id === applied.tenant_id)?.name || 'Selected Company' : null} onRetry={reload} />
-    {notice && <p className={shared.success} role="status">{notice}</p>}
+    {notice && <p className={`${shared.success} ${styles.decisionNotice}`} data-status={notice.status} role="status">{notice.message}</p>}
     {bulkResults && <div className={styles.bulkFeedback} data-partial={bulkResults.some(result => result.outcome !== 'approved')}
       role={bulkResults.some(result => result.outcome !== 'approved') ? 'alert' : 'status'}>
       <p><strong>{bulkResults.filter(result => result.outcome === 'approved').length} of {bulkResults.length} selected vehicles approved.</strong></p>
@@ -79,7 +83,13 @@ export default function RegisteredVehicles() {
       <div className={styles.toolbar}>
         <div className={styles.viewControl} role="group" aria-label="Registration View">
           <button aria-pressed={view === 'drivers'} disabled={locked} onClick={() => chooseView('drivers')}>By Drivers</button>
-          <button aria-pressed={view === 'vehicles'} disabled={locked} onClick={() => chooseView('vehicles')}>All Vehicles</button>
+          <button aria-label="All Vehicles" aria-describedby={showPendingCount ? 'pending-vehicle-registrations' : undefined}
+            aria-pressed={view === 'vehicles'} disabled={locked} onClick={() => chooseView('vehicles')}>
+            All Vehicles
+            {showPendingCount && <span id="pending-vehicle-registrations" className={styles.viewBadge} aria-label={pendingDescription} title={pendingDescription}>
+              {pendingCount > 99 ? '99+' : pendingCount}
+            </span>}
+          </button>
         </div>
         <form className={styles.filters} onSubmit={apply}>
           <label>{view === 'drivers' ? 'Search by Driver Name' : 'Search by Number Plate'}<input type="search"
@@ -117,13 +127,16 @@ export default function RegisteredVehicles() {
               </table>
             </div> : <VehicleRecordsTable vehicles={data.vehicles} selectedIds={selectedVehicles.map(vehicle => vehicle.id)} locked={locked}
               onSelect={selectVehicle} onSelectAll={selectAll} onDecision={decide}
-              onApproveSelected={() => { if (!locked && selectedVehicles.length) { setNotice(''); setBulkResults(null); setBulkSelection(selectedVehicles); } }} />}
+              onApproveSelected={() => { if (!locked && selectedVehicles.length) { setNotice(null); setBulkResults(null); setBulkSelection(selectedVehicles); } }} />}
       </div>
       <VehiclePagination data={data} offset={offset} loading={records.loading} disabled={locked} onPage={changePage} noun={view === 'drivers' ? 'Drivers' : 'Vehicles'} />
     </section>
     {drawer && <DriverDetailsDrawer key={drawer.id} driverId={drawer.id} trigger={drawer.trigger} revision={revision} locked={locked} onClose={() => { if (!locked) setDrawer(null); }} onDecision={decide} />}
     {selection && <VehicleDecisionDialog {...selection} onDismiss={(refresh = false) => { setSelection(null); if (refresh) reload(); }}
-      onSuccess={result => { setNotice(`${result.plate_number}: ${statusLabels[result.registration_status]}.`); setSelection(null); reload(); }} />}
+      onSuccess={result => {
+        setNotice({ status: result.registration_status, message: `Successfully ${result.registration_status} the vehicle: ${result.plate_number}!` });
+        setSelection(null); reload();
+      }} />}
     {bulkSelection && <BulkVehicleApprovalDialog vehicles={bulkSelection}
       onDismiss={(refresh = false) => { setBulkSelection(null); if (refresh) reload(); }}
       onComplete={results => { setBulkResults(results); setBulkSelection(null); reload(); }} />}

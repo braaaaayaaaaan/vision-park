@@ -79,7 +79,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       icon: Icons.lock_outline_rounded,
       title: 'Change Password',
       description: 'Confirm your current password to set a new one.',
-      onBack: _busy ? null : () => Navigator.pop(context),
+      showBackButton: false,
       child: Form(
         key: _form,
         autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -132,6 +132,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             FilledButton(
               onPressed: _busy ? null : _submit,
               child: Text(_busy ? 'Please Wait…' : 'Update Password'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _busy ? null : () => Navigator.pop(context),
+              child: const Text('Go Back'),
             ),
             if (_updating) ...[
               const SizedBox(height: 12),

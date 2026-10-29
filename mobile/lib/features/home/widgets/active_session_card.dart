@@ -4,7 +4,6 @@ import '../../../app/app_theme.dart';
 import '../../../data/models/dashboard_models.dart';
 import '../../../data/models/driver_models.dart';
 import '../../../shared/formatting/malaysian_date_time.dart';
-import 'dashboard_card.dart';
 
 class ActiveSessionCard extends StatelessWidget {
   const ActiveSessionCard({
@@ -18,65 +17,84 @@ class ActiveSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (parking.session.status == ParkingSessionStatus.completed) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
-    return DashboardCard(
-      title: 'Active Parking Session',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+    final secondary = theme.colorScheme.onSurfaceVariant;
+    final radius = BorderRadius.circular(AppTheme.cornerRadius);
+    return Card(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onViewRoute,
+        borderRadius: radius,
+        splashColor: theme.colorScheme.primary.withValues(alpha: .08),
+        highlightColor: theme.colorScheme.primary.withValues(alpha: .04),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.large),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                parking.vehicle.plateNumber,
-                style: theme.textTheme.headlineMedium,
+                'Current Parking Session',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: secondary,
+                  letterSpacing: .2,
+                ),
               ),
-              _SessionStatusBadge(status: parking.session.status),
+              const SizedBox(height: 12),
+              Text(
+                '${parking.zone.levelName} - ${parking.zone.name}',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.medium),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    parking.vehicle.plateNumber,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  _SessionStatusBadge(status: parking.session.status),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: AppSpacing.medium),
+              _SessionDetail(
+                label: 'Entry Time',
+                value: MalaysianDateTime.format(parking.session.entryTime),
+              ),
+              if (parking.session.confirmedAt != null) ...[
+                const SizedBox(height: 12),
+                _SessionDetail(
+                  label: 'Parking Confirmed',
+                  value: MalaysianDateTime.format(parking.session.confirmedAt!),
+                ),
+              ],
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onViewRoute,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('View Route'),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.medium),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.background,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: _SessionDetail(
-              icon: Icons.local_parking_rounded,
-              label: 'Allocated Zone',
-              value: '${parking.zone.levelName} · ${parking.zone.name}',
-            ),
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          _SessionDetail(
-            icon: Icons.schedule_rounded,
-            label: 'Entry Time',
-            value: MalaysianDateTime.format(parking.session.entryTime),
-          ),
-          if (parking.session.confirmedAt != null) ...[
-            const SizedBox(height: 12),
-            _SessionDetail(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'Parking Confirmed',
-              value: MalaysianDateTime.format(parking.session.confirmedAt!),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.medium),
-          if (parking.hasValidRoute) ...[
-            Text(
-              'Route Distance · ${parking.route!.distanceMetres.toStringAsFixed(0)} m',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-          ],
-          FilledButton.icon(
-            onPressed: onViewRoute,
-            icon: const Icon(Icons.near_me_outlined),
-            label: const Text('View Route'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -84,59 +102,26 @@ class ActiveSessionCard extends StatelessWidget {
 
 class _SessionStatusBadge extends StatelessWidget {
   const _SessionStatusBadge({required this.status});
-
   final ParkingSessionStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final (label, icon, background, foreground) = switch (status) {
-      ParkingSessionStatus.allocated => (
-        'Space Allocated',
-        Icons.local_parking_rounded,
-        colors.primaryContainer,
-        colors.onPrimaryContainer,
-      ),
-      ParkingSessionStatus.occupied => (
-        'Parked',
-        Icons.check_circle_outline_rounded,
-        colors.secondaryContainer,
-        colors.onSecondaryContainer,
-      ),
-      ParkingSessionStatus.completed => (
-        'Completed',
-        Icons.task_alt_rounded,
-        colors.surfaceContainerHighest,
-        colors.onSurfaceVariant,
-      ),
-    };
-
+    final label = status == ParkingSessionStatus.occupied
+        ? 'Parked'
+        : 'Assigned';
     return Semantics(
       label: 'Session status: $label',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: background,
+          color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: foreground.withValues(alpha: 0.12)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: foreground),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: foreground,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onPrimaryContainer),
         ),
       ),
     );
@@ -144,47 +129,25 @@ class _SessionStatusBadge extends StatelessWidget {
 }
 
 class _SessionDetail extends StatelessWidget {
-  const _SessionDetail({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
+  const _SessionDetail({required this.label, required this.value});
   final String label;
   final String value;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: 20, color: theme.colorScheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurface),
+      ),
+    ],
+  );
 }

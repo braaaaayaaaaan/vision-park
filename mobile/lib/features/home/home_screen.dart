@@ -1,4 +1,6 @@
 import '../../data/repositories/availability_repository.dart';
+import '../../data/repositories/status_reminder_repository.dart';
+import 'widgets/status_reminder_banner.dart';
 
 import 'dart:async';
 
@@ -6,9 +8,14 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
 import '../../data/repositories/active_session_repository.dart';
+import '../../data/models/dashboard_models.dart';
+import '../../data/models/driver_models.dart';
 import '../../shared/formatting/malaysian_date_time.dart';
 import '../../shared/widgets/empty_state_card.dart';
+import '../../shared/visible_poller.dart';
 import 'home_controller.dart';
+import 'allocation_notifications.dart';
+import 'widgets/allocation_banner.dart';
 import 'widgets/active_session_card.dart';
 import 'widgets/availability_card.dart';
 import 'widgets/dashboard_card.dart';
@@ -20,6 +27,7 @@ class HomeScreen extends StatefulWidget {
     this.controller,
     this.clock,
     this.activeSessionRepository,
+    this.statusReminderRepository,
     this.availabilityRepository,
     this.isVisible = true,
     this.refreshRevision = 0,
@@ -30,6 +38,9 @@ class HomeScreen extends StatefulWidget {
     this.paymentSessionIds = const {},
     this.onRefreshPayments,
     this.onActiveParkingChanged,
+    this.allocationNotifications,
+    this.onAllocationSelected,
+    this.onSessionSelected,
     super.key,
   });
 
@@ -37,6 +48,7 @@ class HomeScreen extends StatefulWidget {
   final HomeController? controller;
   final DateTime Function()? clock;
   final ActiveSessionRepository? activeSessionRepository;
+  final StatusReminderRepository? statusReminderRepository;
   final AvailabilityRepository? availabilityRepository;
   final bool isVisible;
   final int refreshRevision;
@@ -47,6 +59,9 @@ class HomeScreen extends StatefulWidget {
   final Set<String> paymentSessionIds;
   final Future<void> Function()? onRefreshPayments;
   final ValueChanged<bool>? onActiveParkingChanged;
+  final AllocationNotifications? allocationNotifications;
+  final ValueChanged<ActiveParking>? onAllocationSelected;
+  final ValueChanged<ActiveParking>? onSessionSelected;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -55,6 +70,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeController _controller;
   late final Timer _greetingTimer;
+  late final VisiblePoller _poller;
 
   @override
   void initState() {
@@ -64,10 +80,18 @@ class _HomeScreenState extends State<HomeScreen> {
         HomeController(
           activeSessionRepository: widget.activeSessionRepository,
           availabilityRepository: widget.availabilityRepository,
+          allocationNotifications: widget.allocationNotifications,
         );
     _controller.load();
     _controller.refreshParking();
     _controller.addListener(_parkingChanged);
+    _poller = VisiblePoller(
+      refresh: () => _controller.refreshParking(background: true),
+      isVisible: () =>
+          mounted &&
+          widget.isVisible &&
+          ModalRoute.of(context)?.isCurrent != false,
+    );
     _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -80,15 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((widget.isVisible && !oldWidget.isVisible) ||
-        widget.refreshRevision != oldWidget.refreshRevision) {
-      _controller.refreshParking();
+    if (widget.isVisible &&
+        (!oldWidget.isVisible ||
+            widget.refreshRevision != oldWidget.refreshRevision)) {
+      _controller.refreshParking(background: true);
     }
   }
 
   @override
   void dispose() {
     _greetingTimer.cancel();
+    _poller.dispose();
     _controller.removeListener(_parkingChanged);
     if (widget.controller == null) _controller.dispose();
     super.dispose();
@@ -104,8 +130,20 @@ class _HomeScreenState extends State<HomeScreen> {
         final tenant = (widget.companyName ?? data?.profile.tenantName)?.trim();
         final name = (widget.fullName ?? data?.profile.fullName)?.trim();
         final now = (widget.clock ?? DateTime.now)();
+        final hasCurrentParking = _controller.activeSessionRepository != null
+            ? _controller.sessionStatus == HomeStatus.ready &&
+                  _controller.activeSessions.any(
+                    (parking) =>
+                        parking.session.status !=
+                            ParkingSessionStatus.completed &&
+                        !widget.paymentSessionIds.contains(parking.session.id),
+                  )
+            : _controller.status == HomeStatus.ready &&
+                  data?.activeParking != null &&
+                  data!.activeParking!.session.status !=
+                      ParkingSessionStatus.completed;
 
-        return SingleChildScrollView(
+        final content = SingleChildScrollView(
           key: const PageStorageKey('home-dashboard'),
           child: Align(
             alignment: Alignment.topCenter,
@@ -127,14 +165,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 MalaysianDateTime.greeting(now),
-                                style: theme.textTheme.headlineMedium,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               if (name != null && name.isNotEmpty) ...[
                                 const SizedBox(height: 4),
-                                Text(name, style: theme.textTheme.titleLarge),
+                                Text(name, style: theme.textTheme.titleMedium),
                               ],
                               const SizedBox(height: AppSpacing.small),
-                              const Text('Your parking journey, in one place.'),
+                              Text(
+                                'Your parking journey, in one place.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -164,6 +209,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.large),
+                    if (widget.statusReminderRepository != null)
+                      StatusReminderBanner(
+                        repository: widget.statusReminderRepository!,
+                        isVisible: widget.isVisible,
+                      ),
+                    if (hasCurrentParking) ...[
+                      _parkingSection(data),
+                      const SizedBox(height: AppSpacing.large),
+                    ],
                     if (widget.paymentSection != null) ...[
                       widget.paymentSection!,
                       const SizedBox(height: AppSpacing.small),
@@ -182,28 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         session: false,
                       ),
                     const SizedBox(height: AppSpacing.large),
-                    if (_controller.activeSessionRepository != null)
-                      _activeSessionsSection()
-                    else if (_controller.status == HomeStatus.ready &&
-                        data != null) ...[
-                      if (data.activeParking != null)
-                        ActiveSessionCard(
-                          parking: data.activeParking!,
-                          onViewRoute: () => widget.onTabSelected(1),
-                        )
-                      else
-                        const EmptyStateCard(
-                          compact: true,
-                          icon: Icons.local_parking_outlined,
-                          title: 'No Active Parking Session',
-                          message: 'Your current parking session will appear here when one is available.',
-                        ),
-                    ] else ...[
-                      _unavailableSection(
-                        'Active Parking Session',
-                        session: true,
-                      ),
-                    ],
+                    if (!hasCurrentParking) _parkingSection(data),
                     const SizedBox(height: AppSpacing.large),
                     QuickAccessCard(onTabSelected: widget.onTabSelected),
                   ],
@@ -212,8 +245,52 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
+        if (widget.onAllocationSelected == null) return content;
+        return Column(
+          children: [
+            AllocationBanner(
+              controller: _controller,
+              isVisible: widget.isVisible,
+              paymentSessionIds: widget.paymentSessionIds,
+              onViewNavigation: widget.onAllocationSelected!,
+            ),
+            Expanded(child: content),
+          ],
+        );
       },
     );
+  }
+
+  void _openSession(ActiveParking parking) {
+    final open = widget.onSessionSelected;
+    if (open != null) {
+      open(parking);
+    } else {
+      widget.onTabSelected(1);
+    }
+  }
+
+  Widget _parkingSection(DashboardData? data) {
+    if (_controller.activeSessionRepository != null) {
+      return _activeSessionsSection();
+    }
+    if (_controller.status == HomeStatus.ready && data != null) {
+      final parking = data.activeParking;
+      if (parking != null &&
+          parking.session.status != ParkingSessionStatus.completed) {
+        return ActiveSessionCard(
+          parking: parking,
+          onViewRoute: () => _openSession(parking),
+        );
+      }
+      return const EmptyStateCard(
+        compact: true,
+        icon: Icons.directions_car_outlined,
+        title: 'No Active Parking Session',
+        message: 'Your current parking session will appear here when one is available.',
+      );
+    }
+    return _unavailableSection('Current Parking Session', session: true);
   }
 
   Widget _availabilitySection(String? companyName) {
@@ -258,10 +335,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _activeSessionsSection() {
     if (_controller.sessionStatus == HomeStatus.ready) {
-      if (_controller.activeSessions.isEmpty) {
+      final sessions = _controller.activeSessions
+          .where(
+            (parking) =>
+                parking.session.status != ParkingSessionStatus.completed &&
+                !widget.paymentSessionIds.contains(parking.session.id),
+          )
+          .toList();
+      if (sessions.isEmpty && _controller.activeSessions.isEmpty) {
         return const EmptyStateCard(
           compact: true,
-          icon: Icons.local_parking_outlined,
+          icon: Icons.directions_car_outlined,
           title: 'No Active Parking Session',
           message: 'Your current parking session will appear here when one is available.',
         );
@@ -269,25 +353,18 @@ class _HomeScreenState extends State<HomeScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (
-            var index = 0;
-            index < _controller.activeSessions.length;
-            index++
-          ) ...[
+          for (var index = 0; index < sessions.length; index++) ...[
             if (index > 0) const SizedBox(height: AppSpacing.large),
-            if (!widget.paymentSessionIds.contains(
-              _controller.activeSessions[index].session.id,
-            ))
-              ActiveSessionCard(
-                parking: _controller.activeSessions[index],
-                onViewRoute: () => widget.onTabSelected(1),
-              ),
+            ActiveSessionCard(
+              parking: sessions[index],
+              onViewRoute: () => _openSession(sessions[index]),
+            ),
           ],
         ],
       );
     }
     return DashboardCard(
-      title: 'Active Parking Session',
+      title: 'Current Parking Session',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

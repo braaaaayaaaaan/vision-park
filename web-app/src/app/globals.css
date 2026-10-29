@@ -22,15 +22,20 @@
 
 :root {
   color-scheme: light;
-  --primary: #2563a9;
-  --primary-hover: #1d4f87;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --sidebar: #0f1f3d;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: #cbd5e1;
+  --sidebar-hover: #1b3052;
+  --card-shadow: 0 2px 8px rgb(15 31 61 / 4%);
   --background: #f4f7fb;
   --surface: #ffffff;
   --text: #172b45;
   --text-muted: #596b80;
   --border: #dde5ef;
   --input-border: #9baec4;
-  --primary-soft: #eaf2fc;
+  --primary-soft: #eff6ff;
   --chart-secondary: #888888;
   --chart-primary: #3B82F6;
   --chart-comparative: #8B5CF6;

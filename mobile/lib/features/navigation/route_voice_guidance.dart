@@ -34,8 +34,6 @@ class RouteVoiceGuidance extends ChangeNotifier {
       !_disposed && !_failed && (_plan?.canSynchronizePreview ?? false);
   String? get unavailableReason => _failed
       ? 'Voice Guidance Unavailable. Check Android Speech Settings.'
-      : _plan?.crossesLevels == true
-      ? 'Voice Requires Single-Floor Route Preview.'
       : !canEnable
       ? 'Voice Requires Detailed Directions And A Playable Route.'
       : null;
@@ -109,6 +107,11 @@ class RouteVoiceGuidance extends ChangeNotifier {
     final progress = _progress, plan = _plan;
     if (progress == null || plan == null) return null;
     final active = plan.instructions[progress.instructionIndex];
+    // Keep the ramp cue active throughout its interval. The continuation belongs
+    // to the destination image, after the floor transition has completed.
+    if (active.maneuver == RouteManeuver.ramp) {
+      return (progress.instructionIndex, 0);
+    }
     final atBoundary =
         active.maneuver != RouteManeuver.departure &&
         (progress.travelledMetres - active.distanceFromStartMetres).abs() <

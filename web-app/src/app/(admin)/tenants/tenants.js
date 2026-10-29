@@ -8,6 +8,8 @@ import TenantEditor from './tenant-editor';
 import TenantDetailsDrawer from './tenant-details-drawer';
 import common from '../vehicles/vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
+import styles from './tenants.module.css';
+import RefreshButton from '../../../components/refresh-button';
 
 const initial = { search: '', status: 'all', sort: 'name_asc' };
 export default function Tenants() {
@@ -19,7 +21,7 @@ export default function Tenants() {
   const resource = useResource(`${query}|${revision}`, load), data = resource.data;
   function refresh() { setRevision(value => value + 1); }
   function saved(company) {
-    setCreating(false); setMessage(`${company.name} was successfully saved!`); refresh();
+    setCreating(false); setMessage(`Successfully saved the settings for ${company.name}!`); refresh();
     if (!selection) setSelection({ id: company.id, trigger: null });
   }
   function apply(event) {
@@ -28,10 +30,10 @@ export default function Tenants() {
     catch (error) { setFilterError(error.message); }
   }
   return <div className={common.page}>
-    <header className={common.heading}><div><h1>Tenants</h1><p>Manage the companies in your building, their drivers and shared parking access.</p></div>
-      <div className={shared.actions}><button className={shared.secondary} disabled={resource.loading} onClick={refresh}>Refresh</button>
-        <button className={shared.primary} onClick={() => setCreating(true)}>Register Company</button></div></header>
+    <header className={`${common.heading} ${styles.heading}`}><div><h1>Tenants</h1><p>Manage the companies in your building, their drivers, and shared parking access.</p></div>
+      <RefreshButton loading={resource.loading} onClick={refresh} /></header>
     {message && <p className={shared.success} role="status">{message}</p>}
+    <div className={shared.actions}><button className={shared.primary} onClick={() => setCreating(true)}>Register Company</button></div>
     <TenantSummary data={data?.summary} loading={resource.loading} />
     <section className={common.workspace} aria-label="Company Listing" aria-busy={resource.loading}>
       <div className={common.toolbar}><form className={common.filters} onSubmit={apply}>

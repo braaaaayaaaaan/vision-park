@@ -8,12 +8,14 @@
 .breakdownTable thead th { position: sticky; top: 0; }
 .breakdownTable tbody th { font-weight: 500; }
 .breakdownTable th:not(:first-child), .breakdownTable td { text-align: right; font-variant-numeric: tabular-nums; }
-.registrationTable { table-layout: fixed; min-width: 840px; }
-.registrationTable th:first-child { width: 32%; }
-.registrationTable th:nth-child(2) { width: 29%; }
-.registrationTable th:nth-child(3) { width: 18%; }
-.registrationTable th:last-child { width: 21%; }
-.registrationTable th:nth-child(3), .registrationTable td:nth-child(3), .registrationTable th:last-child, .registrationTable td:last-child { text-align: center; }
+.registrationTable { table-layout: fixed; min-width: 920px; }
+.registrationTable th:first-child { width: 52px; }
+.registrationTable th:nth-child(2) { width: 28%; }
+.registrationTable th:nth-child(3) { width: 26%; }
+.registrationTable th:nth-child(4) { width: 18%; }
+.registrationTable th:last-child { width: 22%; }
+.registrationTable th:first-child, .registrationTable td:first-child, .registrationTable th:nth-child(4), .registrationTable td:nth-child(4), .registrationTable th:last-child, .registrationTable td:last-child { text-align: center; }
+.registrationTable tbody tr[data-selected="true"] { background: var(--primary-soft); }
 .registrationTable .rowActions { justify-content: center; }
 .registrationTable .rowActions button { min-height: 36px; padding: 7px 10px; font-size: 12px; }
 .registrationTable tbody tr:last-child td { border-bottom: 0; }
@@ -24,6 +26,26 @@
 .registrationTable small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
 .registrationTable .identifier { font-size: 11px; }
 .statusBadges { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.bulkToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.bulkToolbar strong { font-size: 14px; }
+.bulkToolbar p { margin-top: 4px; color: var(--text-muted); font-size: 12px; max-width: 520px; }
+.bulkToolbar > div:last-child { flex-wrap: wrap; }
+.batchApplicants, .resultList { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; }
+.batchApplicants li { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); overflow-wrap: anywhere; }
+.batchApplicants small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+.batchApplicants li > p { margin-top: 8px; color: var(--text-muted); font-size: 12px; }
+.batchCompany { display: grid; gap: 8px; margin-top: 12px; font-size: 13px; font-weight: 600; }
+.batchResults { padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.batchResultsHeading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.batchResults h2 { font-size: 18px; }
+.batchResults > p { margin-top: 12px; color: var(--text-muted); font-size: 13px; }
+.resultList { max-height: 320px; overflow-y: auto; }
+.resultList li { padding: 12px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.resultList li > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.resultList p { margin-top: 6px; color: var(--text-muted); font-size: 13px; }
+.outcome { padding: 4px 9px; border-radius: 999px; font-size: 12px; background: #fffbeb; color: #92400e; }
+.outcome[data-outcome="approved"] { background: #edf7f0; color: #235c39; }
+.outcome[data-outcome="rejected"], .outcome[data-outcome="failed"] { background: #fff1f1; color: #a52a2a; }
 @media (max-width: 600px) {
   .companyBreakdown summary, .breakdownContent { padding-inline: 16px; }
   .companyBreakdown summary span { display: block; margin: 4px 0 0; }

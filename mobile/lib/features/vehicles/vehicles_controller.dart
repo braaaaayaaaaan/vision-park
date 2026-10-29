@@ -39,7 +39,8 @@ class VehiclesController extends ChangeNotifier {
     try {
       await vehicleRepository!.register(plate);
       if (_disposed) return;
-      notice = 'Vehicle registered. Administrator approval is pending.';
+      notice =
+          'Administrator approval is pending for the vehicle registration.';
       filter = VehicleFilter.all;
       await load();
     } on AuthFailure catch (error) {

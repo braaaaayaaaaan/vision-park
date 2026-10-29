@@ -59,18 +59,19 @@ class RoutePreviewGuidance extends StatelessWidget {
     }
 
     final state = progress;
-    final staticDirections = plan.crossesLevels;
     var target = 0;
     double? distance;
-    if (complete || (!staticDirections && !plan.canSynchronizePreview)) {
+    if (complete || !plan.canSynchronizePreview) {
       target = plan.instructions.length - 1;
       distance = 0;
     } else if (state != null) {
       final active = plan.instructions[state.instructionIndex];
       // At the exact boundary, show the maneuver at zero metres before advancing.
       final atManeuver =
+          active.maneuver == RouteManeuver.ramp ||
           active.maneuver != RouteManeuver.departure &&
-          (state.travelledMetres - active.distanceFromStartMetres).abs() < 1e-6;
+              (state.travelledMetres - active.distanceFromStartMetres).abs() <
+                  1e-6;
       target = atManeuver
           ? state.instructionIndex
           : math.min(state.instructionIndex + 1, plan.instructions.length - 1);
@@ -86,23 +87,12 @@ class RoutePreviewGuidance extends StatelessWidget {
     final next = target + 1 < plan.instructions.length
         ? plan.instructions[target + 1]
         : null;
-    final arrived =
-        !staticDirections &&
-        target == plan.instructions.length - 1 &&
-        distance == 0;
+    final arrived = target == plan.instructions.length - 1 && distance == 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (summary) ...[
-          _heading(
-            context,
-            compact: compact,
-            staticDirections: staticDirections,
-          ),
-          if (staticDirections && !compact)
-            const Text(
-              'Static Directions Only · Cross-Floor Playback Unavailable',
-            ),
+          _heading(context, compact: compact),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,12 +108,10 @@ class RoutePreviewGuidance extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!compact || (!staticDirections && !arrived))
+                    if (!compact || !arrived)
                       Text(
                         arrived
                             ? 'Preview Arrival'
-                            : staticDirections
-                            ? '${instruction.distanceFromStartMetres.round()} m From Route Start'
                             : compact
                             ? '${(distance ?? 0).round()} m'
                             : '${(distance ?? 0).round()} m to Maneuver',
@@ -179,7 +167,7 @@ class RoutePreviewGuidance extends StatelessWidget {
             children: [
               for (var i = 0; i < plan.instructions.length; i++)
                 Semantics(
-                  selected: !staticDirections && i == target,
+                  selected: i == target,
                   child: Container(
                     key: ValueKey('direction-$i'),
                     padding: const EdgeInsets.symmetric(
@@ -187,7 +175,7 @@ class RoutePreviewGuidance extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: !staticDirections && i == target
+                      color: i == target
                           ? theme.colorScheme.primary.withValues(alpha: .07)
                           : null,
                       borderRadius: BorderRadius.circular(8),
@@ -223,14 +211,8 @@ class RoutePreviewGuidance extends StatelessWidget {
     );
   }
 
-  Widget _heading(
-    BuildContext context, {
-    bool compact = false,
-    bool staticDirections = false,
-  }) => Text(
-    compact
-        ? (staticDirections ? 'Static' : 'Preview')
-        : 'Route Preview Assistance',
+  Widget _heading(BuildContext context, {bool compact = false}) => Text(
+    compact ? 'Preview' : 'Route Preview Assistance',
     style: display == RouteGuidanceDisplay.overlay
         ? Theme.of(context).textTheme.labelSmall?.copyWith(height: 1.1)
         : Theme.of(context).textTheme.titleSmall,

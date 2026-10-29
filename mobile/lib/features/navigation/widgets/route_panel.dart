@@ -36,10 +36,7 @@ class RoutePanel extends StatelessWidget {
         CircleAvatar(
           radius: 20,
           backgroundColor: theme.colorScheme.primaryContainer,
-          child: Icon(
-            Icons.local_parking_rounded,
-            color: theme.colorScheme.primary,
-          ),
+          child: Icon(Icons.garage_outlined, color: theme.colorScheme.primary),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -145,6 +142,7 @@ class RoutePanel extends StatelessWidget {
       graph: graph,
       routeNodeIds: geometry.routeIds,
       levelId: selected,
+      onRouteLevelChanged: controller.selectLevel,
       loadFloorPlan: imageRepository is FloorPlanRepository
           ? (imageRepository as FloorPlanRepository).getFloorPlan
           : null,

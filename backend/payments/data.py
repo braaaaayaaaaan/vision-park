@@ -8,7 +8,8 @@ RPCS = frozenset({'set_wallet_preferences', 'simulate_wallet_top_up', 'refresh_p
                   'publish_parking_tariff'})
 SESSION = ('session:parking_sessions!session_id(id,vehicle_id,user_id,zone_id,entry_time,parking_confirmed_at,exit_time,status,'
            'current_vehicle:vehicles!vehicle_id(id,plate_number),current_zone:parking_zones!zone_id(id,name,level:parking_levels!level_id(id,name)))')
-CHARGE = '*,tariff:parking_tariff_versions!tariff_version_id(*),current_driver:users!user_id(id,full_name),'+SESSION
+CHARGE = ('*,tariff:parking_tariff_versions!tariff_version_id(*),'
+          'current_driver:users!user_id(id,full_name,tenant_id,tenant:tenants!tenant_id(id,name)),'+SESSION)
 ATTEMPT = '*,charge:session_charges!charge_id!inner('+CHARGE+')'
 
 
@@ -118,10 +119,14 @@ def page(make_query, limit, offset, order='created_at'):
     return result.data, result.count
 
 
-def ledger_page(user_id, limit, offset, kind=None):
+def ledger_page(user_id, limit, offset, kind=None, start=None, end=None):
     def query():
         q = client().table('wallet_ledger').select('*', count='exact').eq('user_id', user_id)
-        return q.eq('entry_type', kind) if kind else q
+        if kind:
+            q = q.eq('entry_type', kind)
+        if start is not None:
+            q = q.gte('created_at', start).lt('created_at', end)
+        return q
     return page(query, limit, offset)
 
 

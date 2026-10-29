@@ -53,9 +53,9 @@ export default function ApprovalDialog({ applicant, action, onDismiss, onSuccess
 
   return (
     <ConfirmationDialog id="decision" title={approve ? 'Approve Application' : 'Reject Application'} variant={approve ? 'default' : 'destructive'}
-      description={approve ? 'Assign a company and confirm approval for this driver.' : 'Confirm that you want to reject this driver application.'}
+      description={approve ? 'Assign a company and approve this driver.' : 'Confirm that you want to reject this driver application.'}
       onConfirm={submit} onCancel={() => { if (!inFlight.current) onDismiss(uncertain); }} pending={submitting} error={error}
-      pendingLabel="Submitting…" cancelLabel={uncertain ? 'Close and Refresh' : 'Cancel'} confirmLabel={approve ? 'Confirm Approval' : 'Confirm Rejection'}
+      pendingLabel="Submitting…" cancelLabel={uncertain ? 'Close' : 'Cancel'} confirmLabel={approve ? 'Confirm Approval' : 'Confirm Rejection'}
       disabled={uncertain || (approve && (loading || Boolean(companyError) || !tenant))}>
         <dl className={`${styles.applicant} ${styles.applicantDetails}`}>
           <div><dt>Driver Name</dt><dd className={styles.applicantName}>{applicant.full_name || 'Name not provided'}</dd></div>

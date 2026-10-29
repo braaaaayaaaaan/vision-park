@@ -1,4 +1,5 @@
 import '../data/repositories/history_repository.dart';
+import '../data/repositories/status_reminder_repository.dart';
 
 import 'dart:async';
 
@@ -23,12 +24,15 @@ import '../data/repositories/auth_repository.dart';
 import '../features/account/account_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/home/allocation_notifications.dart';
+import '../data/models/dashboard_models.dart';
 import '../features/navigation/navigation_screen.dart';
 import '../features/vehicles/vehicles_screen.dart';
-import 'app_config.dart';
 import 'app_theme.dart';
 import 'driver_bottom_navigation.dart';
 import '../data/services/password_change.dart';
+import '../shared/visible_poller.dart';
+import '../shared/vision_park_brand.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -36,6 +40,7 @@ class AppShell extends StatefulWidget {
     this.passwordChange,
     this.profile,
     this.activeSessionRepository,
+    this.statusReminderRepository,
     this.availabilityRepository,
     this.routeRepository,
     this.vehicleRepository,
@@ -43,6 +48,7 @@ class AppShell extends StatefulWidget {
     this.paymentRepository,
     this.paymentOperations,
     this.paymentsController,
+    this.allocationNotifications,
     super.key,
   });
 
@@ -50,6 +56,7 @@ class AppShell extends StatefulWidget {
   final PasswordChangeService? passwordChange;
   final AuthProfile? profile;
   final ActiveSessionRepository? activeSessionRepository;
+  final StatusReminderRepository? statusReminderRepository;
   final AvailabilityRepository? availabilityRepository;
   final AssignedRouteRepository? routeRepository;
   final VehicleRepository? vehicleRepository;
@@ -57,6 +64,7 @@ class AppShell extends StatefulWidget {
   final PaymentRepository? paymentRepository;
   final PaymentOperationStore? paymentOperations;
   final PaymentsController? paymentsController;
+  final AllocationNotifications? allocationNotifications;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -66,10 +74,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   int _parkingRevision = 0;
   int _paymentRevision = 0;
+  ActiveParking? _requestedAllocation;
   PaymentsController? _payments;
-  Timer? _paymentTimer;
-  bool _foreground = true, _hasActiveParking = false, _paymentRouteOpen = false;
-  int _polls = 0;
+  VisiblePoller? _paymentPoller;
+  bool _foreground = true, _paymentRouteOpen = false;
   Set<String> _seenPending = {};
   @override
   void initState() {
@@ -84,28 +92,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           );
       _payments!.addListener(_paymentChanged);
       unawaited(_payments!.refresh());
-      _paymentTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-        if (_foreground &&
+      _paymentPoller = VisiblePoller(
+        refresh: () => _payments!.refresh(background: true),
+        isVisible: () =>
+            mounted &&
+            _foreground &&
             !_paymentRouteOpen &&
             ModalRoute.of(context)?.isCurrent != false &&
-            _selectedIndex == 0 &&
-            _polls < 20 &&
-            _payments!.active &&
-            (_hasActiveParking || _payments!.pending.isNotEmpty)) {
-          _polls++;
-          unawaited(_pollPayments());
-        }
-      });
-    }
-  }
-
-  Future<void> _pollPayments() async {
-    final hadParking = _hasActiveParking;
-    await _payments!.refresh();
-    // Automatic wallet settlement may never appear in the pending list. Refresh
-    // parking reads as well, so its completed session does not linger on Home.
-    if (mounted && hadParking && _payments!.error == null) {
-      _refreshAfterPayment();
+            (_selectedIndex == 0 ||
+                _selectedIndex == 1 ||
+                _selectedIndex == 4) &&
+            _payments!.isCurrentOwner,
+      );
     }
   }
 
@@ -126,14 +124,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   Future<void> _refreshPayments() async {
-    _polls = 0;
-    await _payments?.refresh();
+    await _payments?.refresh(background: true);
   }
 
   void _selectTab(int index) {
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      if (index == 1) _requestedAllocation = null;
+    });
     if (index == 0 || index == 1 || index == 4) unawaited(_refreshPayments());
   }
+
+  void _openParkingSession(ActiveParking parking) => setState(() {
+    _requestedAllocation = parking;
+    _selectedIndex = 1;
+  });
 
   void _refreshAfterPayment() => setState(() {
     _parkingRevision++;
@@ -182,7 +187,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _paymentTimer?.cancel();
+    _paymentPoller?.dispose();
     _payments?.removeListener(_paymentChanged);
     if (widget.paymentsController == null) _payments?.dispose();
     super.dispose();
@@ -191,25 +196,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.local_parking_rounded,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: AppSpacing.small),
-            const Text(AppConfig.name),
-          ],
-        ),
-      ),
+      appBar: AppBar(title: const VisionParkBrand()),
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
           index: _selectedIndex,
           children: [
             HomeScreen(
+              allocationNotifications: widget.allocationNotifications,
+              onAllocationSelected: _openParkingSession,
+              onSessionSelected: _openParkingSession,
               paymentSection: _payments == null
                   ? null
                   : Column(
@@ -251,17 +247,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       .toSet() ??
                   const {},
               onRefreshPayments: _refreshPayments,
-              onActiveParkingChanged: (active) => _hasActiveParking = active,
               fullName: widget.profile?.fullName,
               companyName: widget.profile?.companyName,
               refreshRevision: _parkingRevision,
               activeSessionRepository: widget.activeSessionRepository,
+              statusReminderRepository: widget.statusReminderRepository,
               availabilityRepository: widget.availabilityRepository,
               isVisible: _selectedIndex == 0,
               onSignOut: widget.onSignOut,
               onTabSelected: _selectTab,
             ),
             NavigationScreen(
+              requestedAllocation: _requestedAllocation,
               refreshRevision: _paymentRevision,
               paymentSessionIds:
                   _payments?.pending

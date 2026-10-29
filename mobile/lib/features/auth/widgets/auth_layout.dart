@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/app_config.dart';
 import '../../../app/app_theme.dart';
+import '../../../shared/vision_park_brand.dart';
 
 /// Shared presentation for authentication forms and account-status feedback.
 class AuthLayout extends StatelessWidget {
   const AuthLayout({
     required this.title,
-    required this.description,
     required this.child,
-    this.icon = Icons.local_parking_rounded,
+    this.description = '',
+    this.icon,
     this.inlineHeading = false,
+    this.centered = false,
+    this.showBrand = false,
+    this.showBackButton = true,
     this.onBack,
     this.maxWidth = 360,
     super.key,
@@ -19,8 +22,11 @@ class AuthLayout extends StatelessWidget {
   final String title;
   final String description;
   final Widget child;
-  final IconData icon;
+  final IconData? icon;
   final bool inlineHeading;
+  final bool centered;
+  final bool showBrand;
+  final bool showBackButton;
   final VoidCallback? onBack;
   final double maxWidth;
 
@@ -90,77 +96,209 @@ class AuthLayout extends StatelessWidget {
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: centered ? AppTheme.background : Colors.white,
         appBar: AppBar(
-          leading: onBack == null ? null : BackButton(onPressed: onBack),
-          backgroundColor: Colors.white,
-          title: const Text(AppConfig.name),
+          automaticallyImplyLeading: !centered && showBackButton,
+          leading: centered || !showBackButton || onBack == null
+              ? null
+              : BackButton(onPressed: onBack),
+          title: const VisionParkBrand(),
         ),
         body: SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (inlineHeading) ...[
-                      Row(
+          child: centered
+              ? _CenteredAuthForm(
+                  title: title,
+                  description: description,
+                  maxWidth: maxWidth,
+                  showBrand: showBrand,
+                  child: child,
+                )
+              : SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEAF2FC),
-                              borderRadius: BorderRadius.circular(16),
+                          if (inlineHeading && icon != null) ...[
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEAF2FC),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(
+                                    icon,
+                                    size: 28,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Semantics(
+                                    header: true,
+                                    child: Text(
+                                      title,
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Icon(
-                              icon,
-                              size: 28,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Semantics(
+                            const SizedBox(height: 14),
+                          ] else ...[
+                            if (icon != null) ...[
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Icon(
+                                  icon,
+                                  size: 36,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.large),
+                            ],
+                            Semantics(
                               header: true,
                               child: Text(
                                 title,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: theme.textTheme.headlineMedium,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.small),
+                          ],
+                          if (description.isNotEmpty) Text(description),
+                          const SizedBox(height: AppSpacing.large),
+                          child,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A centered form panel below the shared VisionPark app bar.
+class _CenteredAuthForm extends StatelessWidget {
+  const _CenteredAuthForm({
+    required this.title,
+    required this.description,
+    required this.maxWidth,
+    required this.showBrand,
+    required this.child,
+  });
+
+  final String title;
+  final String description;
+  final double maxWidth;
+  final bool showBrand;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, viewport) => SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (viewport.maxHeight - 56).clamp(0.0, double.infinity),
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth + 48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.cornerRadius,
+                      ),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.navy.withValues(alpha: .05),
+                          blurRadius: 32,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (showBrand) ...[
+                          Semantics(
+                            label: 'VisionPark',
+                            image: true,
+                            excludeSemantics: true,
+                            child: Transform.translate(
+                              offset: const Offset(-8, 0),
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  const VisionParkFalcon(width: 72),
+                                  Text(
+                                    'VisionPark',
+                                    style: theme.textTheme.headlineMedium
+                                        ?.copyWith(
+                                          color: theme.colorScheme.primary,
+                                          fontSize: 28,
+                                        ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.large),
                         ],
-                      ),
-                      const SizedBox(height: 14),
-                    ] else ...[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Icon(
-                          icon,
-                          size: 36,
-                          color: theme.colorScheme.primary,
+                        Semantics(
+                          header: true,
+                          child: Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.large),
-                      Semantics(
-                        header: true,
-                        child: Text(
-                          title,
-                          style: theme.textTheme.headlineMedium,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.small),
-                    ],
-                    Text(description),
-                    const SizedBox(height: AppSpacing.large),
-                    child,
-                  ],
-                ),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.small),
+                          Text(
+                            description,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.large),
+                        child,
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

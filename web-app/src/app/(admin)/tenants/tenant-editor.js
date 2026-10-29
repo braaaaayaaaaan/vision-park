@@ -7,6 +7,7 @@ import { saveTenant } from './tenants-client.mjs';
 import common from '../vehicles/vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
 import styles from './tenants.module.css';
+import OverviewNotice from '../overview/overview-notice';
 
 export default function TenantEditor({ company = null, zones = [], onClose, onSaved }) {
   const creating = !company;
@@ -61,7 +62,7 @@ export default function TenantEditor({ company = null, zones = [], onClose, onSa
       <label className={styles.check}><input type="checkbox" checked={active} disabled={busy || reloadRequired || Boolean(company?.is_active && company.active_sessions)} onChange={event => setActive(event.target.checked)} />Active Company</label>
       <p className={common.muted}>Inactive companies are unavailable for new driver registrations, approvals and parking allocations.</p>
       {company?.active_sessions > 0 && <p className={styles.notice}>{company.active_sessions} active parking session(s). Deactivation and access removal for those sessions are blocked until they end.</p>}
-      {creating ? <p className={styles.notice}>After registration, open the company details to authorise parking zones. New companies start without parking access.</p> :
+      {creating ? <OverviewNotice><p>After registration, open the company details to authorise parking zones. New companies start without parking access.</p></OverviewNotice> :
         <section className={styles.zoneSection}><h3>Authorised Parking Zones</h3><p className={common.muted}>Select any existing zones. Capacity is shared on a First Come, First Serve (FCFS) basis as there are no spaces reserved for a company.</p>
           {!active && <p className={common.muted}>Activate the company to grant additional zone access.</p>}
           {!zones.length && <p>No parking zones are configured yet.</p>}
@@ -82,7 +83,7 @@ export default function TenantEditor({ company = null, zones = [], onClose, onSa
     {confirmation && <ConfirmationDialog title={confirmation === 'discard' ? 'Discard Company Changes?' : creating ? 'Register Company?' : 'Save Company Changes?'}
       description={confirmation === 'discard' ? 'Your unsaved changes will be discarded.' : deactivating ?
         'Deactivating this company blocks its drivers from new parking allocations and prevents new registrations and approvals. Existing records and permissions are preserved.' :
-        removed ? `Removing ${removed} zone permission(s) changes parking eligibility for every driver in this company. Existing parking sessions must end first.` :
+        removed ? `Removing ${removed} zone permission(s) changes parking eligibility for every driver in this company. However, existing parking sessions must end first.` :
           creating ? `Register ${name.trim()} as an ${active ? 'active' : 'inactive'} company. Parking access can be configured after the registration.` : 'Save the company information and zone access for all its drivers.'}
       confirmLabel={confirmation === 'discard' ? 'Discard Changes' : creating ? 'Register Company' : 'Save Changes'}
       variant={confirmation === 'discard' || deactivating || removed ? 'destructive' : 'default'}

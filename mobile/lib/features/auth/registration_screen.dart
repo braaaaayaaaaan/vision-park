@@ -121,10 +121,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) => AuthLayout(
+    centered: true,
     title: widget.completion ? 'Complete Registration' : 'Create an Account',
     description: widget.completion
-        ? 'Confirm your name and requested company to submit your application for approval.'
-        : 'Enter your driver details. Your company association requires administrator approval.',
+        ? 'Confirm your details to request company access.'
+        : '',
     child: Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,

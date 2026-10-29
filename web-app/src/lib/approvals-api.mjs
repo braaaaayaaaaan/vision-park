@@ -22,8 +22,8 @@ async function backend(path, token, body, method = body === undefined ? 'GET' : 
   if (!response.ok) {
     const messages = {
       400: 'Select a valid, active company and try again.',
-      404: 'This application was not found. Refresh the pending list.',
-      409: 'This application is no longer eligible or was already processed. Refresh the pending list.',
+      404: 'This application was not found.',
+      409: 'This application is no longer eligible or was already processed.',
       422: 'The application or company selection is invalid. Refresh and try again.',
       429: 'Too many requests. Please wait and try again.',
     };

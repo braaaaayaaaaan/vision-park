@@ -5,6 +5,7 @@ import '../../data/repositories/dashboard_repository.dart';
 import '../../data/repositories/active_session_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/availability_repository.dart';
+import 'allocation_notifications.dart';
 
 enum HomeStatus { disconnected, loading, ready, error }
 
@@ -13,7 +14,12 @@ class HomeController extends ChangeNotifier {
     this.repository,
     this.activeSessionRepository,
     this.availabilityRepository,
-  });
+    AllocationNotifications? allocationNotifications,
+  }) : allocationNotifications =
+           allocationNotifications ?? AllocationNotifications();
+
+  final AllocationNotifications allocationNotifications;
+  int sessionRevision = 0;
 
   final AvailabilityRepository? availabilityRepository;
   HomeStatus availabilityStatus = HomeStatus.disconnected;
@@ -21,37 +27,49 @@ class HomeController extends ChangeNotifier {
   String? availabilityError;
   bool availabilityExpired = false;
 
-  Future<void> refreshParking() async {
-    await Future.wait([loadSessions(), loadAvailability()]);
+  Future<void> refreshParking({bool background = false}) async {
+    await Future.wait([
+      loadSessions(background: background),
+      loadAvailability(background: background),
+    ]);
   }
 
-  Future<void> loadAvailability() async {
+  bool _availabilityLoading = false;
+  bool _sessionsLoading = false;
+
+  Future<void> loadAvailability({bool background = false}) async {
     final repository = availabilityRepository;
-    if (repository == null ||
-        availabilityStatus == HomeStatus.loading ||
-        _disposed) {
+    if (repository == null || _availabilityLoading || _disposed) {
       return;
     }
-    availabilityStatus = HomeStatus.loading;
-    availability = null;
-    availabilityError = null;
-    availabilityExpired = false;
-    notifyListeners();
+    _availabilityLoading = true;
+    final keepData = background && availabilityStatus == HomeStatus.ready;
+    if (!background || availabilityStatus == HomeStatus.disconnected) {
+      availabilityStatus = HomeStatus.loading;
+      availability = null;
+      availabilityError = null;
+      availabilityExpired = false;
+      notifyListeners();
+    }
     try {
       final result = await repository.getAvailability();
       if (_disposed) return;
       availability = result;
       availabilityStatus = HomeStatus.ready;
+      availabilityError = null;
+      availabilityExpired = false;
     } on AuthFailure catch (error) {
       if (_disposed) return;
       availabilityError = error.message;
       availabilityExpired = error.expired;
       availabilityStatus = HomeStatus.error;
+      availability = null;
     } catch (_) {
       if (_disposed) return;
       availabilityError = 'Unable to load parking availability. Check your connection and try again.';
-      availabilityStatus = HomeStatus.error;
+      if (!keepData) availabilityStatus = HomeStatus.error;
     }
+    _availabilityLoading = false;
     notifyListeners();
   }
 
@@ -66,10 +84,10 @@ class HomeController extends ChangeNotifier {
   bool _disposed = false;
   bool _reloadSessions = false;
 
-  Future<void> loadSessions() async {
+  Future<void> loadSessions({bool background = false}) async {
     final repository = activeSessionRepository;
-    if (!_disposed && sessionStatus == HomeStatus.loading) {
-      _reloadSessions = true;
+    if (!_disposed && _sessionsLoading) {
+      if (!background) _reloadSessions = true;
       return;
     }
     if (repository == null ||
@@ -77,26 +95,36 @@ class HomeController extends ChangeNotifier {
         _disposed) {
       return;
     }
-    sessionStatus = HomeStatus.loading;
-    activeSessions = const [];
-    sessionError = null;
-    sessionExpired = false;
-    notifyListeners();
+    _sessionsLoading = true;
+    final keepData = background && sessionStatus == HomeStatus.ready;
+    if (!background || sessionStatus == HomeStatus.disconnected) {
+      sessionStatus = HomeStatus.loading;
+      activeSessions = const [];
+      sessionError = null;
+      sessionExpired = false;
+      notifyListeners();
+    }
     try {
       final sessions = await repository.getActiveSessions();
       if (_disposed) return;
       activeSessions = List.unmodifiable(sessions);
+      allocationNotifications.update(activeSessions);
+      sessionRevision++;
       sessionStatus = HomeStatus.ready;
+      sessionError = null;
+      sessionExpired = false;
     } on AuthFailure catch (error) {
       if (_disposed) return;
       sessionError = error.message;
       sessionExpired = error.expired;
       sessionStatus = HomeStatus.error;
+      activeSessions = const [];
     } catch (_) {
       if (_disposed) return;
       sessionError = 'Unable to load active parking sessions. Check your connection and try again.';
-      sessionStatus = HomeStatus.error;
+      if (!keepData) sessionStatus = HomeStatus.error;
     }
+    _sessionsLoading = false;
     notifyListeners();
     if (_reloadSessions) {
       _reloadSessions = false;

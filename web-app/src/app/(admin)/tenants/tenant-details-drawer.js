@@ -9,6 +9,7 @@ import TenantEditor from './tenant-editor';
 import common from '../vehicles/vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
 import styles from './tenants.module.css';
+import RefreshButton from '../../../components/refresh-button';
 
 export default function TenantDetailsDrawer({ tenantId, trigger, revision, onClose, onSaved }) {
   const [retry, setRetry] = useState(0), [editing, setEditing] = useState(false);
@@ -29,8 +30,8 @@ export default function TenantDetailsDrawer({ tenantId, trigger, revision, onClo
       {resource.loading || resource.error ? <RecordsState loading={resource.loading} error={resource.error} message="Loading company details…" onRetry={() => setRetry(value => value + 1)} /> : data && <>
         <div className={styles.detailsHeading}><h3>{data.tenant.name}</h3><TenantStatus active={data.tenant.is_active} /></div>
         <dl className={styles.info}><div><dt>Company ID</dt><dd>{data.tenant.id}</dd></div><div><dt>Active Parking Sessions</dt><dd className={styles.sessionCount}>{data.tenant.active_sessions}</dd></div></dl>
-        <div className={shared.actions}><button className={shared.primary} onClick={() => setEditing(true)}>Edit Company and Access</button>
-          <button className={shared.secondary} onClick={() => setRetry(value => value + 1)}>Refresh Details</button></div>
+        <div className={`${shared.actions} ${styles.headerActions}`}><button className={shared.primary} onClick={() => setEditing(true)}>Edit Company and Access</button>
+          <RefreshButton label="Refresh Details" onClick={() => setRetry(value => value + 1)} /></div>
         <DriverStats company={data.tenant} />
         <ZoneList zones={data.zones} zoneIds={data.tenant.zone_ids} inactive={!data.tenant.is_active} />
       </>}
