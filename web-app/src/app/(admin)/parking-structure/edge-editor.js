@@ -10,6 +10,7 @@ import EdgeArrow from './edge-arrow.mjs';
 import map from './calibration.module.css';
 import styles from './node-editor.module.css';
 import local from './edge-editor.module.css';
+import FloorPlanImage from './floor-plan-image.mjs';
 
 const metres = value => value === null ? 'Unavailable' : `${value >= .01 ? value.toFixed(2) : value.toPrecision(3)} m`;
 export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyChange, onSavingChange }) {
@@ -129,10 +130,10 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
     <div className={map.heading}><h2>Add Edges</h2></div>
     <dl className={map.summary} aria-label="Edge Draft Summary">
       <div className={map.summaryCard}><dt>Directed Edges</dt><dd>{loading || !data ? '—' : edges.length}</dd></div>
-      <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All changes saved'}</dd></div>
+      <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All Changes Saved'}</dd></div>
       <div className={map.summaryCard}><dt>Revisions</dt><dd><span>Draft</span> {data?.draft?.revision ?? '—'} <span>· Calibration</span> {data?.current_calibration_revision ?? '—'}</dd></div>
     </dl>
-    {!loading && data && (!data.draft ? <p className={styles.warning}>Add and save nodes before connecting them.</p> : !data.calibration ? <p className={styles.warning}>Calibrate this image before connecting nodes.</p> : data.needs_distance_revalidation && <p className={styles.warning}>Gentle reminder: node positions and calibration require revalidating the distance</p>)}
+    {!loading && data && (!data.draft ? <p className={styles.warning}>Gentle Reminder: Add and save nodes before connecting them</p> : !data.calibration ? <p className={styles.warning}>Calibrate this image before connecting nodes.</p> : data.needs_distance_revalidation && <p className={styles.warning}>Gentle Reminder: Node positions and calibration require revalidating the distance</p>)}
     {error && <p className={map.error} role="alert">{error}{locked ? ' Reload draft, or refresh the page if the image changed. Local edits are retained until you confirm discarding them.' : ''}</p>}
     {message && <p className={map.success} role="status">{message}</p>}
     <div className={styles.nodeLayout}>
@@ -156,7 +157,7 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
         aria-label={`Draft driving connections on ${level.name}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }}>
         <defs>{[['edge', 'var(--chart-primary)'], ['selected', 'var(--chart-comparative)'], ['preview', 'var(--chart-supporting)']].map(([id, colour]) =>
           <marker key={id} id={`${markerId}-${id}`} markerUnits="userSpaceOnUse" markerWidth={radius} markerHeight={radius} refX="10" refY="5" viewBox="0 0 10 10" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill={colour} stroke="white" strokeWidth=".5" /></marker>)}</defs>
-        <image href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`} width={plan.width_px} height={plan.height_px}
+        <FloorPlanImage href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`} width={plan.width_px} height={plan.height_px}
           onLoad={() => setReady(true)} onError={() => { setReady(false); setLocked(true); setError('Image could not be loaded. Refresh the page.'); }} />
         {edges.map(item => drawEdge(item))}{previewEdges.map(item => drawEdge(item, true))}
         {nodes.map(node => <g key={node.id} data-node-id={node.id}>

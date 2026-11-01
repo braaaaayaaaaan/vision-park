@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { uuid } from '../app/(admin)/parking-structure/zone-draft-utils.mjs';
 
@@ -54,7 +54,7 @@ export async function structureValidationRequest(request) {
     if (request.method !== 'POST' || new URL(request.url).search) return { status: 404, body: { error: 'Not found.' } };
     requireSameOrigin(request);
     stage = 'authentication';
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     stage = 'request_body';
     if (request.headers.get('content-type')?.split(';')[0].toLowerCase() !== 'application/json') throw new AuthError('input', 415);

@@ -45,6 +45,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
     WidgetsBinding.instance.addObserver(this);
     _poller = VisiblePoller(
       refresh: () => controller.refresh(history: true, background: true),
+      hasError: () => controller.error != null,
       isVisible: () =>
           mounted &&
           widget.isVisible &&

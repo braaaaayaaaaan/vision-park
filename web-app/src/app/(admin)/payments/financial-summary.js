@@ -17,6 +17,7 @@ export function FinancialSummaryView({ data, chart = false }) {
   const maximum = Math.max(1, ...methods.map(row => row.value));
   return <div className={styles.stack}>
     <PaymentMode data={data} />
+    <p className={styles.muted}>Last checked: {paymentTime(data.server_time)}</p>
     <div className={`${overview.kpis} ${overview.alignedKpis}`}>
       {[
         ['Parking Revenue', myr(t.parking_revenue_sen), `${t.successful_payments.toLocaleString('en-MY')} successful payments, ${t.zero_fee_payments} with no charge`, 'payments'],
@@ -45,9 +46,9 @@ export default function FinancialSummary({ query = '', revision = 0, chart = fal
   for (const key of ['start_date', 'end_date']) if (input.has(key)) dates.set(key, input.get(key));
   const dateQuery = dates.toString();
   const load = useCallback(signal => fetchPaymentSummary(dateQuery, signal), [dateQuery]);
-  const resource = useResource(`finance:${dateQuery}:${revision}:${retry}`, load, live ? 15000 : 0);
+  const resource = useResource(`finance:${dateQuery}:${revision}:${retry}`, load, live ? 60000 : 0);
   return <section className={styles.stack} aria-labelledby="financial-summary-title" aria-busy={resource.loading}>
-    <div><h2 id="financial-summary-title">Payment Summary</h2><p className={styles.muted}>Applicable for all parking levels.</p></div>
+    <div><h2 id="financial-summary-title">Payment Summary</h2><p className={styles.muted}>Applicable for all parking levels.{live ? ' Updates every minute; Refresh checks immediately.' : ''}</p></div>
     {resource.loading ? <p className={styles.panel} role="status">Loading financial summary…</p> : resource.error ? <div className={styles.panel}>
       <p className={shared.error} role="alert">Unable to load payment summary. Parking reports are still available.</p><button className={shared.secondary} onClick={() => setRetry(value => value + 1)}>Retry Payment Summary</button>
     </div> : <FinancialSummaryView data={resource.data} chart={chart} />}

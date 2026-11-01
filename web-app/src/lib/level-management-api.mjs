@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { duplicateLevelNumbers, levelRequestError, validateLevelResponse } from '../app/(admin)/parking-structure/level-management-utils.mjs';
 
@@ -12,7 +12,7 @@ export async function levelManagementRequest(request, path) {
       ['PATCH', 'DELETE'].includes(request.method) && path.length === 2 && path[0] === 'levels' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path[1]) ? request.method === 'DELETE' ? 'delete' : 'edit' : null;
     if (!mode) return { status: 404, body: { error: 'Not found.' } };
     requireSameOrigin(request);
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     if (request.headers.get('content-type')?.split(';')[0].toLowerCase() !== 'application/json') throw new AuthError('input', 415);
     const bytes = await readLimitedBody(request.body, 32 * 1024);

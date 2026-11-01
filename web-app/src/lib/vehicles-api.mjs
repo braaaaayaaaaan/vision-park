@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { vehicleReadQuery, validateDriverPage, validateDriverDetails, validateVehicleSummary } from './vehicle-read-contracts.mjs';
 import { normalizeRejectionReason, validStoredRejectionReason } from './vehicle-rejection.mjs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -8,7 +8,7 @@ const string = (value) => typeof value === 'string';
 export async function loadVehicleRead(request, kind, driverId) {
   let session;
   try {
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     let params;
     try {
@@ -52,7 +52,7 @@ export function validateVehicles(data) {
 export async function loadVehicles(request) {
   let session;
   try {
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const params = new URLSearchParams();
     const input = new URL(request.url).searchParams;
@@ -80,7 +80,7 @@ export async function decideVehicle(request, vehicleId, action) {
     if (!uuid.test(vehicleId) || !['approve', 'reject'].includes(action)) {
       return { status: 404, body: { error: 'Vehicle decision endpoint not found.' } };
     }
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     let input;
     try { input = await request.json(); } catch { return { status: 400, session, body: { error: 'Invalid vehicle decision request.' } }; }

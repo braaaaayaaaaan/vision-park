@@ -7,6 +7,7 @@ import { MAX_TRACE_POINTS, referenceChanged, traceDistance, traceError } from '.
 import map from './calibration.module.css';
 import fields from './node-editor.module.css';
 import styles from './cross-level-ramps.module.css';
+import FloorPlanImage from './floor-plan-image.mjs';
 
 function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
   const plan = level.floor_plan;
@@ -38,7 +39,7 @@ function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
     if (trace.trace_points.length && confirmed !== true) return requestConfirmation({ title: 'Reset Ramp Trace?', description: 'All points for this travel direction will be removed from the local trace.', variant: 'destructive', confirmLabel: 'Reset Trace' }, () => resetTrace(true));
     update([]); setSelected(null);
   }
-  function point(event) { return imagePoint(event.clientX, event.clientY, drawing.current.getBoundingClientRect(), plan.width_px, plan.height_px); }
+  function point(event) { return imagePoint(event.clientX, event.clientY, drawing.current, plan.width_px, plan.height_px); }
   function pointerDown(event) {
     if (busy || replaced || event.button !== 0) return;
     const index = event.target.dataset.point, position = point(event);
@@ -77,7 +78,7 @@ function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
   const radius = Math.max(plan.width_px, plan.height_px) / (80 * zoom);
   return <>
     {loading && <p className={map.note} role="status">Loading reference calibration…</p>}
-    {error && <p className={map.error} role="alert">{error} refresh ramps to retry.</p>}
+    {error && <p className={map.error} role="alert">{error} Refresh Ramps to Retry.</p>}
     {!loading && !calibration && !error && <p className={fields.warning}>Calibrate this floor plan before tracing.</p>}
     {replaced && <p className={fields.warning}>This trace belongs to an earlier image. Reset and retrace on the current reference image.</p>}
     {!replaced && recalculation && points.length > 1 && <p className={fields.warning}>Review the path, then recalculate using the current calibration before confirming.</p>}
@@ -104,7 +105,7 @@ function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
     <div className={`${map.viewport} ${tool === 'pan' ? map.pan : map.select}`} ref={viewport}>
       <svg ref={drawing} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`} style={{ width: floorPlanWidth(plan.width_px, plan.height_px, zoom) }} role="img" aria-label="Ordered Ramp Centreline Trace"
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { gesture.current = null; }} onLostPointerCapture={() => { gesture.current = null; }}>
-        <image href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}`} width={plan.width_px} height={plan.height_px}
+        <FloorPlanImage href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}`} width={plan.width_px} height={plan.height_px}
           onLoad={() => setReady(true)} onError={() => { setReady(false); setError('Reference image changed or could not be loaded.'); }} />
         <polyline points={points.map(value => `${value.x},${value.y}`).join(' ')} fill="none" stroke="white" strokeWidth={7} vectorEffect="non-scaling-stroke" pointerEvents="none" />
         <polyline points={points.map(value => `${value.x},${value.y}`).join(' ')} fill="none" stroke="#14B8A6" strokeWidth={3} strokeDasharray="10 4" vectorEffect="non-scaling-stroke" pointerEvents="none" />

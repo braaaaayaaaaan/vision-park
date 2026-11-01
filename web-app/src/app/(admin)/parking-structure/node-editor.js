@@ -9,6 +9,7 @@ import { linksFromRows, linksChanged, zoneChanges } from './zone-entrance-utils.
 import ZoneEntranceFields from './zone-entrance-fields';
 import map from './calibration.module.css';
 import styles from './node-editor.module.css';
+import FloorPlanImage from './floor-plan-image.mjs';
 
 export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyChange, onSavingChange }) {
   const [nodes, setNodes] = useState([]);
@@ -76,7 +77,7 @@ export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyC
     remove();
   }
   function point(event) {
-    return imagePoint(event.clientX, event.clientY, drawing.current.getBoundingClientRect(), plan.width_px, plan.height_px);
+    return imagePoint(event.clientX, event.clientY, drawing.current, plan.width_px, plan.height_px);
   }
   function down(event) {
     if (!editable || event.button !== 0 || !event.isPrimary) return;
@@ -150,12 +151,12 @@ export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyC
     <div className={map.heading}><h2>Add Nodes</h2></div>
     <dl className={map.summary} aria-label="Node Draft Summary">
       <div className={map.summaryCard}><dt>Nodes</dt><dd>{loading || !data ? '—' : nodes.length}</dd></div>
-      <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All changes saved'}</dd></div>
+      <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All Changes Saved'}</dd></div>
       <div className={map.summaryCard}><dt>Revisions</dt><dd><span>Image</span> {plan.revision} <span>· Draft</span> {loading || !data ? '—' : data.draft?.revision ?? 0}</dd></div>
     </dl>
     {data?.needs_distance_revalidation && <p className={styles.warning} role="status">{data.current_calibration_revision === 0 ?
-      'Gentle reminder: no calibration is saved for this image. Distances will require validation' :
-      'Gentle reminder: editing nodes or calibrations require revalidating the distance'}</p>}
+      'Gentle Reminder: No calibration is saved for this image. Distances will require validation' :
+      'Gentle Reminder: Editing nodes or calibrations require revalidating the distance'}</p>}
     {error && <p className={map.error} role="alert">{error}{locked ? ' Reload draft, or use the page refresh if the image changed. Unsaved edits are retained until you confirm discarding them.' : ''}</p>}
     {validation && <p className={map.error} role="alert">{validation}</p>}
     {message && <p className={map.success} role="status">{message}</p>}
@@ -179,7 +180,7 @@ export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyC
       <svg ref={drawing} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`} style={{ width: floorPlanWidth(plan.width_px, plan.height_px, zoom) }}
         className={mode === 'pan' ? map.pan : map.select} role="img" aria-label={`Draft nodes on ${level.name}`}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancelGesture}>
-        <image href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`}
+        <FloorPlanImage href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`}
           width={plan.width_px} height={plan.height_px} onLoad={() => setReady(true)}
           onError={() => { setReady(false); setLocked(true); setError('Image could not be loaded. Refresh the page.'); }} />
         {nodes.filter(item => Number.isFinite(item.x) && Number.isFinite(item.y)).map(item => <g key={item.id} data-node-id={item.id}>

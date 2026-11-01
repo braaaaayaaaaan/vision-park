@@ -38,15 +38,9 @@ export function sessionSummaryQuery(filters, now = new Date()) {
   return params.toString();
 }
 export async function fetchSessionSummary(query, signal) {
-  // Read the server's exact totals, rather than counting the paginated rows.
-  const counts = await Promise.all(Object.keys(sessionLabels).map(async status => {
-    const params = new URLSearchParams(query);
-    params.set('status', status); params.set('limit', '1'); params.set('offset', '0');
-    const data = await fetchSessions(params.toString(), signal);
-    if (!Number.isSafeInteger(data.total) || data.total < 0) throw new Error('Session counts could not be verified. Please retry.');
-    return [status, data.total];
-  }));
-  return Object.fromEntries(counts);
+  const params = new URLSearchParams(query);
+  params.set('summary', 'true');
+  return (await fetchSessions(params.toString(), signal)).counts;
 }
 export async function fetchSessions(query, signal) {
   const response = await authenticatedFetch(`/api/sessions?${query}`, { cache: 'no-store', signal });

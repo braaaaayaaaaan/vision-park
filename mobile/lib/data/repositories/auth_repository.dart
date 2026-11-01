@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,11 +13,13 @@ class AuthFailure implements Exception {
     this.expired = false,
     this.missingProfile = false,
     this.code,
+    this.retryable = false,
   });
   final String message;
   final bool expired;
   final bool missingProfile;
   final String? code;
+  final bool retryable;
 }
 
 class AuthCompany {
@@ -149,6 +153,8 @@ class SupabaseIdentity implements AuthIdentity {
       if (error is AuthRetryableFetchException) {
         throw const AuthFailure(
           'Unable to refresh your session. Check your connection and retry.',
+          retryable: true,
+          code: 'auth_refresh_transport',
         );
       }
       throw const AuthFailure(
@@ -175,15 +181,128 @@ class SupabaseIdentity implements AuthIdentity {
   }
 }
 
-class RemoteAuthRepository implements AuthRepository {
+class RemoteAuthRepository
+    with WidgetsBindingObserver
+    implements AuthRepository {
   RemoteAuthRepository({
     required this.identity,
     required this.baseUrl,
     required this.httpClient,
-  });
+  }) {
+    _owner = identity.userId;
+    WidgetsBinding.instance.addObserver(this);
+    _identityChanges = identity.changes.listen((_) {
+      if (_owner != identity.userId || identity.userId == null) {
+        _owner = identity.userId;
+        _cancelReads();
+      }
+    });
+  }
   final AuthIdentity identity;
   final Uri baseUrl;
   final http.Client httpClient;
+  final _reads = <String, Future<dynamic>>{};
+  final _cancellations = <Completer<void>>{};
+  late final StreamSubscription<void> _identityChanges;
+  String? _owner;
+  int _epoch = 0;
+  bool _disposed = false;
+  bool get _foreground =>
+      WidgetsBinding.instance.lifecycleState == null ||
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+  void _cancelReads() {
+    _epoch++;
+    for (final cancel in _cancellations) {
+      if (!cancel.isCompleted) cancel.complete();
+    }
+    _reads.clear();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _cancelReads();
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _cancelReads();
+    _identityChanges.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    httpClient.close();
+  }
+
+  Future<dynamic> _read(String path, {bool image = false}) {
+    final key = '${identity.userId}:$image:$path';
+    return _reads.putIfAbsent(key, () {
+      final epoch = _epoch, owner = identity.userId;
+      final cancel = Completer<void>();
+      _cancellations.add(cancel);
+      bool active() =>
+          !_disposed &&
+          _foreground &&
+          epoch == _epoch &&
+          owner != null &&
+          owner == identity.userId;
+      Future<dynamic> run() async {
+        try {
+          for (var attempt = 0; ; attempt++) {
+            if (!active()) {
+              throw const AuthFailure(
+                'Refresh when signed in and the app is active.',
+                code: 'read_cancelled',
+              );
+            }
+            try {
+              final result = await _request(
+                path,
+                protected: true,
+                image: image,
+                cancel: cancel.future,
+                isCurrentRead: active,
+              );
+              if (!active()) {
+                throw const AuthFailure(
+                  'The account or screen changed. Refresh to continue.',
+                  code: 'read_cancelled',
+                );
+              }
+              return result;
+            } on AuthFailure catch (error) {
+              final safe =
+                  path.startsWith('parking/') ||
+                  path.startsWith('payments/') ||
+                  path == 'vehicles' ||
+                  path.startsWith('vehicles/');
+              if (!safe || !error.retryable || attempt >= 2 || !active()) {
+                rethrow;
+              }
+              await Future.any([
+                Future<void>.delayed(
+                  Duration(
+                    milliseconds:
+                        (300 *
+                                (1 << attempt) *
+                                (0.85 + Random().nextDouble() * .3))
+                            .round(),
+                  ),
+                ),
+                cancel.future,
+              ]);
+            }
+          }
+        } finally {
+          if (!cancel.isCompleted) cancel.complete();
+          _cancellations.remove(cancel);
+          if (epoch == _epoch) _reads.remove(key);
+        }
+      }
+
+      return Future<dynamic>.microtask(run);
+    });
+  }
+
   @override
   bool get hasSession => identity.userId != null;
   @override
@@ -196,11 +315,10 @@ class RemoteAuthRepository implements AuthRepository {
 
   /// Shares the verified session, refresh-on-401 and safe HTTP handling with
   /// driver read repositories. Paths are relative to the configured API root.
-  Future<dynamic> getAuthenticated(String path) =>
-      _request(path, protected: true);
+  Future<dynamic> getAuthenticated(String path) => _read(path);
 
   Future<Uint8List> getAuthenticatedImage(String path) async =>
-      await _request(path, protected: true, image: true) as Uint8List;
+      await _read(path, image: true) as Uint8List;
 
   Future<dynamic> postAuthenticated(
     String path, {
@@ -216,13 +334,15 @@ class RemoteAuthRepository implements AuthRepository {
     String method = 'GET',
     Map<String, Object>? body,
     String? idempotencyKey,
-  }) => _request(
-    path,
-    protected: true,
-    method: method,
-    body: body,
-    idempotencyKey: idempotencyKey,
-  );
+  }) => method == 'GET' && body == null
+      ? _read(path)
+      : _request(
+          path,
+          protected: true,
+          method: method,
+          body: body,
+          idempotencyKey: idempotencyKey,
+        );
 
   Future<dynamic> _request(
     String path, {
@@ -231,9 +351,17 @@ class RemoteAuthRepository implements AuthRepository {
     String? method,
     bool image = false,
     String? idempotencyKey,
+    Future<void>? cancel,
+    bool Function()? isCurrentRead,
   }) async {
     try {
       for (var attempt = 0; attempt < 2; attempt++) {
+        if (isCurrentRead?.call() == false) {
+          throw const AuthFailure(
+            'Refresh when the app is active.',
+            code: 'read_cancelled',
+          );
+        }
         final headers = {
           'Accept': image ? 'image/png' : 'application/json',
           'Content-Type': 'application/json',
@@ -243,10 +371,20 @@ class RemoteAuthRepository implements AuthRepository {
               'Bearer ${await identity.accessToken(refresh: attempt > 0)}';
         }
         if (idempotencyKey != null) headers['Idempotency-Key'] = idempotencyKey;
+        if (isCurrentRead?.call() == false) {
+          throw const AuthFailure(
+            'The account or screen changed.',
+            code: 'read_cancelled',
+          );
+        }
+        final timeoutAbort = Completer<void>();
         final request =
-            http.Request(
+            http.AbortableRequest(
                 method ?? (body == null ? 'GET' : 'POST'),
                 baseUrl.resolve(path),
+                abortTrigger: cancel == null
+                    ? null
+                    : Future.any([cancel, timeoutAbort.future]),
               )
               ..headers.addAll(headers)
               ..followRedirects = false;
@@ -254,7 +392,15 @@ class RemoteAuthRepository implements AuthRepository {
         final response = await httpClient
             .send(request)
             .then(http.Response.fromStream)
-            .timeout(const Duration(seconds: 20));
+            .timeout(
+              const Duration(seconds: 20),
+              onTimeout: () {
+                if (cancel != null && !timeoutAbort.isCompleted) {
+                  timeoutAbort.complete();
+                }
+                throw TimeoutException('API request timed out');
+              },
+            );
         if (response.statusCode == 401 && protected && attempt == 0) continue;
         if (response.statusCode == 401) {
           throw const AuthFailure(
@@ -278,6 +424,14 @@ class RemoteAuthRepository implements AuthRepository {
           }
         }
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          if (image &&
+              const {408, 500, 502, 503, 504}.contains(response.statusCode)) {
+            throw AuthFailure(
+              'The floor plan is temporarily unavailable. Please try again.',
+              retryable: true,
+              code: 'http_${response.statusCode}',
+            );
+          }
           if (path.startsWith('payments/')) {
             dynamic detail;
             try {
@@ -308,6 +462,10 @@ class RemoteAuthRepository implements AuthRepository {
               code: messages.containsKey(code)
                   ? code as String
                   : 'payment_unavailable',
+              retryable:
+                  body == null &&
+                  (method == null || method == 'GET') &&
+                  const {408, 500, 502, 503, 504}.contains(response.statusCode),
             );
           }
           if (response.statusCode == 409 && path.startsWith('vehicles')) {
@@ -337,31 +495,38 @@ class RemoteAuthRepository implements AuthRepository {
               );
             }
           }
-          throw AuthFailure(switch (response.statusCode) {
-            400 => 'Unable to submit. Check your details and select an available company.',
-            403 => 'Access was denied. Contact your parking administrator.',
-            404 =>
-              path.startsWith('vehicles')
-                  ? 'Vehicle not found. Refresh your vehicles.'
-                  : 'This parking session is no longer available. Refresh navigation and try again.',
-            409 =>
-              path == 'vehicles'
-                  ? 'This plate is already registered.'
-                  : path.startsWith('vehicles/')
-                  ? 'This vehicle has parking or ANPR records and cannot be removed. Its history is preserved.'
-                  : path.endsWith('/confirm')
-                  ? 'This session cannot be confirmed. Refresh navigation to check its current status.'
-                  : 'A route is unavailable for this assignment. It may already be occupied, closed or unreachable.',
-            422 =>
-              path.startsWith('vehicles')
-                  ? 'Use 1–32 letters and digits for the number plate, without spaces or punctuation.'
-                  : 'Check the required fields and password requirements.',
-            429 => 'Too many attempts. Please wait and try again.',
-            _ =>
-              path.startsWith('auth/register')
-                  ? 'The service is unavailable. Please try again. If registration was submitted, confirm your email and sign in to complete it.'
-                  : 'The service is unavailable. Please try again.',
-          });
+          throw AuthFailure(
+            switch (response.statusCode) {
+              400 => 'Unable to submit. Check your details and select an available company.',
+              403 => 'Access was denied. Contact your parking administrator.',
+              404 =>
+                path.startsWith('vehicles')
+                    ? 'Vehicle not found. Refresh your vehicles.'
+                    : 'This parking session is no longer available. Refresh navigation and try again.',
+              409 =>
+                path == 'vehicles'
+                    ? 'This plate is already registered.'
+                    : path.startsWith('vehicles/')
+                    ? 'This vehicle has parking or ANPR records and cannot be removed. Its history is preserved.'
+                    : path.endsWith('/confirm')
+                    ? 'This session cannot be confirmed. Refresh navigation to check its current status.'
+                    : 'A route is unavailable for this assignment. It may already be occupied, closed or unreachable.',
+              422 =>
+                path.startsWith('vehicles')
+                    ? 'Use 1–32 letters and digits for the number plate, without spaces or punctuation.'
+                    : 'Check the required fields and password requirements.',
+              429 => 'Too many attempts. Please wait and try again.',
+              _ =>
+                path.startsWith('auth/register')
+                    ? 'The service is unavailable. Please try again. If registration was submitted, confirm your email and sign in to complete it.'
+                    : 'The service is unavailable. Please try again.',
+            },
+            retryable:
+                body == null &&
+                (method == null || method == 'GET') &&
+                const {408, 500, 502, 503, 504}.contains(response.statusCode),
+            code: 'http_${response.statusCode}',
+          );
         }
         if (image) {
           if (response.headers['content-type']?.split(';').first !=
@@ -378,9 +543,18 @@ class RemoteAuthRepository implements AuthRepository {
       }
     } on AuthFailure {
       rethrow;
-    } catch (_) {
-      throw const AuthFailure(
+    } catch (error) {
+      throw AuthFailure(
         'Unable to reach the service or read its response. Check your connection and try again.',
+        retryable:
+            body == null &&
+            (method == null || method == 'GET') &&
+            (error is http.ClientException || error is TimeoutException),
+        code: error is TimeoutException
+            ? 'read_timeout'
+            : error is http.ClientException
+            ? 'read_transport'
+            : 'read_response_invalid',
       );
     }
   }

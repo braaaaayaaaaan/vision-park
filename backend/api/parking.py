@@ -133,14 +133,15 @@ def parking_availability(response: Response, driver: Annotated[ApplicationUser, 
         if not allowed:
             return ParkingAvailabilityResponse(available_spaces=0, accessible_zone_count=0, levels=[])
         levels = {row["id"]: row for row in database.get_levels() if row["is_active"]}
+        zones = [zone for zone in database.get_zones()
+                 if zone['id'] in allowed and zone['operational_status'] == 'open'
+                 and zone['level_id'] in levels]
+        counts = database.active_zone_counts([zone['id'] for zone in zones])
         grouped = {}
-        for zone in database.get_zones():
-            if (zone["id"] not in allowed or zone["operational_status"] != "open"
-                    or zone["level_id"] not in levels):
-                continue
+        for zone in zones:
             level = levels[zone["level_id"]]
-            allocated = database.count_active_sessions(zone["id"], status="allocated")
-            occupied = database.count_active_sessions(zone["id"], status="occupied")
+            allocated = counts[(zone['id'], 'allocated')]
+            occupied = counts[(zone['id'], 'occupied')]
             # Same capacity model as rank_zones/reserve_parking_zone. This read
             # never reserves capacity; counts may change immediately afterwards.
             usable = max(0, zone["total_capacity"] - zone["unavailable_capacity"])

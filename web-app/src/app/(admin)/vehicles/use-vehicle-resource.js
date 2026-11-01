@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { startVisiblePolling } from '../../../lib/visible-polling.mjs';
 
 // A key mismatch hides previous data immediately, even before effect cleanup.
-export default function useVehicleResource(key, load, interval = 0) {
+export default function useVehicleResource(key, load, interval = 0, { enabled = true, shouldPoll } = {}) {
   const [state, setState] = useState({ key: null, data: null, error: '' });
   useEffect(() => {
+    if (!enabled) return;
     if (!interval) {
       const controller = new AbortController();
       load(controller.signal).then(data => {
@@ -17,7 +18,7 @@ export default function useVehicleResource(key, load, interval = 0) {
       });
       return () => controller.abort();
     }
-    return startVisiblePolling({ load, interval,
+    return startVisiblePolling({ load, interval, shouldPoll,
       success: data => setState({ key, data, error: '' }),
       failure: error => setState(previous => {
         // Keep the current screen during transient background failures. Never
@@ -27,7 +28,7 @@ export default function useVehicleResource(key, load, interval = 0) {
           error: data ? '' : error.message || 'Unable to load vehicle information.' };
       }),
     });
-  }, [key, load, interval]);
+  }, [key, load, interval, enabled, shouldPoll]);
   return state.key === key ? { ...state, loading: false, previous: state.data ?? state.previous }
     : { data: null, error: '', loading: true, previous: state.data ?? state.previous };
 }

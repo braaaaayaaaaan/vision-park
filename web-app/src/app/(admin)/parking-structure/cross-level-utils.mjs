@@ -4,9 +4,9 @@ export const reviewLabels = {
   reference_image_replaced: 'Reference image replaced: retrace the ramp',
   reference_calibration_missing: 'Reference calibration required',
   reference_calibration_changed: 'Reference calibration changed: recalculate and reconfirm',
-  source_image_replaced: 'Source floor plan replaced', source_draft_changed: 'Source draft changed',
+  source_image_replaced: 'Source floor plan replaced', source_draft_changed: 'Source Draft Changed',
   source_node_missing: 'Source ramp node missing', source_not_ramp: 'Source node is no longer a ramp',
-  destination_image_replaced: 'Destination floor plan replaced', destination_draft_changed: 'Destination draft changed',
+  destination_image_replaced: 'Destination floor plan replaced', destination_draft_changed: 'Destination Draft Changed',
   destination_node_missing: 'Destination ramp node missing', destination_not_ramp: 'Destination node is no longer a ramp',
 };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);

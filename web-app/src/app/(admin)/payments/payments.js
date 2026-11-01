@@ -29,7 +29,7 @@ export default function Payments() {
   const resource = useResource(`payments:${query}:${revision}`, load, 15000), data = resource.data;
   const summaryQuery = new URLSearchParams(applied.start_date ? { start_date: applied.start_date, end_date: applied.end_date } : {}).toString();
   const loadSummary = useCallback(signal => fetchPaymentSummary(summaryQuery, signal), [summaryQuery]);
-  const summary = useResource(`payments-summary:${summaryQuery}:${revision}`, loadSummary, 15000);
+  const summary = useResource(`payments-summary:${summaryQuery}:${revision}`, loadSummary, 60000);
   function apply(event) {
     event.preventDefault(); try { transactionQuery(draft); setError(''); setApplied({ ...draft }); setOffset(0); setRevision(value => value + 1); } catch (cause) { setError(cause.message); }
   }
@@ -39,6 +39,7 @@ export default function Payments() {
     <header className={common.heading}><h1>Payments</h1><RefreshButton loading={resource.loading} onClick={refresh} /></header>
     <section className={styles.summarySection} aria-labelledby="payment-summary-title" aria-busy={summary.loading}>
       <div className={styles.summaryHeading}><h2 id="payment-summary-title">Payment Summary</h2><span>{applied.start_date ? `${applied.start_date} to ${applied.end_date} · MYT` : 'Last 7 Days · MYT'}</span></div>
+      <p className={styles.muted}>Updates every minute; Refresh checks immediately.{summary.data ? ` Last checked: ${paymentTime(summary.data.server_time)}` : ''}</p>
       {summary.loading ? <p className={styles.muted} role="status">Loading payment summary…</p> : summary.error ? <div className={styles.summaryError}><p role="alert">Payment summary is unavailable.</p><button className={shared.secondary} onClick={refresh}>Retry Summary</button></div> : <PaymentSummaryCards data={summary.data} />}
     </section>
     <PaymentMode data={data ?? summary.data} disclosure={!selected} />

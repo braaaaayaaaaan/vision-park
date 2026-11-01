@@ -20,7 +20,7 @@ class EntranceEventHandler:
         self.entrance_nodes = dict(entrance_nodes)
         self._seen: set[str] = set()
         self._lock = Lock()
-        self.integration = persistence.enabled()
+        self.integration = recording is not None or persistence.enabled()
         self.recording = recording
 
     def __call__(self, event: RecognitionEvent) -> dict:
@@ -30,7 +30,7 @@ class EntranceEventHandler:
         entrance = self.entrance_nodes.get(event.camera_id)
         if entrance is None:
             return {**result, "status": "rejected", "code": "unmapped_camera"}
-        if not persistence.valid_event(event):
+        if not persistence.valid_event(event, recorded=self.recording is not None):
             return {**result, "status": "rejected", "code": "invalid_event"}
         if self.integration:
             return {**result, **self._durable(event,entrance)}
@@ -51,16 +51,22 @@ class EntranceEventHandler:
             return {**result, "status": "allocated", "allocation": allocation}
 
     def _durable(self, event, entrance):
-        event_key = None
+        event_key = persistence.event_key(event, self.recording)
+        stage = 'event_registration'
         try:
             registered = persistence.register(event,self.recording)
             if registered['status']!='registered':
-                return dict(status='rejected',code=registered['status'])
+                result = dict(status='rejected',code=registered['status'],event_id=event_key)
+                if registered['status'] == 'unrecorded_replay':
+                    result['message'] = 'No saved event exists for this replay. Inspect the original run; do not replace its identity to bypass recovery.'
+                return result
             row = registered['event']
             event_key = row['event_id']
+            stage = 'saved_admission'
             saved = persistence.saved_entrance(row)
             if saved:
                 return saved
+            stage = 'allocation'
             allocation = allocate_parking(event.plate_number,entrance,anpr_event_id=event_key)
             return dict(status='allocated',allocation=allocation,recovered=registered.get('recovered',False),accepted_event_time=row['event_time'])
         except AllocationError as error:
@@ -70,11 +76,15 @@ class EntranceEventHandler:
                     saved = persistence.saved_entrance(row)
                     if saved:
                         return saved
-                except DatabaseError:
+                except DatabaseError as failure:
+                    persistence.log_admission_failure('finish_rejection', event_key, failure)
                     return dict(status='error',code='database_unavailable',event_id=event_key,message='Admission outcome could not be verified. Recover the same event.')
             return dict(status='rejected',code=error.code,message=str(error))
-        except DatabaseError:
+        except DatabaseError as error:
+            if stage != 'event_registration':
+                persistence.log_admission_failure(stage, event_key, error)
             # Do not mark a possibly committed admission rejected or re-resolve
             # another event. The same durable key recovers its original session.
             return dict(status='error',code='database_unavailable',event_id=event_key,
+                failure_category=getattr(error, 'category', persistence.failure_category(error)),
                 message='Admission outcome is unconfirmed. Recover the same playback/event.')

@@ -71,7 +71,7 @@ export default function LevelManagement({ levels, disabled, onSaved, onDirtyChan
       const result = await floorPlanRequest(`/levels/${editing.id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ expected_metadata_revision: editing.metadata_revision }), signal: pending.signal });
       if (result.deleted_level_id !== editing.id) throw new Error('Level deletion could not be confirmed. Refresh before retrying.');
-      if (!pending.signal.aborted) onSaved('Parking level has been deleted.');
+      if (!pending.signal.aborted) onSaved('Successfully deleted the selected parking level!');
     } catch (failure) {
       if (!pending.signal.aborted) { setError(failure.message); setLocked(failure.status === 404 || failure.status === 409 || !failure.status || failure.status >= 500); }
     } finally {
@@ -100,7 +100,7 @@ export default function LevelManagement({ levels, disabled, onSaved, onDirtyChan
       onConfirm={remove} onCancel={closeDelete} pending={saving} pendingLabel="Deleting…" confirmLabel="Delete Level Permanently"
       cancelLabel={locked ? 'Close' : 'Cancel'} disabled={busy || locked || editing.is_active || !validLevelSnapshot(editing)}
       error={error ? `${error}${locked ? ' Close and refresh the level list before retrying.' : ''}` : ''}>
-      <p><strong>{editing.name}</strong> · Level number {editing.level_number}</p>
+      <p><strong>{editing.name}</strong> · Level Number {editing.level_number}</p>
     </ConfirmationDialog>}
     {mode && mode !== 'delete' && <form onSubmit={save} className={styles.form}>
       <h3>{mode === 'bulk' ? 'Add Multiple Levels' : editing ? 'Edit Level' : 'Add Level'}</h3>

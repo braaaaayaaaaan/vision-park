@@ -8,6 +8,7 @@ import '../../shared/widgets/empty_state_card.dart';
 import '../../shared/visible_poller.dart';
 import 'navigation_controller.dart';
 import 'route_voice_guidance.dart';
+import '../../shared/widgets/refresh_notice.dart';
 import 'widgets/parking_confirmation.dart';
 import 'widgets/route_panel.dart';
 
@@ -90,6 +91,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     if (widget.isVisible) _loadSelection();
     _poller = VisiblePoller(
       refresh: () => _controller.load(background: true),
+      hasError: () => _controller.message != null,
       isVisible: () =>
           mounted &&
           widget.isVisible &&
@@ -129,7 +131,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
       )) {
         _loadSelection();
       } else {
-        _controller.load(background: oldWidget.isVisible);
+        if (widget.refreshRevision != oldWidget.refreshRevision) {
+          _controller.refreshAfterChange();
+        } else {
+          _controller.load(background: true);
+        }
       }
     }
     if (widget.paymentSessionIds.contains(
@@ -271,6 +277,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       const SizedBox(height: 8),
                     ],
                     const SizedBox(height: 8),
+                    if (ready)
+                      RefreshNotice(
+                        refreshing: _controller.refreshing,
+                        error: _controller.message,
+                        onRetry: _controller.load,
+                      ),
                     if (_controller.status == NavigationStatus.loading) ...[
                       const LinearProgressIndicator(
                         semanticsLabel: 'Loading Navigation',

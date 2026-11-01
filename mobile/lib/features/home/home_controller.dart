@@ -26,8 +26,31 @@ class HomeController extends ChangeNotifier {
   ParkingAvailability? availability;
   String? availabilityError;
   bool availabilityExpired = false;
+  DateTime? availabilityVerifiedAt;
+  DateTime? sessionsVerifiedAt;
+  bool get availabilityRefreshing => _availabilityLoading;
+  bool get sessionsRefreshing => _sessionsLoading;
+  Future<void>? _availabilityRead, _sessionRead;
 
-  Future<void> refreshParking({bool background = false}) async {
+  Future<void> refreshParking({
+    bool background = false,
+    bool afterChange = false,
+  }) async {
+    if (afterChange) {
+      // Each section waits only for its own older read. Concurrent change
+      // notifications then coalesce into one fresh read per section.
+      await Future.wait([
+        () async {
+          await _sessionRead;
+          await loadSessions(background: background);
+        }(),
+        () async {
+          await _availabilityRead;
+          await loadAvailability(background: background);
+        }(),
+      ]);
+      return;
+    }
     await Future.wait([
       loadSessions(background: background),
       loadAvailability(background: background),
@@ -37,20 +60,28 @@ class HomeController extends ChangeNotifier {
   bool _availabilityLoading = false;
   bool _sessionsLoading = false;
 
-  Future<void> loadAvailability({bool background = false}) async {
+  Future<void> loadAvailability({bool background = false}) {
+    if (_availabilityRead != null) return _availabilityRead!;
+    final work = _loadAvailability(background: background);
+    _availabilityRead = work;
+    return work.whenComplete(() => _availabilityRead = null);
+  }
+
+  Future<void> _loadAvailability({bool background = false}) async {
     final repository = availabilityRepository;
     if (repository == null || _availabilityLoading || _disposed) {
       return;
     }
     _availabilityLoading = true;
-    final keepData = background && availabilityStatus == HomeStatus.ready;
-    if (!background || availabilityStatus == HomeStatus.disconnected) {
+    final keepData = availabilityVerifiedAt != null;
+    if (!keepData) {
       availabilityStatus = HomeStatus.loading;
       availability = null;
       availabilityError = null;
       availabilityExpired = false;
-      notifyListeners();
     }
+    availabilityError = null;
+    notifyListeners();
     try {
       final result = await repository.getAvailability();
       if (_disposed) return;
@@ -58,12 +89,16 @@ class HomeController extends ChangeNotifier {
       availabilityStatus = HomeStatus.ready;
       availabilityError = null;
       availabilityExpired = false;
+      availabilityVerifiedAt = DateTime.now();
     } on AuthFailure catch (error) {
       if (_disposed) return;
       availabilityError = error.message;
       availabilityExpired = error.expired;
-      availabilityStatus = HomeStatus.error;
-      availability = null;
+      if (!keepData || (!error.retryable && error.code != 'read_cancelled')) {
+        availabilityStatus = HomeStatus.error;
+        availability = null;
+        availabilityVerifiedAt = null;
+      }
     } catch (_) {
       if (_disposed) return;
       availabilityError = 'Unable to load parking availability. Check your connection and try again.';
@@ -82,28 +117,31 @@ class HomeController extends ChangeNotifier {
   HomeStatus status = HomeStatus.disconnected;
   DashboardData? data;
   bool _disposed = false;
-  bool _reloadSessions = false;
 
-  Future<void> loadSessions({bool background = false}) async {
+  Future<void> loadSessions({bool background = false}) {
+    if (_sessionRead != null) return _sessionRead!;
+    final work = _loadSessions(background: background);
+    _sessionRead = work;
+    return work.whenComplete(() => _sessionRead = null);
+  }
+
+  Future<void> _loadSessions({bool background = false}) async {
     final repository = activeSessionRepository;
-    if (!_disposed && _sessionsLoading) {
-      if (!background) _reloadSessions = true;
-      return;
-    }
     if (repository == null ||
         sessionStatus == HomeStatus.loading ||
         _disposed) {
       return;
     }
     _sessionsLoading = true;
-    final keepData = background && sessionStatus == HomeStatus.ready;
-    if (!background || sessionStatus == HomeStatus.disconnected) {
+    final keepData = sessionsVerifiedAt != null;
+    if (!keepData) {
       sessionStatus = HomeStatus.loading;
       activeSessions = const [];
       sessionError = null;
       sessionExpired = false;
-      notifyListeners();
     }
+    sessionError = null;
+    notifyListeners();
     try {
       final sessions = await repository.getActiveSessions();
       if (_disposed) return;
@@ -113,12 +151,16 @@ class HomeController extends ChangeNotifier {
       sessionStatus = HomeStatus.ready;
       sessionError = null;
       sessionExpired = false;
+      sessionsVerifiedAt = DateTime.now();
     } on AuthFailure catch (error) {
       if (_disposed) return;
       sessionError = error.message;
       sessionExpired = error.expired;
-      sessionStatus = HomeStatus.error;
-      activeSessions = const [];
+      if (!keepData || (!error.retryable && error.code != 'read_cancelled')) {
+        sessionStatus = HomeStatus.error;
+        activeSessions = const [];
+        sessionsVerifiedAt = null;
+      }
     } catch (_) {
       if (_disposed) return;
       sessionError = 'Unable to load active parking sessions. Check your connection and try again.';
@@ -126,10 +168,6 @@ class HomeController extends ChangeNotifier {
     }
     _sessionsLoading = false;
     notifyListeners();
-    if (_reloadSessions) {
-      _reloadSessions = false;
-      await loadSessions();
-    }
   }
 
   Future<void> load() async {

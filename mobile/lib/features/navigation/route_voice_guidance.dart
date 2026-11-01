@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'navigation_speech_service.dart';
 import 'route_instructions.dart';
 
-enum _VoiceCue { upcoming, arrival }
+enum _VoiceCue { upcoming, approach, arrival }
 
 /// Event policy only. Uses published metres and the preview's existing clock.
 /// The screen owns this object so mute preference survives session/map rebuilds.
@@ -28,10 +28,14 @@ class RouteVoiceGuidance extends ChangeNotifier {
   int _epoch = 0;
   (int, _VoiceCue)? _pending;
   bool _draining = false;
+  (int, _VoiceCue)? _lastCompleted;
+  static const _sentenceGap = Duration(milliseconds: 350);
 
   bool get enabled => _enabled;
   bool get canEnable =>
       !_disposed && !_failed && (_plan?.canSynchronizePreview ?? false);
+  bool get canRetry =>
+      !_disposed && _failed && (_plan?.canSynchronizePreview ?? false);
   String? get unavailableReason => _failed
       ? 'Voice Guidance Unavailable. Check Android Speech Settings.'
       : !canEnable
@@ -52,6 +56,10 @@ class RouteVoiceGuidance extends ChangeNotifier {
   }
 
   void setEnabled(bool enabled) {
+    if (enabled && canRetry) {
+      _failed = false;
+      _initialization = null;
+    }
     if (_disposed || (enabled && !canEnable) || enabled == _enabled) return;
     _enabled = enabled;
     _cancelSpeech();
@@ -100,6 +108,7 @@ class RouteVoiceGuidance extends ChangeNotifier {
     _complete = false;
     _introduced = false;
     _target = null;
+    _lastCompleted = null;
     _approached.clear();
   }
 
@@ -144,6 +153,7 @@ class RouteVoiceGuidance extends ChangeNotifier {
     };
     // Short legs get one cue, not an immediate second approach reminder.
     final approaching = isTurn && legMetres >= 6 && remaining <= threshold;
+    var cue = _VoiceCue.upcoming;
     if (force || index != _target) {
       _target = index;
       if (remaining <= threshold) _approached.add(index);
@@ -151,10 +161,11 @@ class RouteVoiceGuidance extends ChangeNotifier {
       // One approach event per instruction occurrence, including looped turns.
       // Optional reminders never interrupt or wait behind an existing cue.
       if (_draining) return;
+      cue = _VoiceCue.approach;
     } else {
       return;
     }
-    _requestSpeech(_VoiceCue.upcoming);
+    _requestSpeech(cue);
   }
 
   String? _cueText(_VoiceCue cue) {
@@ -212,12 +223,27 @@ class RouteVoiceGuidance extends ChangeNotifier {
           if (_pending != null) continue;
           final text = _cueText(cue);
           if (text == null) continue;
+          final index = cue == _VoiceCue.arrival
+              ? _plan!.instructions.length - 1
+              : _upcoming()!.$1;
+          final occurrence = (index, cue);
+          if (_lastCompleted == occurrence ||
+              (cue == _VoiceCue.upcoming && _lastCompleted?.$1 == index)) {
+            continue;
+          }
           // Introduce the simulation once per run, at dispatch. Superseded
           // pending cues must not consume it or repeat it after an interruption.
           final introduce = cue == _VoiceCue.upcoming && !_introduced;
           if (introduce) _introduced = true;
           await _speech.speak(introduce ? 'Route preview. $text' : text);
-          if (!_current(epoch)) await _speech.stop();
+          if (_current(epoch)) {
+            _lastCompleted = occurrence;
+          } else {
+            await _speech.stop();
+          }
+          // Give adjacent lines and cancelled audio tracks a clean boundary.
+          // New cues replace _pending during this gap rather than queueing up.
+          await Future<void>.delayed(_sentenceGap);
         } catch (_) {
           if (_current(epoch)) _unavailable();
         }

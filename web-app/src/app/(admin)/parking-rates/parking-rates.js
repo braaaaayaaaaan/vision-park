@@ -22,7 +22,7 @@ export default function ParkingRates() {
     <div className={shared.actions}><button className={shared.primary} disabled={editing} onClick={() => setEditing(true)}>Publish New Rates</button></div>
     <PaymentMode data={data} />
     {message && <p className={shared.success} role="status">{message}</p>}
-    {editing && <RateEditor onClose={() => setEditing(false)} onSaved={tariff => { setEditing(false); setOffset(0); refresh(); setMessage(`Version ${tariff.version_number} published.`); }} />}
+    {editing && <RateEditor onClose={() => setEditing(false)} onSaved={tariff => { setEditing(false); setOffset(0); refresh(); setMessage(`Successfully published version ${tariff.version_number}!`); }} />}
     {resource.loading || resource.error ? <RecordsState loading={resource.loading} error={resource.error} message="Loading parking rates…" onRetry={refresh} /> : <>
       {data.effective_tariff ? <CurrentRate tariff={data.effective_tariff} /> : <section className={styles.panel}><h2>Current Rate</h2><p className={styles.muted}>No rates are currently in effect.</p></section>}
       <section className={shared.card} aria-label="Rate History"><div className={styles.sectionHeading}><div><h2>Rate History</h2><p className={styles.muted}>Published rates cannot be changed, existing sessions keep their assigned rates.</p></div><span className={styles.muted}>MYT</span></div>

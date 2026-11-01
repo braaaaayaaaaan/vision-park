@@ -116,14 +116,14 @@ class HistorySessionCard extends StatelessWidget {
                   icon: Icons.check_circle_outline_rounded,
                   label: 'Parking Confirmed',
                   value: session.confirmedAt == null
-                      ? 'Not recorded'
+                      ? 'Not Recorded'
                       : MalaysianDateTime.format(session.confirmedAt!),
                 ),
                 _HistoryDetail(
                   icon: Icons.logout_rounded,
                   label: 'Exit Time (MYT)',
                   value: session.exitTime == null
-                      ? 'Not recorded'
+                      ? 'Not Recorded'
                       : MalaysianDateTime.format(session.exitTime!),
                 ),
               ],

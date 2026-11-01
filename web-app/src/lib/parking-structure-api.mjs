@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { draftError } from '../app/(admin)/parking-structure/node-draft-utils.mjs';
 import { edgeError, previewDistance } from '../app/(admin)/parking-structure/edge-draft-utils.mjs';
 import { validLevelSnapshot } from '../app/(admin)/parking-structure/level-management-utils.mjs';
@@ -88,7 +88,7 @@ export async function structureRequest(request, path = []) {
     const picture = level && path.length === 3 && path[2] === 'image' && request.method === 'GET';
     if (!list && !picture && !(upload && level && path.length === 2) &&
       !((calibration || nodeDraft || graphDraft) && level && ['GET', 'PUT'].includes(request.method))) return { status: 404, body: { error: 'Not found.' } };
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const headers = { Authorization: `Bearer ${session?.access_token ?? request.cookies.get(ACCESS_COOKIE)?.value}` };
     let body;

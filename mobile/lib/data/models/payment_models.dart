@@ -1,6 +1,6 @@
 /// Display server-calculated money only. There is no fee calculation here.
 String myr(int sen) =>
-    'RM ${sen ~/ 100}.${(sen % 100).toString().padLeft(2, '0')}';
+    'MYR ${sen ~/ 100}.${(sen % 100).toString().padLeft(2, '0')}';
 
 Map<String, dynamic> paymentMap(dynamic value) =>
     Map<String, dynamic>.from(value as Map);

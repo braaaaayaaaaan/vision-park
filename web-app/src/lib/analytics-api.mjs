@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession } from './auth.mjs';
 const count = (value) => Number.isSafeInteger(value) && value >= 0;
 const date = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
 const timestamp = (value) => typeof value === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value));
@@ -44,7 +44,7 @@ export function validateAnalytics(data) {
 export async function loadAnalytics(request) {
   let session;
   try {
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const params = new URLSearchParams();
     const input = new URL(request.url).searchParams;

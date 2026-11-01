@@ -1,5 +1,6 @@
 """Read-only navigation to an existing assignment; never allocates a zone."""
 import os
+from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -55,16 +56,23 @@ def assigned_route(user_id: str, session_id: str) -> AssignedRouteResponse:
             raise HTTPException(404, "Active parking session not found.")
         if session["status"] != "allocated":
             raise HTTPException(409, "Route guidance is available only for an allocated session.")
-        publication = database.get_publication_state()
-        zone = next((row for row in database.get_zones() if row["id"] == session["zone_id"]), None)
-        levels = {row["id"]: row for row in database.get_levels() if row["is_active"]}
+        # These independent reads also run for every authenticated image GET.
+        # Overlap network waits without caching ownership or publication state.
+        with ThreadPoolExecutor(max_workers=4) as reads:
+            publication_read = reads.submit(database.get_publication_state)
+            zones_read = reads.submit(database.get_zones)
+            levels_read = reads.submit(database.get_levels)
+            graph_read = reads.submit(database.get_graph)
+            publication = publication_read.result()
+            zone = next((row for row in zones_read.result() if row["id"] == session["zone_id"]), None)
+            levels = {row["id"]: row for row in levels_read.result() if row["is_active"]}
+            nodes, edges = graph_read.result()
         if zone is None or zone["operational_status"] != "open" or zone["level_id"] not in levels:
             raise HTTPException(409, "The assigned zone is currently unavailable.")
         source = publication['entrance_node_id'] if publication['revision'] else os.getenv("PARKING_ENTRANCE_NODE_ID", "").strip()
         if not source:
             raise HTTPException(503, "Navigation entrance is not configured.")
         source = str(UUID(source))
-        nodes, edges = database.get_graph()
         if publication['revision']:
             # Retired seed nodes remain for referential history, and may have
             # nullable legacy coordinates. Only the active published network

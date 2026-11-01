@@ -94,6 +94,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       unawaited(_payments!.refresh());
       _paymentPoller = VisiblePoller(
         refresh: () => _payments!.refresh(background: true),
+        hasError: () => _payments!.error != null,
         isVisible: () =>
             mounted &&
             _foreground &&

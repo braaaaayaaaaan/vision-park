@@ -104,6 +104,14 @@ export async function restoreSession(accessToken) {
   return { profile: await verifyAdministrator(accessToken), session: null };
 }
 
+// Only for allowlisted API proxies whose FastAPI destination requires an admin.
+// This is not an authorization decision: every resource request verifies current
+// Auth state, approval and role in FastAPI. Pages and auth flows use restoreSession.
+export async function forwardSession(accessToken) {
+  if (!accessToken) throw new AuthError('expired', 401);
+  return { session: null };
+}
+
 export async function refreshSession(accessToken, refreshToken) {
   try {
     const profile = await verifyAdministrator(accessToken);

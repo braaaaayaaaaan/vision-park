@@ -1,10 +1,10 @@
-import { ACCESS_COOKIE, AuthError, baseUrl, verifyAdministrator } from './auth.mjs';
+import { ACCESS_COOKIE, AuthError, baseUrl, forwardSession } from './auth.mjs';
 import { overnightQuery, validateOvernightAlerts } from './overnight-contracts.mjs';
 
 export async function loadOvernightAlerts(request) {
   try {
     const token = request.cookies.get(ACCESS_COOKIE)?.value;
-    await verifyAdministrator(token);
+    await forwardSession(token);
     let query;
     try { query = overnightQuery(new URL(request.url).searchParams); }
     catch (error) { return { status: 422, body: { error: error.message } }; }

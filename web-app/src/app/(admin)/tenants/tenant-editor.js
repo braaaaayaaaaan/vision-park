@@ -68,7 +68,9 @@ export default function TenantEditor({ company = null, zones = [], onClose, onSa
           {!zones.length && <p>No parking zones are configured yet.</p>}
           {levels.map(level => <fieldset className={styles.zoneFieldset} key={level} disabled={busy || reloadRequired}>
             <legend>{zones.find(zone => zone.level_id === level).level_name}</legend>
-            {zones.filter(zone => zone.level_id === level).map(zone => <label className={styles.zoneOption} key={zone.id}>
+            {zones.filter(zone => zone.level_id === level)
+              .sort((left, right) => left.name.localeCompare(right.name, 'en-MY', { sensitivity: 'base', numeric: true }) || left.id.localeCompare(right.id))
+              .map(zone => <label className={styles.zoneOption} key={zone.id}>
               <input type="checkbox" checked={selected.includes(zone.id)} disabled={!active && !original.includes(zone.id) && !selected.includes(zone.id)}
                 onChange={event => setSelected(old => event.target.checked ? [...old, zone.id] : old.filter(zoneId => zoneId !== zone.id))} />
               <span><strong>{zone.code} · {zone.name}</strong><small>{zone.total_capacity} Shared Spaces · {zone.operational_status === 'open' && zone.level_active ? 'Open' : 'Currently Unavailable'}</small></span>
