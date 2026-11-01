@@ -12,7 +12,7 @@ from uuid import UUID
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 from supabase_auth.types import User
 
 from backend import database
@@ -143,6 +143,9 @@ class ApplicationUser(BaseModel):
     is_active: bool
     tenant_id: UUID | None
     company_name: str | None = None
+    # Request-local only; never serialized or reused across requests.
+    _tenant: dict | None = PrivateAttr(default=None)
+    _tenant_loaded: bool = PrivateAttr(default=False)
 
 
 def require_application_user(
@@ -158,6 +161,7 @@ def require_application_user(
         user.company_name = None
         if user.tenant_id:
             tenant = database.get_tenant(str(user.tenant_id))
+            user._tenant, user._tenant_loaded = tenant, True
             if tenant and tenant["id"] == str(user.tenant_id):
                 user.company_name = tenant["name"]
         return user
@@ -179,7 +183,7 @@ def require_driver(
     if user.role != "driver" or user.tenant_id is None:
         raise HTTPException(403, "A driver with a verified active company is required.")
     try:
-        tenant = database.get_tenant(str(user.tenant_id))
+        tenant = user._tenant if user._tenant_loaded else database.get_tenant(str(user.tenant_id))
     except database.DatabaseError:
         raise HTTPException(503, "Company service is unavailable.") from None
     if not tenant or tenant["id"] != str(user.tenant_id) or tenant["is_active"] is not True:

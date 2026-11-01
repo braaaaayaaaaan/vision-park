@@ -3,7 +3,6 @@
 .heading h1 { font-size: clamp(26px, 3vw, 36px); }
 .heading p { color: var(--text-muted); margin-top: 8px; max-width: 680px; }
 .muted { color: var(--text-muted); font-size: 13px; }
-.decisionNotice[data-status="rejected"] { background: #fff1f2; color: #9f2f3c; border-color: #efc0c6; }
 .summaryScope { color: var(--text); font-size: 13px; margin-bottom: 10px; font-weight: 600; }
 .summaryScope span { color: var(--text-muted); font-weight: 400; }
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }

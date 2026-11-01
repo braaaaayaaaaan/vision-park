@@ -20,7 +20,7 @@ export default function RegisteredVehicles() {
   const [offsets, setOffsets] = useState({ drivers: 0, vehicles: 0 });
   const [revision, setRevision] = useState(0), [companyRevision, setCompanyRevision] = useState(0);
   const [selection, setSelection] = useState(null), [drawer, setDrawer] = useState(null);
-  const [notice, setNotice] = useState(null), [inputError, setInputError] = useState('');
+  const [notice, setNotice] = useState(''), [inputError, setInputError] = useState('');
   const [checked, setChecked] = useState({ scope: null, ids: [] }), [bulkSelection, setBulkSelection] = useState(null);
   const [bulkResults, setBulkResults] = useState(null);
   const offset = offsets[view];
@@ -59,19 +59,19 @@ export default function RegisteredVehicles() {
       driversQuery({ ...draft, search: view === 'drivers' ? draft.search : '' });
       if (view === 'vehicles') vehiclesQuery(draft);
       const searchKey = view === 'drivers' ? 'search' : 'plate';
-      setInputError(''); setNotice(null); resetChecked(); setBulkResults(null);
+      setInputError(''); setNotice(''); resetChecked(); setBulkResults(null);
       setApplied({ ...applied, tenant_id: draft.tenant_id, status: draft.status, [searchKey]: draft[searchKey] });
       setOffsets({ drivers: 0, vehicles: 0 });
     } catch (error) { setInputError(error.message); }
   }
-  function clear() { resetChecked(); setBulkResults(null); setDraft(initial); setApplied(initial); setOffsets({ drivers: 0, vehicles: 0 }); setInputError(''); setNotice(null); }
+  function clear() { resetChecked(); setBulkResults(null); setDraft(initial); setApplied(initial); setOffsets({ drivers: 0, vehicles: 0 }); setInputError(''); setNotice(''); }
   function chooseView(next) { resetChecked(); setView(next); setInputError(''); setOffsets(old => ({ ...old, [next]: 0 })); }
-  function decide(vehicle, action) { setNotice(null); setBulkResults(null); setSelection({ vehicle, action }); }
+  function decide(vehicle, action) { setNotice(''); setBulkResults(null); setSelection({ vehicle, action }); }
   return <div className={styles.page}>
     <header className={styles.heading}><div><h1>Registered Vehicles</h1><p>Review driver registration usage and manage individual vehicles.</p></div>
-      <RefreshButton loading={records.loading} disabled={locked} onClick={() => { setNotice(null); reload(); setCompanyRevision(value => value + 1); }} /></header>
+      <RefreshButton loading={records.loading} disabled={locked} onClick={() => { setNotice(''); reload(); setCompanyRevision(value => value + 1); }} /></header>
     <VehicleSummaryCards resource={summary} tenantName={applied.tenant_id ? companies.find(company => company.id === applied.tenant_id)?.name || 'Selected Company' : null} onRetry={reload} />
-    {notice && <p className={`${shared.success} ${styles.decisionNotice}`} data-status={notice.status} role="status">{notice.message}</p>}
+    {notice && <p className={shared.success} role="status">{notice}</p>}
     {bulkResults && <div className={styles.bulkFeedback} data-partial={bulkResults.some(result => result.outcome !== 'approved')}
       role={bulkResults.some(result => result.outcome !== 'approved') ? 'alert' : 'status'}>
       <p><strong>{bulkResults.filter(result => result.outcome === 'approved').length} of {bulkResults.length} selected vehicles approved.</strong></p>
@@ -127,16 +127,13 @@ export default function RegisteredVehicles() {
               </table>
             </div> : <VehicleRecordsTable vehicles={data.vehicles} selectedIds={selectedVehicles.map(vehicle => vehicle.id)} locked={locked}
               onSelect={selectVehicle} onSelectAll={selectAll} onDecision={decide}
-              onApproveSelected={() => { if (!locked && selectedVehicles.length) { setNotice(null); setBulkResults(null); setBulkSelection(selectedVehicles); } }} />}
+              onApproveSelected={() => { if (!locked && selectedVehicles.length) { setNotice(''); setBulkResults(null); setBulkSelection(selectedVehicles); } }} />}
       </div>
       <VehiclePagination data={data} offset={offset} loading={records.loading} disabled={locked} onPage={changePage} noun={view === 'drivers' ? 'Drivers' : 'Vehicles'} />
     </section>
     {drawer && <DriverDetailsDrawer key={drawer.id} driverId={drawer.id} trigger={drawer.trigger} revision={revision} locked={locked} onClose={() => { if (!locked) setDrawer(null); }} onDecision={decide} />}
     {selection && <VehicleDecisionDialog {...selection} onDismiss={(refresh = false) => { setSelection(null); if (refresh) reload(); }}
-      onSuccess={result => {
-        setNotice({ status: result.registration_status, message: `Successfully ${result.registration_status} the vehicle: ${result.plate_number}!` });
-        setSelection(null); reload();
-      }} />}
+      onSuccess={result => { setNotice(`${result.plate_number}: ${statusLabels[result.registration_status]}.`); setSelection(null); reload(); }} />}
     {bulkSelection && <BulkVehicleApprovalDialog vehicles={bulkSelection}
       onDismiss={(refresh = false) => { setBulkSelection(null); if (refresh) reload(); }}
       onComplete={results => { setBulkResults(results); setBulkSelection(null); reload(); }} />}

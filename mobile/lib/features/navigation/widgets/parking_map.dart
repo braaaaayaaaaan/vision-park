@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -516,11 +517,12 @@ class _ParkingMapState extends State<ParkingMap>
           _loading = false;
         });
         _tryResume();
+        unawaited(_prefetchNextFloor());
       }
-    } catch (_) {
+    } catch (error) {
       if (kDebugMode) {
         debugPrint(
-          'Navigation floor plan: image_request_failed level=${widget.levelId}',
+          'Navigation floor plan: image_request_failed level=${widget.levelId} type=${error.runtimeType}',
         );
       }
       if (mounted && request == _request) {
@@ -567,6 +569,32 @@ class _ParkingMapState extends State<ParkingMap>
       return await future;
     } finally {
       if (epoch == _routeEpoch) _imageLoads.remove(levelId);
+    }
+  }
+
+  Future<void> _prefetchNextFloor() async {
+    final path = _previewPath;
+    if (!mounted || !widget.previewEnabled || path == null || !path.canPlay) {
+      return;
+    }
+    final active = path.levelAt(_preview.value);
+    final segment = path.segmentAt(_preview.value);
+    if (active == null || segment == null) return;
+    // One floor ahead bounds background work. The existing cache and in-flight
+    // map share this verified request with display and ramp-boundary loading.
+    final next = path.levels
+        .skip(segment.segmentIndex + 1)
+        .where((level) => level != active)
+        .firstOrNull;
+    if (next == null) return;
+    try {
+      await _verifiedImage(next);
+    } catch (_) {
+      // A failed prefetch must not stop the current floor. When needed, loading
+      // can try again using the same session/revision descriptor.
+      if (kDebugMode) {
+        debugPrint('Navigation floor plan: prefetch_failed level=$next');
+      }
     }
   }
 
@@ -649,19 +677,27 @@ class _ParkingMapState extends State<ParkingMap>
             color: AppTheme.background,
             borderRadius: BorderRadius.circular(AppTheme.cornerRadius),
           ),
-          child: const Column(
+          child: Column(
             children: [
-              Icon(Icons.map_outlined, size: 36),
-              SizedBox(height: 8),
-              Text(
+              const Icon(Icons.map_outlined, size: 36),
+              const SizedBox(height: 8),
+              const Text(
                 'Map Unavailable',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              SizedBox(height: 8),
-              Text(
+              const SizedBox(height: 8),
+              const Text(
                 'A verified published floor plan could not be loaded. Refresh navigation or contact your parking administrator.',
                 textAlign: TextAlign.center,
               ),
+              if (!invalid && plan != null && widget.loadFloorPlan != null)
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    unawaited(_load());
+                  }),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry Floor Plan'),
+                ),
             ],
           ),
         ),
@@ -1170,14 +1206,16 @@ class _ParkingMapState extends State<ParkingMap>
                   (widget.previewEnabled &&
                       _bytes != null &&
                       !_loading &&
-                      voice.canEnable)
+                      (voice.canEnable || voice.canRetry))
               ? () => voice.setEnabled(!voice.enabled)
               : null,
           icon: Icon(
             voice.enabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
           ),
           label: Text(
-            !voice.canEnable
+            voice.canRetry
+                ? 'Retry Voice'
+                : !voice.canEnable
                 ? 'Voice Unavailable'
                 : voice.enabled
                 ? 'Voice On'

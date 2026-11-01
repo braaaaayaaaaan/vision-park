@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, AuthError, baseUrl, verifyAdministrator, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { reminderIds, reminderInput, validateReminders } from './parking-reminder-contracts.mjs';
 
@@ -13,7 +13,7 @@ export async function handleParkingReminders(request) {
   try {
     if (writing) requireSameOrigin(request);
     const token = request.cookies.get(ACCESS_COOKIE)?.value;
-    await verifyAdministrator(token);
+    await forwardSession(token);
     let ids, input;
     try {
       if (writing) {

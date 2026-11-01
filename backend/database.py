@@ -1,6 +1,11 @@
 """Small Supabase boundary. Importing this module does not connect to the database."""
 
 import os
+import atexit
+import httpx
+import logging
+from time import perf_counter
+from collections import Counter
 from pathlib import Path
 from threading import Lock
 
@@ -8,6 +13,7 @@ from dotenv import load_dotenv
 from httpx import HTTPError
 from postgrest.exceptions import APIError
 from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
 
 ROOT_ENV = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(ROOT_ENV, override=False)
@@ -20,13 +26,13 @@ def parking_reminder_rpc(name, params):
     return _execute(get_supabase().rpc(name, params)).data
 
 
-def get_admin_parking_sessions(limit, offset, plate, status, level_id, start, end):
+def get_admin_parking_sessions(limit, offset, plate, status, level_id, start, end, *, head=False):
     vehicle = 'vehicle:vehicles!vehicle_id!inner' if plate else 'vehicle:vehicles!vehicle_id'
     zone = 'zone:parking_zones!zone_id!inner' if level_id else 'zone:parking_zones!zone_id'
     query = get_supabase().table('parking_sessions').select(
         'id,vehicle_id,zone_id,status,entry_time,parking_confirmed_at,exit_time,'
         f'{vehicle}(plate_number,owner:users!user_id(full_name,tenant:tenants!tenant_id(name))),'
-        f'{zone}(name,level_id,level:parking_levels!level_id(name))', count='exact')
+        f'{zone}(name,level_id,level:parking_levels!level_id(name))', count='exact', head=head)
     if plate:
         query = query.ilike('vehicle.plate_number', f'%{plate}%')
     if status:
@@ -255,21 +261,57 @@ def get_supabase() -> Client:
             if not url or not key:
                 raise DatabaseError("Set SUPABASE_URL and SUPABASE_KEY in the root .env.")
             try:
-                _client = create_client(url, key)
+                # Bound safe REST reads so abandoned screens cannot leave a
+                # stalled read occupying a worker for the SDK's 120s default.
+                # POST/RPC and storage retain their original timeout semantics.
+                transport = httpx.Client(timeout=120, follow_redirects=False,
+                    event_hooks={'request': [_limit_read_timeout]})
+                _client = create_client(url, key, options=SyncClientOptions(httpx_client=transport))
+                atexit.register(transport.close)
             except Exception:
+                if 'transport' in locals():
+                    transport.close()
                 raise DatabaseError("Unable to initialise Supabase; check backend configuration.") from None
         return _client
 
 
+def _limit_read_timeout(request):
+    if request.method in ('GET', 'HEAD') and request.url.path.startswith('/rest/v1/'):
+        request.extensions['timeout'] = httpx.Timeout(10, connect=5, pool=5).as_dict()
+
+
 def _execute(query):
+    started = perf_counter()
     try:
         return query.execute()
     except APIError as error:
+        logging.getLogger('uvicorn.error').warning(
+            'database_request_failed category=%s elapsed_ms=%.2f',
+            'missing_rpc' if error.code == 'PGRST202' else 'upstream_rejected',
+            (perf_counter() - started) * 1000)
         if error.code == "PGRST202":
             raise DatabaseError("Database RPC unavailable. Review and apply the relevant SQL migration first.") from None
         raise DatabaseError("Supabase query failed; check table access, schema and backend credentials.") from None
-    except HTTPError:
+    except HTTPError as error:
+        from httpx import TimeoutException
+        logging.getLogger('uvicorn.error').warning(
+            'database_request_failed category=%s elapsed_ms=%.2f',
+            'timeout' if isinstance(error, TimeoutException) else 'transport',
+            (perf_counter() - started) * 1000)
         raise DatabaseError("Supabase is unreachable; check connectivity and project availability.") from None
+
+
+def active_zone_counts(zone_ids):
+    """Read only active counters, batching eligible IDs and paging past API caps."""
+    counts = Counter()
+    ids = list(zone_ids)
+    for offset in range(0, len(ids), 100):
+        batch = ids[offset:offset + 100]
+        for row in _all_rows(lambda: get_supabase().table('parking_sessions')
+                             .select('id,zone_id,status').in_('zone_id', batch)
+                             .in_('status', list(ACTIVE_STATUSES))):
+            counts[(row['zone_id'], row['status'])] += 1
+    return counts
 
 
 def _all_rows(make_query) -> list[dict]:

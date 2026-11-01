@@ -191,23 +191,24 @@ class WalletAccountCard extends StatelessWidget {
             onTap: onOpen,
           ),
           const Divider(indent: 16, endIndent: 16),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                TextButton.icon(
-                  onPressed: onTransactions,
-                  icon: const Icon(Icons.swap_vert_rounded),
-                  label: const Text('Transactions'),
-                ),
-                TextButton.icon(
-                  onPressed: onSettings,
-                  icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Payment Settings'),
-                ),
-              ],
+          ListTile(
+            minTileHeight: 48,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: const SizedBox(
+              width: 40,
+              child: Icon(Icons.swap_vert_rounded),
             ),
+            iconColor: theme.colorScheme.primary,
+            title: const Text('Transactions'),
+            onTap: onTransactions,
+          ),
+          ListTile(
+            minTileHeight: 48,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: const SizedBox(width: 40, child: Icon(Icons.tune_rounded)),
+            iconColor: theme.colorScheme.primary,
+            title: const Text('Payment Settings'),
+            onTap: onSettings,
           ),
         ],
       ),

@@ -13,6 +13,7 @@ import '../../data/models/driver_models.dart';
 import '../../shared/formatting/malaysian_date_time.dart';
 import '../../shared/widgets/empty_state_card.dart';
 import '../../shared/visible_poller.dart';
+import '../../shared/widgets/refresh_notice.dart';
 import 'home_controller.dart';
 import 'allocation_notifications.dart';
 import 'widgets/allocation_banner.dart';
@@ -87,6 +88,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _controller.addListener(_parkingChanged);
     _poller = VisiblePoller(
       refresh: () => _controller.refreshParking(background: true),
+      hasError: () =>
+          _controller.sessionError != null ||
+          _controller.availabilityError != null,
       isVisible: () =>
           mounted &&
           widget.isVisible &&
@@ -107,7 +111,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.isVisible &&
         (!oldWidget.isVisible ||
             widget.refreshRevision != oldWidget.refreshRevision)) {
-      _controller.refreshParking(background: true);
+      _controller.refreshParking(
+        background: true,
+        afterChange: widget.refreshRevision != oldWidget.refreshRevision,
+      );
     }
   }
 
@@ -295,9 +302,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _availabilitySection(String? companyName) {
     if (_controller.availabilityStatus == HomeStatus.ready) {
-      return AvailabilityCard(
-        availability: _controller.availability!,
-        companyName: companyName,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RefreshNotice(
+            refreshing: _controller.availabilityRefreshing,
+            error: _controller.availabilityError,
+            onRetry: _controller.loadAvailability,
+          ),
+          AvailabilityCard(
+            availability: _controller.availability!,
+            companyName: companyName,
+          ),
+        ],
       );
     }
     return DashboardCard(
@@ -334,7 +351,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _activeSessionsSection() {
-    if (_controller.sessionStatus == HomeStatus.ready) {
+    if (_controller.sessionStatus == HomeStatus.ready &&
+        (_controller.activeSessions.isNotEmpty ||
+            (_controller.sessionError == null &&
+                !_controller.sessionsRefreshing))) {
       final sessions = _controller.activeSessions
           .where(
             (parking) =>
@@ -353,6 +373,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          RefreshNotice(
+            refreshing: _controller.sessionsRefreshing,
+            error: _controller.sessionError,
+            onRetry: _controller.loadSessions,
+          ),
           for (var index = 0; index < sessions.length; index++) ...[
             if (index > 0) const SizedBox(height: AppSpacing.large),
             ActiveSessionCard(
@@ -368,7 +393,8 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_controller.sessionStatus == HomeStatus.loading) ...[
+          if (_controller.sessionStatus == HomeStatus.loading ||
+              _controller.sessionsRefreshing) ...[
             const LinearProgressIndicator(
               semanticsLabel: 'Loading Active Sessions',
             ),

@@ -12,11 +12,12 @@ import styles from "./admin-shell.module.css";
 const navigation = [
   ["/overview", "Overview"], ["/analytics", "Analytics"],
   ["/approvals", "Approvals"], ["/vehicles", "Vehicles"], ["/tenants", "Tenants"],
-  ["/sessions", "Sessions"], ["/parking-structure", "Parking Structure"],
+  ["/sessions", "Sessions"], ["/cameras", "Camera Management"], ["/parking-structure", "Parking Structure"],
   ["/parking-rates", "Parking Rates"], ["/payments", "Payments"],
 ];
 
 const navigationIcons = {
+  "/cameras": "M3 6h13v12H3z M16 10l5-3v10l-5-3 M6 10h6 M6 14h3",
   "/parking-rates": "M4 4h16v16H4z M8 8h8 M8 12h4 M8 16h8",
   "/payments": "M3 5h18v14H3z M3 9h18 M7 15h4",
   "/tenants": "M3 21V7h10v14 M13 3h8v18 M1 21h22 M6 11h4 M6 15h4 M16 7h2 M16 11h2 M16 15h2",

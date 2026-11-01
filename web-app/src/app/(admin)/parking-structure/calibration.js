@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { floorPlanRequest } from './floor-plans-client.mjs';
 import { floorPlanWidth, imagePoint, panPosition, previewScale } from './calibration-utils.mjs';
 import styles from './calibration.module.css';
+import FloorPlanImage from './floor-plan-image.mjs';
 
 export default function Calibration({ level, plan, disabled, refreshKey, onEditingChange }) {
   const [active, setActive] = useState(false);
@@ -63,7 +64,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
     const start = gesture.current;
     gesture.current = null;
     if (!start || start.moved || tool !== 'select' || busy || !active || conflict) return;
-    const point = imagePoint(event.clientX, event.clientY, drawing.current.getBoundingClientRect(), plan.width_px, plan.height_px);
+    const point = imagePoint(event.clientX, event.clientY, drawing.current, plan.width_px, plan.height_px);
     if (point) { setPoints(previous => previous.length < 2 ? [...previous, point] : previous); setMessage(''); }
   }
   async function save() {
@@ -102,7 +103,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
           <div><span>A</span> ({saved.start_x.toFixed(2)}, {saved.start_y.toFixed(2)})</div>
           <div><span>B</span> ({saved.end_x.toFixed(2)}, {saved.end_y.toFixed(2)})</div>
         </dd></div>
-      </dl> : <p className={styles.note}>This image revisions has not yet been calibrated.</p>}
+      </dl> : <p className={styles.note}>This image revision has not yet been calibrated.</p>}
     {error && <p className={styles.error} role="alert">{error}{conflict ? ' Use refresh at the top of the page to load the latest configuration.' : ''}</p>}
     {message && <p className={styles.success} role="status">{message}</p>}
     {active && <div className={styles.toolbar}>
@@ -120,7 +121,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
         style={{ width: floorPlanWidth(plan.width_px, plan.height_px, active ? zoom : 1) }} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { gesture.current = null; }}
         role="img" aria-label={`Floor plan for ${level.name}, with calibration reference points`}>
-        <image href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`}
+        <FloorPlanImage href={`/api/parking-structure/levels/${level.id}/image?revision=${plan.revision}&refresh=${refreshKey}`}
           width={plan.width_px} height={plan.height_px} onLoad={() => setReady(true)}
           onError={() => { setReady(false); setConflict(true); setError('Image could not be loaded. Refresh before calibrating.'); }} />
         {displayed.length === 2 && <g>
@@ -135,7 +136,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
     </div>
     {active && <div className={styles.measurement}>
       <label>Known Distance (Metres)<input type="number" step="any" min="0" value={metres} disabled={busy || conflict} onChange={event => setMetres(event.target.value)} /></label>
-      <p aria-live="polite">{preview ? `Reference: ${preview.pixels.toFixed(2)} px · preview scale: ${preview.scale.toPrecision(6)} m/px` : 'Choose two distinct points and enter a positive distance based on the reference.'}</p>
+      <p aria-live="polite">{preview ? `Reference: ${preview.pixels.toFixed(2)} px · Preview Scale: ${preview.scale.toPrecision(6)} m/px` : 'Choose two distinct points and enter a positive distance based on the reference.'}</p>
       <button className={`${styles.button} ${styles.primary}`} disabled={busy || !preview || conflict || !ready} onClick={save}>{saving ? 'Saving…' : 'Save Calibration'}</button>
     </div>}
   </section>;

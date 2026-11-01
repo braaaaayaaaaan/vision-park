@@ -25,10 +25,13 @@ class Camera:
                 self.open()
             is_recording = isinstance(self.source, str) and Path(self.source).is_file()
             fps = self.capture.get(cv2.CAP_PROP_FPS)
+            expected_frames = self.capture.get(cv2.CAP_PROP_FRAME_COUNT) if is_recording else 0
             frame_index = 0
             while stop_event is None or not stop_event.is_set():
                 success, frame = self.capture.read()
                 if not success:
+                    if isfinite(expected_frames) and frame_index < expected_frames - .5:
+                        raise RuntimeError('The recording ended before all reported frames were decoded')
                     break
                 self.source_time_seconds = None
                 if is_recording:

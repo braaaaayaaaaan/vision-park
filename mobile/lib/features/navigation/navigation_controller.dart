@@ -27,6 +27,8 @@ class NavigationController extends ChangeNotifier {
   String? selectedLevelId;
   bool _disposed = false;
   bool _loadingAssigned = false;
+  bool get refreshing => _loadingAssigned;
+  DateTime? verifiedAt;
   Future<void>? _assignedRead;
   ActiveParking? _requestedAllocation;
 
@@ -37,7 +39,9 @@ class NavigationController extends ChangeNotifier {
     await _assignedRead;
     if (_disposed || confirming || routeRepository == null) return;
     _requestedAllocation = allocation;
-    await _loadAssigned(refreshSessions: true, requireAllocated: true);
+    await _trackAssigned(
+      _loadAssigned(refreshSessions: true, requireAllocated: true),
+    );
   }
 
   /// A current session card may also point to an already parked vehicle.
@@ -48,7 +52,7 @@ class NavigationController extends ChangeNotifier {
     await _assignedRead;
     if (_disposed || confirming || routeRepository == null) return;
     _requestedAllocation = parking;
-    await _loadAssigned(refreshSessions: true);
+    await _trackAssigned(_loadAssigned(refreshSessions: true));
   }
 
   bool get hasActiveSession =>
@@ -91,6 +95,8 @@ class NavigationController extends ChangeNotifier {
   bool get canConfirm =>
       !_disposed &&
       !confirming &&
+      !refreshing &&
+      message == null &&
       status == NavigationStatus.ready &&
       hasActiveSession &&
       data!.confirmationAllowed &&
@@ -112,12 +118,7 @@ class NavigationController extends ChangeNotifier {
       final current = _assignedRead;
       if (current != null) return current;
       final work = _loadAssigned(refreshSessions: true, background: background);
-      _assignedRead = work;
-      try {
-        await work;
-      } finally {
-        _assignedRead = null;
-      }
+      await _trackAssigned(work);
       return;
     }
     final repository = this.repository;
@@ -153,8 +154,25 @@ class NavigationController extends ChangeNotifier {
     }
     selectedSessionId = id;
     _requestedAllocation = null;
-    await _loadAssigned(refreshSessions: false);
+    await _trackAssigned(_loadAssigned(refreshSessions: false));
   }
+
+  Future<void> _trackAssigned(Future<void> work) async {
+    _assignedRead = work;
+    try {
+      await work;
+    } finally {
+      if (identical(_assignedRead, work)) _assignedRead = null;
+    }
+  }
+
+  Future<void> refreshAfterChange() async {
+    await _assignedRead;
+    if (!_disposed) await load(background: true);
+  }
+
+  // The shared transport owns bounded retries; never multiply them here.
+  Future<T> _readNavigation<T>(Future<T> Function() read) => read();
 
   Future<void> _loadAssigned({
     required bool refreshSessions,
@@ -167,19 +185,27 @@ class NavigationController extends ChangeNotifier {
     _loadingAssigned = true;
     final previous = data;
     final previousLevel = selectedLevelId;
-    final keepData = background && status == NavigationStatus.ready;
-    if (!background || status == NavigationStatus.disconnected) {
+    final keepData =
+        status == NavigationStatus.ready &&
+        previous != null &&
+        (selectedSessionId == null ||
+            selectedSessionId == previous.parking?.session.id) &&
+        (_requestedAllocation == null ||
+            _requestedAllocation!.session.id == previous.parking?.session.id);
+    var retainPrevious = keepData;
+    if (!keepData) {
       status = NavigationStatus.loading;
       data = null;
       selectedLevelId = null;
       message = null;
       confirmationMessage = null;
       confirmationSucceeded = false;
-      notifyListeners();
     }
+    message = null;
+    notifyListeners();
     try {
       if (refreshSessions) {
-        final result = await routeRepository!.getSessions();
+        final result = await _readNavigation(routeRepository!.getSessions);
         if (_disposed) return;
         sessions = result;
       }
@@ -212,9 +238,22 @@ class NavigationController extends ChangeNotifier {
                 sessions.firstOrNull;
       selectedSessionId = parking?.session.id;
       final oldParking = previous?.parking;
+      retainPrevious =
+          keepData &&
+          parking?.session.id == oldParking?.session.id &&
+          parking?.session.zoneId == oldParking?.session.zoneId &&
+          parking?.session.status == oldParking?.session.status;
       if (keepData &&
           parking != null &&
           oldParking != null &&
+          previous.graph != null &&
+          oldParking.route?.nodes.every(
+                (node) => previous.graph!.levels.any(
+                  (level) =>
+                      level.id == node.levelId && level.floorPlan != null,
+                ),
+              ) ==
+              true &&
           parking.session.id == oldParking.session.id &&
           parking.session.status == oldParking.session.status &&
           parking.session.confirmedAt == oldParking.session.confirmedAt &&
@@ -222,13 +261,15 @@ class NavigationController extends ChangeNotifier {
           parking.zone.id == oldParking.zone.id) {
         // Session snapshots are cheap. Keep the existing route/map instance
         // while its assignment is unchanged, including the selected floor.
+        verifiedAt = DateTime.now();
+        message = null;
         return;
       }
       final result =
           parking == null ||
               parking.session.status != ParkingSessionStatus.allocated
           ? NavigationData(parking: parking)
-          : await routeRepository!.getRoute(parking);
+          : await _readNavigation(() => routeRepository!.getRoute(parking));
       if (_disposed) return;
       data = result;
       message = null;
@@ -243,16 +284,32 @@ class NavigationController extends ChangeNotifier {
           geometry?.orderedNodes.firstOrNull?.levelId ??
           result.graph?.levels.firstOrNull?.id;
       status = NavigationStatus.ready;
+      verifiedAt = DateTime.now();
     } on AuthFailure catch (error) {
       if (_disposed) return;
+      if (kDebugMode) {
+        debugPrint(
+          'Navigation read failed: ${error.code ?? "unclassified_response"}',
+        );
+      }
       message = error.message;
-      status = NavigationStatus.error;
-      data = null;
+      if (!retainPrevious ||
+          (!error.retryable && error.code != 'read_cancelled')) {
+        status = NavigationStatus.error;
+        data = null;
+        verifiedAt = null;
+      } else {
+        selectedSessionId = previous?.parking?.session.id;
+      }
     } catch (_) {
       if (_disposed) return;
       message =
           'Unable to load navigation. Check your connection and try again.';
-      if (!keepData) status = NavigationStatus.error;
+      if (!retainPrevious) {
+        status = NavigationStatus.error;
+        data = null;
+        verifiedAt = null;
+      }
     } finally {
       _loadingAssigned = false;
       if (!_disposed) notifyListeners();

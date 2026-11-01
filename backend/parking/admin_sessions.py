@@ -33,6 +33,11 @@ class AdminSessionPage(BaseModel):
     timezone: Literal['Asia/Kuala_Lumpur'] = 'Asia/Kuala_Lumpur'
 
 
+class AdminSessionSummary(BaseModel):
+    counts: dict[SessionStatus, int] = Field(min_length=4, max_length=4)
+    timezone: Literal['Asia/Kuala_Lumpur'] = 'Asia/Kuala_Lumpur'
+
+
 def session_record(row):
     vehicle = row.get('vehicle') or {}
     owner = vehicle.get('owner') or {}

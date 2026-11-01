@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { uuid, zoneRequestError, validateZoneResponse } from '../app/(admin)/parking-structure/zone-draft-utils.mjs';
 
@@ -10,7 +10,7 @@ export async function zoneDraftRequest(request, path) {
     if (path[0] !== 'levels' || !uuid(path[1]) || path[2] !== 'zone-drafts' ||
       !(path.length === 3 && ['GET', 'POST'].includes(method) || path.length === 4 && uuid(path[3]) && ['PATCH', 'DELETE'].includes(method)) || new URL(request.url).search) return { status: 404, body: { error: 'Not found.' } };
     if (method !== 'GET') requireSameOrigin(request);
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const levelId = path[1].toLowerCase(), zoneId = path[3]?.toLowerCase();
     let input;

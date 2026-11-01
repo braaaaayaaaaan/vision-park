@@ -27,7 +27,7 @@ export default function ParkingOverview() {
 
   return <div className={styles.page}>
     <div className={styles.heading}>
-      <div><h1>Today&apos;s Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last Refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
+      <div><h1>Today's Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last Refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
       <RefreshButton onClick={refresh} loading={loading} />
     </div>
     {loading ? <div className={styles.panel} role="status" aria-live="polite">Loading parking overview…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={refresh}>Try Again</button></div> : data &&

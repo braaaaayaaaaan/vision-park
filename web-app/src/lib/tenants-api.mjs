@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { uuid, tenantInput, tenantQuery, validateTenantResponse } from './tenant-contracts.mjs';
 
@@ -18,7 +18,7 @@ export async function handleTenants(request, path = []) {
     if (path.length > 1 || (path.length && !uuid(id)) ||
         !(request.method === 'GET' || (request.method === 'POST' && !id) || (request.method === 'PUT' && id))) return { status: 404, body: { error: 'Company endpoint not found.' } };
     if (writing) requireSameOrigin(request);
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     let input, query;
     try {

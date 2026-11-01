@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, restoreSession, requireSameOrigin } from './auth.mjs';
 import { approvalQuery, validateRegistrations, validateRegistrationSummary } from './approval-read-contracts.mjs';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,7 +42,7 @@ export async function handleApprovals(request, segments = []) {
   let session;
   try {
     if (request.method === 'POST') requireSameOrigin(request);
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const token = session?.access_token ?? request.cookies.get(ACCESS_COOKIE)?.value;
     let body;
@@ -57,6 +57,8 @@ export async function handleApprovals(request, segments = []) {
     } else if (request.method === 'GET' && segments.length === 1 && segments[0] === 'summary') {
       body = validateRegistrationSummary(await backend('admin/registrations/summary', token));
     } else if (request.method === 'GET' && segments.length === 1 && segments[0] === 'companies') {
+      // This destination is intentionally public; retain the admin preflight.
+      await restoreSession(token);
       body = { companies: companies(await backend('auth/companies', token)) };
     } else if (request.method === 'POST' && segments.length === 2 && uuid.test(segments[0]) && ['approve', 'reject'].includes(segments[1])) {
       const [id, action] = segments;

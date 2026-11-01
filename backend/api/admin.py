@@ -17,7 +17,7 @@ from backend.admin_registration_data import RegistrationSummary, summarize_regis
 from backend.auth import ApplicationUser, require_administrator
 from backend.parking.overview import ParkingOverview, aggregate_overview, reporting_period
 from backend.parking.analytics import ParkingAnalytics, aggregate_analytics, analytics_period
-from backend.parking.admin_sessions import AdminSessionPage, SessionStatus, session_record
+from backend.parking.admin_sessions import AdminSessionPage, AdminSessionSummary, SessionStatus, session_record
 from backend.parking import overnight
 from backend.parking import status_reminders
 from backend.parking import floor_plans
@@ -451,11 +451,12 @@ def overnight_sessions(response: Response, kind: Literal['current', 'past'] = 'c
         raise HTTPException(503, 'Overnight parking alerts are unavailable. Please retry.') from None
 
 
-@router.get('/parking/sessions', response_model=AdminSessionPage)
+@router.get('/parking/sessions', response_model=AdminSessionPage | AdminSessionSummary)
 def parking_sessions(response: Response, limit: Annotated[int, Query(ge=1, le=100)] = 25,
                      offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
                      plate: Annotated[str, Query(max_length=64)] = '', status: SessionStatus | None = None,
-                     level_id: UUID | None = None, start_date: date | None = None, end_date: date | None = None):
+                     level_id: UUID | None = None, start_date: date | None = None, end_date: date | None = None,
+                     summary: bool = False):
     response.headers['Cache-Control'] = 'no-store'
     plate = plate.strip().upper()
     if plate and not re.fullmatch(r'[A-Z0-9]{1,32}', plate):
@@ -467,9 +468,19 @@ def parking_sessions(response: Response, limit: Annotated[int, Query(ge=1, le=10
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
     try:
-        levels = database.get_levels()
+        levels = database.get_levels() if not summary or level_id is not None else []
         if level_id is not None and not any(row['id'] == str(level_id) for row in levels):
             raise HTTPException(422, 'Select an existing parking level.')
+        if summary:
+            counts = {}
+            for state in ('allocated', 'occupied', 'completed', 'cancelled'):
+                _, count = database.get_admin_parking_sessions(1, 0, plate, state,
+                    str(level_id) if level_id else None,
+                    start.isoformat() if start else None, end.isoformat() if end else None, head=True)
+                if type(count) is not int or count < 0:
+                    raise ValueError('Invalid session count')
+                counts[state] = count
+            return AdminSessionSummary(counts=counts)
         rows, total = database.get_admin_parking_sessions(limit, offset, plate, status,
             str(level_id) if level_id else None, start.isoformat() if start else None, end.isoformat() if end else None)
         return AdminSessionPage(sessions=[session_record(row) for row in rows], total=total, limit=limit, offset=offset,

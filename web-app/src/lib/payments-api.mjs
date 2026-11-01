@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { uuid, paymentQuery, tariffInput, validatePaymentMeta, validateTariff, validateTransaction, validatePaymentPage, validatePaymentSummary } from './payment-contracts.mjs';
 
@@ -10,7 +10,7 @@ export async function handlePayments(request, path = []) {
         (path.length === 2 && (kind !== 'transactions' || !uuid(id))) ||
         !(request.method === 'GET' || (writing && kind === 'tariffs' && path.length === 1))) return { status: 404, body: { error: 'Payment endpoint not found.' } };
     if (writing) requireSameOrigin(request);
-    await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value);
+    await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value);
     let query, input;
     try {
       const params = new URL(request.url).searchParams;

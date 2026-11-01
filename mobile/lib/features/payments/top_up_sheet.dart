@@ -8,21 +8,21 @@ int topUpAmountSen(String input) {
   final text = input.trim();
   if (!RegExp(r'^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$').hasMatch(text)) {
     throw const FormatException(
-      'Enter an RM amount with up to two decimal places.',
+      'Enter a MYR amount with up to two decimal places.',
     );
   }
   final parts = text.split('.');
   final whole = int.tryParse(parts.first.isEmpty ? '0' : parts.first);
   if (whole == null || whole > 1000000) {
     throw const FormatException(
-      'Enter an amount from RM 0.01 to RM 1,000,000.00.',
+      'Enter an amount from MYR 0.01 to MYR 1,000,000.00.',
     );
   }
   final cents = parts.length == 1 ? 0 : int.parse(parts[1].padRight(2, '0'));
   final amount = whole * 100 + cents;
   if (amount < 1 || amount > 100000000) {
     throw const FormatException(
-      'Enter an amount from RM 0.01 to RM 1,000,000.00.',
+      'Enter an amount from MYR 0.01 to MYR 1,000,000.00.',
     );
   }
   return amount;
@@ -186,7 +186,7 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
                       labelText: 'Amount',
-                      prefixText: 'RM ',
+                      prefixText: 'MYR ',
                       hintText: '0.00',
                       errorMaxLines: 3,
                       border: OutlineInputBorder(),

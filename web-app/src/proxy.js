@@ -24,5 +24,5 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/login', '/overview/:path*', '/analytics/:path*', '/approvals/:path*', '/vehicles/:path*', '/tenants/:path*', '/sessions/:path*', '/parking-structure/:path*', '/parking-rates/:path*', '/payments/:path*'],
+  matcher: ['/login', '/overview/:path*', '/analytics/:path*', '/approvals/:path*', '/vehicles/:path*', '/tenants/:path*', '/sessions/:path*', '/cameras/:path*', '/parking-structure/:path*', '/parking-rates/:path*', '/payments/:path*'],
 };

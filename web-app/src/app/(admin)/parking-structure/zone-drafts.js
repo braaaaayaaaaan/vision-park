@@ -52,7 +52,7 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
         body: JSON.stringify(body), signal: controller.signal });
       if (!controller.signal.aborted) {
         setForm(null); setEditing(null); setData(null); setAttempt(value => value + 1);
-        setMessage(method === 'DELETE' ? 'Draft zone deleted.' : 'Draft zone has been successfully saved!');
+        setMessage(method === 'DELETE' ? 'Successfully deleted the draft zone!' : 'Successfully saved the draft zone!');
       }
     } catch (failure) {
       if (!controller.signal.aborted) { setError(failure.message); setLocked([404, 409].includes(failure.status) || !failure.status || failure.status >= 500); }
@@ -84,8 +84,8 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
     {error && <p className={shared.error} role="alert">{error}{locked ? ' Refresh zones to load current data before retrying.' : ''}</p>}
     {data && <>
       <div className={styles.summary} aria-label="Draft Level Capacity">
-        <div><span>Configured capacity</span><strong>{data.total_capacity.toLocaleString('en-MY')}</strong></div>
-        <div><span>Unavailable capacity</span><strong>{data.unavailable_capacity.toLocaleString('en-MY')}</strong></div>
+        <div><span>Configured Capacity</span><strong>{data.total_capacity.toLocaleString('en-MY')}</strong></div>
+        <div><span>Unavailable Capacity</span><strong>{data.unavailable_capacity.toLocaleString('en-MY')}</strong></div>
         <div><span>Draft {data.zones.length === 1 ? 'Zone' : 'Zones'}</span><strong>{data.zones.length.toLocaleString('en-MY')}</strong></div>
       </div>
       {data.zones.length === 0 ? <p className={shared.note}>There are no zones for this level yet.</p> :

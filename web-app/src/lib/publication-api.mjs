@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { validationReport, validScope } from './structure-validation-api.mjs';
 import { uuid } from '../app/(admin)/parking-structure/zone-draft-utils.mjs';
@@ -34,7 +34,7 @@ export async function publicationRequest(request,path) {
   try {
     if (path.length!==2||path[0]!=='publication'||!['preview','publish'].includes(path[1])||request.method!=='POST'||new URL(request.url).search) return {status:404,body:{error:'Not found.'}};
     requireSameOrigin(request);
-    session=(await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value,request.cookies.get(REFRESH_COOKIE)?.value)).session;
+    session=(await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value,request.cookies.get(REFRESH_COOKIE)?.value)).session;
     if(request.headers.get('content-type')?.split(';')[0].toLowerCase()!=='application/json') throw new AuthError('input',415);
     let input;try{input=JSON.parse((await readLimitedBody(request.body,64*1024)).toString());}catch(error){if(error instanceof AuthError)throw error;throw new AuthError('input',422);}
     input=publicationInput(input,path[1]);

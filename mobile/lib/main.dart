@@ -39,33 +39,36 @@ Future<void> main() async {
       httpClient: http.Client(),
     );
     runApp(
-      VisionParkApp(
+      _RepositoryLifetime(
         repository: repository,
-        passwordChange: SupabasePasswordChangeService(
-          Supabase.instance.client,
-          () => SupabaseClient(
-            config.supabaseUrl,
-            config.publicKey,
-            authOptions: const AuthClientOptions(autoRefreshToken: false),
+        child: VisionParkApp(
+          repository: repository,
+          passwordChange: SupabasePasswordChangeService(
+            Supabase.instance.client,
+            () => SupabaseClient(
+              config.supabaseUrl,
+              config.publicKey,
+              authOptions: const AuthClientOptions(autoRefreshToken: false),
+            ),
           ),
-        ),
-        passwordRecovery: PasswordRecoveryController(
-          service: SupabasePasswordRecoveryService.create(
-            url: config.supabaseUrl,
-            publicKey: config.publicKey,
+          passwordRecovery: PasswordRecoveryController(
+            service: SupabasePasswordRecoveryService.create(
+              url: config.supabaseUrl,
+              publicKey: config.publicKey,
+            ),
           ),
+          emailVerification: EmailVerificationController(
+            platform: AndroidVerificationPlatform(),
+            verifier: SupabaseEmailVerifier(Supabase.instance.client),
+          ),
+          activeSessionRepository: RemoteActiveSessionRepository(repository),
+          statusReminderRepository: RemoteStatusReminderRepository(repository),
+          availabilityRepository: RemoteAvailabilityRepository(repository),
+          routeRepository: RemoteAssignedRouteRepository(repository),
+          vehicleRepository: RemoteVehicleRepository(repository),
+          historyRepository: RemoteHistoryRepository(repository),
+          paymentRepository: RemotePaymentRepository(repository),
         ),
-        emailVerification: EmailVerificationController(
-          platform: AndroidVerificationPlatform(),
-          verifier: SupabaseEmailVerifier(Supabase.instance.client),
-        ),
-        activeSessionRepository: RemoteActiveSessionRepository(repository),
-        statusReminderRepository: RemoteStatusReminderRepository(repository),
-        availabilityRepository: RemoteAvailabilityRepository(repository),
-        routeRepository: RemoteAssignedRouteRepository(repository),
-        vehicleRepository: RemoteVehicleRepository(repository),
-        historyRepository: RemoteHistoryRepository(repository),
-        paymentRepository: RemotePaymentRepository(repository),
       ),
     );
   } catch (_) {
@@ -75,4 +78,23 @@ Future<void> main() async {
       ),
     );
   }
+}
+
+class _RepositoryLifetime extends StatefulWidget {
+  const _RepositoryLifetime({required this.repository, required this.child});
+  final RemoteAuthRepository repository;
+  final Widget child;
+  @override
+  State<_RepositoryLifetime> createState() => _RepositoryLifetimeState();
+}
+
+class _RepositoryLifetimeState extends State<_RepositoryLifetime> {
+  @override
+  void dispose() {
+    widget.repository.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

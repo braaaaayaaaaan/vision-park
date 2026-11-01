@@ -7,6 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var allocationSound: AllocationSound? = null
     private var channel: MethodChannel? = null
     private var linkReady = false
     private var pendingLink: String? = null
@@ -21,6 +22,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        allocationSound?.dispose()
+        allocationSound = AllocationSound(this, flutterEngine.dartExecutor.binaryMessenger)
         pendingLink = intent?.dataString
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "visionpark/email_verification")
         channel?.setMethodCallHandler { call, result ->
@@ -58,6 +61,17 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onPause() {
+        allocationSound?.stop()
+        super.onPause()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        allocationSound?.dispose()
+        allocationSound = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {

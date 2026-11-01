@@ -118,7 +118,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
                 })}{!activeTenants.length&&<p className={styles.muted}>No active companies available.</p>}</fieldset>
               </article>;
             })}</div>
-            {!zones.length&&<p className={styles.muted}>No parking zones in this level&apos;s preview.</p>}
+            {!zones.length&&<p className={styles.muted}>No parking zones in this level's preview.</p>}
           </section>;
         })}
       </section>

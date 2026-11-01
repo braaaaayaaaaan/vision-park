@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, restoreSession, requireSameOrigin } from './auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, baseUrl, forwardSession, requireSameOrigin } from './auth.mjs';
 import { readLimitedBody } from './parking-structure-api.mjs';
 import { rampBatchError, validateRampResponse } from '../app/(admin)/parking-structure/cross-level-utils.mjs';
 
@@ -7,7 +7,7 @@ export async function crossLevelRequest(request) {
   try {
     if (!['GET', 'PUT'].includes(request.method)) return { status: 405, body: { error: 'Method not allowed.' } };
     if (request.method === 'PUT') requireSameOrigin(request);
-    const restored = await restoreSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const restored = await forwardSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
     session = restored.session;
     const headers = { Authorization: `Bearer ${session?.access_token ?? request.cookies.get(ACCESS_COOKIE)?.value}` };
     let body, batch, suffix = '';

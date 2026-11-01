@@ -18,7 +18,7 @@ class ExitEventHandler:
         self._plates: dict[str, dict] = {}
         self._vehicles: dict[str, dict] = {}
         self._lock = Lock()
-        self.integration = persistence.enabled()
+        self.integration = recording is not None or persistence.enabled()
         self.recording = recording
 
     def __call__(self, event: RecognitionEvent) -> dict:
@@ -27,19 +27,20 @@ class ExitEventHandler:
             return {**result, "status": "ignored", "code": "not_exit"}
         if not isinstance(event.camera_id, str) or event.camera_id not in self.exit_camera_ids:
             return {**result, "status": "rejected", "code": "unmapped_camera"}
-        if not persistence.valid_event(event):
+        if not persistence.valid_event(event, recorded=self.recording is not None):
             return {**result, "status": "rejected", "code": "invalid_event"}
         if self.integration:
-            event_key = None
+            event_key = persistence.event_key(event, self.recording)
             try:
                 registered = persistence.register(event,self.recording)
                 if registered['status']!='registered':
-                    return {**result,'status':'rejected','code':registered['status']}
+                    return {**result,'status':'rejected','code':registered['status'],'event_id':event_key}
                 event_key = registered['event']['event_id']
                 outcome = persistence.exit_payment(event_key)
                 return {**result,**outcome,'recovered':registered.get('recovered',False)}
             except db.DatabaseError as error:
                 return {**result,**getattr(error,'binding',{}),'event_id':event_key,'status':'error','code':'database_unavailable',
+                    'failure_category':getattr(error,'category',persistence.failure_category(error)),
                     'message':'Exit outcome is unconfirmed. Recover the same playback/event; do not resolve a new session.'}
         with self._lock:
             target = self._plates.get(event.plate_number, {})

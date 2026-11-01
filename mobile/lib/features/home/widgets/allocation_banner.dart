@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
 import '../../../data/models/dashboard_models.dart';
 import '../allocation_notifications.dart';
+import '../allocation_sound.dart';
 import '../home_controller.dart';
 
 /// Home-only notification. No overlay, automatic navigation or extra polling.
@@ -38,7 +41,9 @@ class _AllocationBannerState extends State<AllocationBanner>
       ModalRoute.of(context)?.isCurrent != false;
 
   ActiveParking? get _parking =>
-      widget.controller.sessionStatus == HomeStatus.ready
+      widget.controller.sessionStatus == HomeStatus.ready &&
+          widget.controller.sessionError == null &&
+          !widget.controller.sessionsRefreshing
       ? widget.controller.activeSessions
             .where(
               (parking) =>
@@ -83,6 +88,8 @@ class _AllocationBannerState extends State<AllocationBanner>
       if (!mounted ||
           !_canShow ||
           widget.controller.sessionStatus != HomeStatus.ready ||
+          widget.controller.sessionError != null ||
+          widget.controller.sessionsRefreshing ||
           widget.controller.sessionRevision < _minimumRevision) {
         return;
       }
@@ -91,7 +98,12 @@ class _AllocationBannerState extends State<AllocationBanner>
         widget.paymentSessionIds,
       );
       final id = next?.session.id;
-      if (_sessionId != id) setState(() => _sessionId = id);
+      if (_sessionId != id) {
+        setState(() => _sessionId = id);
+        // takeNext consumes a confirmed new notice once. Do not await audio:
+        // neither polling nor navigation depends on the platform sound result.
+        if (next != null) unawaited(AllocationSound.play());
+      }
     });
   }
 

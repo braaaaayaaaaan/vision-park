@@ -87,7 +87,7 @@ export default function FloorPlans() {
     if (nodeDirty && confirmed !== true) return requestConfirmation({ title: 'Discard Draft Changes?', description: 'Unsaved draft changes will be discarded when you switch editing modes.', variant: 'warning', confirmLabel: 'Discard and Switch' }, () => switchEditor(value, true));
     setEditor(value);
   }
-  return <div className={styles.page}>
+  return <div className={styles.page} data-parking-structure>
     <div className={styles.heading}><div><h1>Parking Structure</h1><p>Manage parking levels, floor plans and draft navigation.</p></div>
       <RefreshButton loading={state.loading} disabled={busy || calEditing} onClick={refresh} /></div>
     {state.success && <p className={styles.success} role="status">{state.success}</p>}
