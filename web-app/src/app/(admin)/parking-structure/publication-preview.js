@@ -1,5 +1,7 @@
 'use client';
 import RefreshButton from '../../../components/refresh-button';
+import SuccessNotice from '../../../components/success-notice';
+import { groupConfigurationIssues } from './configuration-issues.mjs';
 import { authenticatedFetch } from '../../../lib/auth-client.mjs';
 import { useEffect, useRef, useState } from 'react';
 import shared from './parking-structure.module.css';
@@ -22,8 +24,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
   }
   const activeTenants = report?.tenants.filter(tenant => tenant.is_active) ?? [];
   const accessZoneIds = new Set((report?.blocking_reasons ?? []).filter(reason => reason.code === 'tenant_permission_required' && report.zones.some(zone => zone.draft_zone_id === reason.zone_id)).map(reason => reason.zone_id));
-  const otherBlockers = [...new Map((report?.blocking_reasons ?? []).filter(reason => !(reason.code === 'tenant_permission_required' && accessZoneIds.has(reason.zone_id)))
-    .map(reason => [JSON.stringify(Object.entries(reason).sort(([a], [b]) => a.localeCompare(b))), reason])).values()];
+  const otherBlockers = groupConfigurationIssues((report?.blocking_reasons ?? []).filter(reason => !(reason.code === 'tenant_permission_required' && accessZoneIds.has(reason.zone_id))));
   const levelOrder = new Map((report?.validation.levels ?? []).map(level => [level.id, level.level_number]));
   const sortedLevels = [...(report?.levels ?? [])].sort((a, b) => levelOrder.get(a.id) - levelOrder.get(b.id));
   const canPublish = Boolean(report?.can_publish && !disabled && !loading && !choicesChanged);
@@ -74,7 +75,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
       {['Review Configuration', 'Assign Company Access', 'Refresh Preview', 'Publish Configuration'].map((step, index) => <li key={step}><span aria-hidden="true">{index + 1}</span>{step}</li>)}
     </ol>
     {error&&<p className={shared.error} role="alert">{error}</p>}
-    {success&&<p className={shared.success} role="status">{success}</p>}
+    {success && <SuccessNotice>{success}</SuccessNotice>}
     {choicesChanged&&<p className={styles.notice} role="status">Company selections changed. Refresh the preview to check these choices before publishing. No permissions have been saved.</p>}
     {report&&<div className={styles.content}>
       <section className={styles.summary} aria-label="Configuration Summary">
@@ -91,9 +92,9 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
       {(accessZoneIds.size>0||otherBlockers.length>0)&&<section className={styles.attention} aria-label="Publication Blockers">
         <h4>Before You Publish</h4>
         {accessZoneIds.size>0&&<div><strong>{accessZoneIds.size} Parking {accessZoneIds.size===1?'Zone Requires':'Zones Require'} Company Access</strong><p>Select at least one authorised company for each open zone, then refresh the preview.</p></div>}
-        {otherBlockers.length>0&&<ul className={styles.blockers}>{otherBlockers.map((reason,index)=>{
+        {otherBlockers.length>0&&<ul className={styles.blockers}>{otherBlockers.map(reason=>{
           const zone=report.zones.find(zone=>zone.draft_zone_id===reason.zone_id);
-          return <li key={index}>{zone?<strong>{levelName(zone.level_id)} · {zone.name}</strong>:reason.level_id?<strong>{levelName(reason.level_id)}</strong>:null}<p>{reason.message}</p></li>;
+          return <li key={reason.key}>{zone?<strong>{levelName(zone.level_id)} · {zone.name}</strong>:reason.level_id?<strong>{levelName(reason.level_id)}</strong>:null}<p>{reason.message}</p>{reason.checks.length > 1 && <small>{reason.checks.length} checks require this action.</small>}</li>;
         })}</ul>}
       </section>}
 
@@ -118,7 +119,7 @@ export default function PublicationPreview({ levelIds, disabled, onPublishingCha
                 })}{!activeTenants.length&&<p className={styles.muted}>No active companies available.</p>}</fieldset>
               </article>;
             })}</div>
-            {!zones.length&&<p className={styles.muted}>No parking zones in this level's preview.</p>}
+            {!zones.length&&<p className={styles.muted}>No parking zones in this level&apos;s preview.</p>}
           </section>;
         })}
       </section>

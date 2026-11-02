@@ -12,6 +12,8 @@ import LevelManagement from './level-management';
 import ZoneDrafts from './zone-drafts';
 import StructureValidation from './structure-validation';
 import FloorPlanWorkspace from './floor-plan-workspace';
+import OverviewNotice from '../overview/overview-notice';
+import SuccessNotice from '../../../components/success-notice';
 
 export default function FloorPlans() {
   const [state, dispatch] = useReducer(floorPlanState, initialState);
@@ -90,7 +92,7 @@ export default function FloorPlans() {
   return <div className={styles.page} data-parking-structure>
     <div className={styles.heading}><div><h1>Parking Structure</h1><p>Manage parking levels, floor plans and draft navigation.</p></div>
       <RefreshButton loading={state.loading} disabled={busy || calEditing} onClick={refresh} /></div>
-    {state.success && <p className={styles.success} role="status">{state.success}</p>}
+    {state.success && <SuccessNotice>{state.success}</SuccessNotice>}
     {state.error && <div className={styles.error} role="alert"><p>{state.error}</p><RefreshButton label={state.conflict ? 'Refresh Latest Version' : 'Try Again'} onClick={refresh} loading={state.loading} disabled={busy} /></div>}
     {nodeDirty || calEditing ? <p className={styles.note}>Save or discard current floor-plan edits before managing levels or zones.</p> : null}
     <StructureValidation key={`validation-${revision}`} levels={state.levels} disabled={draftBusy || nodeDirty || calEditing || levelDirty || zoneDirty || Boolean(state.error)} publishing={publishing} onPublishingChange={setPublishing} onPublished={levelsSaved} />
@@ -99,7 +101,7 @@ export default function FloorPlans() {
       setSelected(value); setFile(null); if (input.current) input.current.value = '';
     }} disabled={busy || nodeDirty || calEditing || levelDirty || Boolean(state.error)} onDirtyChange={setZoneDirty} onSavingChange={setZoneSaving} />
     {state.loading ? <section className={styles.panel} role="status">Loading parking levels…</section> :
-      state.levels.length === 0 ? !state.error && <section className={styles.panel}>No parking levels available.</section> :
+      state.levels.length === 0 ? !state.error && <section className={styles.panel} aria-label="Floor Plans"><h2>Floor Plans</h2><OverviewNotice><p>No parking levels available</p></OverviewNotice></section> :
       <FloorPlanWorkspace busy={state.uploading}>
         {editor !== 'ramps' && <label className={styles.field}>Parking Level<select value={selected} disabled={busy || calEditing || levelDirty || zoneDirty} onChange={event => switchLevel(event.target.value)}>{state.levels.map(item => <option key={item.id} value={item.id}>{item.name}{item.is_active ? '' : ' (Inactive)'}</option>)}</select></label>}
         <div className={styles.editorModes} aria-label="Floor Plan Editing Mode">

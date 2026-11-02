@@ -1,5 +1,6 @@
 "use client";
 import RefreshButton from '../../../components/refresh-button';
+import SuccessNotice from '../../../components/success-notice';
 import { useCallback, useState } from 'react';
 import { reviewRequest } from './approvals-client';
 import { approvalQuery } from '../../../lib/approval-read-contracts.mjs';
@@ -52,15 +53,17 @@ export default function RegistrationApprovals() {
   const filtered = Boolean(applied.tenant_id || applied.status !== 'pending');
   return <div className={vehicles.page}>
     <header className={vehicles.heading}>
-      <div><h1>Registration Approvals</h1><p>Review driver registrations and assign an approved company.</p></div>
+      <div><h1>Registration Approvals</h1><p>Review driver registrations, and assign an approved company.</p></div>
       <RefreshButton onClick={() => { setNotice(''); refresh(); }} loading={records.loading} disabled={locked} />
     </header>
     <RegistrationSummary resource={summary} locked={locked} onRetry={() => refresh()} />
-    {notice && <p className={shared.success} role="status">{notice}</p>}
+    {notice && <SuccessNotice>{notice}</SuccessNotice>}
     {batchResults && <section className={styles.batchResults} aria-labelledby="batch-results-title">
       <div className={styles.batchResultsHeading}><h2 id="batch-results-title">Application Decision Results</h2>
         <button type="button" className={shared.secondary} onClick={() => setBatchResults(null)}>Dismiss</button></div>
-      <p role="status">{batchResults.filter(row => ['approved', 'rejected'].includes(row.outcome)).length} of {batchResults.length} decisions confirmed.</p>
+      {batchResults.every(row => ['approved', 'rejected'].includes(row.outcome)) ?
+        <SuccessNotice>{batchResults.length} of {batchResults.length} decisions confirmed.</SuccessNotice> :
+        <p role="status">{batchResults.filter(row => ['approved', 'rejected'].includes(row.outcome)).length} of {batchResults.length} decisions confirmed.</p>}
       <ul className={styles.resultList}>{batchResults.map(row => <li key={row.id}>
         <div><strong>{row.full_name || row.id}</strong><span className={styles.outcome} data-outcome={row.outcome}>
           {{ approved: 'Approved', rejected: 'Rejected', failed: 'Failed', unconfirmed: 'Unconfirmed', not_attempted: 'Not Attempted' }[row.outcome]}</span></div>

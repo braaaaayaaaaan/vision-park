@@ -30,6 +30,12 @@
 .clockLabel { color: var(--text-muted); font-size: 11px; }
 .clock time { display: block; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .account { position: relative; flex-shrink: 0; }
+.headerActions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.soundToggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.soundToggle[aria-pressed="true"] { color: var(--primary); border-color: #bfdbfe; background: var(--primary-soft); }
+.soundToggle:hover { border-color: var(--primary); color: var(--primary); }
+.soundToggle svg { flex-shrink: 0; }
+.soundError { flex-basis: 100%; max-width: 320px; color: #a52a2a; font-size: 12px; }
 .accountTrigger { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 2px 4px; border-radius: 10px; cursor: pointer; list-style: none; }
 .accountTrigger::-webkit-details-marker { display: none; }
 .accountTrigger:hover, .account[open] .accountTrigger { background: var(--background); }
@@ -47,6 +53,10 @@
 .signOutError { margin-top: 12px; color: #a52a2a; font-size: 13px; overflow-wrap: anywhere; }
 .main { max-width: 1440px; margin: 0 auto; padding: 48px 40px; }
 .menuButton { display: none; }
+@media (max-width: 540px) {
+  .soundToggle { width: 40px; padding: 8px; }
+  .soundToggle > span { display: none; }
+}
 @media (max-width: 800px) {
   .shell { display: block; }
   .sidebar { position: static; height: auto; padding: 16px 24px; border-right: 0; border-bottom: 1px solid var(--border); overflow: visible; }

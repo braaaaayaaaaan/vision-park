@@ -20,7 +20,7 @@ function OccupancyChart({ history }) {
     <h2 id="historical-occupancy-title">Historical Parking Occupancy</h2>
     <p className={styles.muted}>Session-derived confirmed occupancy, not sensor-verified physical occupancy. {history.checkpoint === 'hour_start' ? 'Hourly checkpoints at the start of each elapsed hour.' : 'End-of-day checkpoints. Today uses the latest refresh.'}</p>
     {points.length === 0 ? <OverviewNotice><p>No reporting checkpoints available</p></OverviewNotice> : <>
-      {points.every((point) => point.occupied === 0) && <OverviewNotice><p>No eligible confirmed sessions at these checkpoints.</p></OverviewNotice>}
+      {points.every((point) => point.occupied === 0) && <OverviewNotice><p>No eligible confirmed sessions at these checkpoints</p></OverviewNotice>}
       <div className={styles.chartScroll}><svg className={local.lineChart} viewBox={`0 0 ${width} 290`} aria-label="Historical Confirmed Occupancy Line Chart">
         <text x={left} y={18} className={local.axisText}>Confirmed Occupied Sessions</text>
         {[0, maximum / 2, maximum].map((value) => <g key={value}><line x1={left} x2={right} y1={y(value)} y2={y(value)} className={local.gridLine} /><text x={left - 10} y={y(value) + 4} textAnchor="end" className={local.axisText}>{value}</text></g>)}

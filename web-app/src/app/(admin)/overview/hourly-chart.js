@@ -1,7 +1,7 @@
 import styles from './overview.module.css';
 import OverviewNotice from './overview-notice';
 
-export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements', description = 'Recorded session entries and exits.', emptyMessage = 'No entries or exits recorded today.' }) {
+export default function HourlyChart({ hours, title = 'Hourly Vehicle Movements', description = 'Recorded session entries and exits.', emptyMessage = 'No entries or exits recorded today' }) {
   const maximum = Math.max(1, ...hours.flatMap((hour) => [hour.entries, hour.exits]));
   const ceiling = Math.max(2, Math.ceil(maximum / 2) * 2);
   const empty = hours.every((hour) => hour.entries === 0 && hour.exits === 0);

@@ -8,6 +8,7 @@ import map from './calibration.module.css';
 import fields from './node-editor.module.css';
 import styles from './cross-level-ramps.module.css';
 import FloorPlanImage from './floor-plan-image.mjs';
+import OverviewNotice from '../overview/overview-notice';
 
 function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
   const plan = level.floor_plan;
@@ -79,11 +80,13 @@ function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
   return <>
     {loading && <p className={map.note} role="status">Loading reference calibration…</p>}
     {error && <p className={map.error} role="alert">{error} Refresh Ramps to Retry.</p>}
-    {!loading && !calibration && !error && <p className={fields.warning}>Calibrate this floor plan before tracing.</p>}
-    {replaced && <p className={fields.warning}>This trace belongs to an earlier image. Reset and retrace on the current reference image.</p>}
-    {!replaced && recalculation && points.length > 1 && <p className={fields.warning}>Review the path, then recalculate using the current calibration before confirming.</p>}
-    <div className={map.toolbar}>
+    {!loading && !calibration && !error && <OverviewNotice className={styles.traceNotice}><p>Calibrate this floor plan before tracing.</p></OverviewNotice>}
+    {replaced && <OverviewNotice className={styles.traceNotice}><p>This trace belongs to an earlier image. Reset and retrace on the current reference image.</p></OverviewNotice>}
+    {!replaced && recalculation && points.length > 1 && <OverviewNotice className={styles.traceNotice}><p>Review the path, then recalculate using the current calibration before confirming.</p></OverviewNotice>}
+    <div className={styles.traceToolbar}>
+      <div className={styles.traceModes} role="group" aria-label="Trace Editing Mode">
       {['add', 'move', 'pan'].map(mode => <button type="button" key={mode} className={map.button} aria-pressed={tool === mode} disabled={busy || replaced} onClick={() => setTool(mode)}>{ { add: 'Add Points', move: 'Move Points', pan: 'Pan' }[mode]}</button>)}
+      </div>
       <div className={styles.zoom} role="group" aria-label="Trace Zoom">
         <button type="button" className={map.button} aria-label="Zoom Out" disabled={disabled || zoom <= 1} onClick={() => setZoom(value => Math.max(1, value / 1.5))}>−</button>
         <output>{Math.round(zoom * 100)}%</output>
@@ -91,13 +94,13 @@ function TraceCanvas({ level, trace, onChange, disabled, connectionSummary }) {
         <button type="button" className={map.button} disabled={disabled} onClick={() => { setZoom(1); viewport.current.scrollTo(0, 0); }}>Fit</button>
       </div>
     </div>
-    <div className={map.toolbar}>
+    <div className={styles.traceActions} role="group" aria-label="Trace Point Actions">
       <button type="button" className={map.button} disabled={busy || replaced || !points.length} onClick={() => { update(points.slice(0, -1)); setSelected(null); }}>Undo Last Point</button>
       <button type="button" className={map.button} disabled={busy || replaced || selected === null || selected >= points.length} onClick={() => { update(points.filter((_, index) => index !== selected)); setSelected(null); }}>Remove Selected Point</button>
       <button type="button" className={map.button} disabled={busy} onClick={resetTrace}>Reset Trace</button>
       {!replaced && recalculation && <button type="button" className={map.button} disabled={busy || preview === null} onClick={() => update(points)}>Recalculate and Review Path</button>}
     </div>
-    <dl className={map.summary}>
+    <dl className={`${map.summary} ${styles.traceSummary}`}>
       <div className={map.summaryCard}><dt>Estimated Horizontal Projected Driving Distance</dt><dd>{preview ? `${preview.toLocaleString('en-MY', { maximumFractionDigits: 3 })} m` : 'Trace at least two points'}</dd></div>
       <div className={map.summaryCard}><dt>Reference Measurement</dt><dd>{points.length} Points <span>· Image {plan.revision} · Calibration {calibration?.revision ?? 'Required'}</span></dd></div>
     </dl>
@@ -130,9 +133,9 @@ export default function RampTraceEditor({ label, levels, trace, onChange, disabl
   }
   return <section className={styles.trace} aria-label={`${label} ramp trace`}>
     <h4>{label}</h4>
-    <label className={fields.field}>Calibrated Reference Floor Plan<select value={trace?.reference_level_id ?? ''} disabled={disabled} onChange={event => chooseReference(event.target.value)}><option value="">Select an image showing the completed ramp</option>{levels.filter(item => item.floor_plan).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    <label className={`${fields.field} ${styles.referenceField}`}><span>Calibrated Reference Floor Plan</span><select value={trace?.reference_level_id ?? ''} disabled={disabled} onChange={event => chooseReference(event.target.value)}><option value="">Select Reference Image Showing the Completed Ramp</option>{levels.filter(item => item.floor_plan).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
     {level?.floor_plan && <TraceCanvas key={`${level.id}-${level.floor_plan.revision}-${refreshKey}`} level={level} trace={trace} onChange={onChange} disabled={disabled} connectionSummary={connectionSummary} />}
-    {trace && !level?.floor_plan && <p className={fields.warning}>Reference image unavailable. Select a current calibrated floor plan.</p>}
+    {trace && !level?.floor_plan && <OverviewNotice className={styles.traceNotice}><p>Reference image unavailable. Select a current calibrated floor plan.</p></OverviewNotice>}
     {confirmationDialog}
   </section>;
 }

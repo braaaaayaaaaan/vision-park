@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:registration-sounds": "node --test tests/registration-sounds.test.mjs",
     "test:cameras": "node --test tests/cameras.test.mjs tests/cameras-ui.test.mjs",
     "test:floor-plan-image": "node --test tests/floor-plan-image.test.mjs",
     "test:floor-plan-coordinates": "node --test tests/floor-plan-coordinates.test.mjs",

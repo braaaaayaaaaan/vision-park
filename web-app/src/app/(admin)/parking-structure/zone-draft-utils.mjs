@@ -8,7 +8,7 @@ const exact = (value, fields) => object(value) && Object.keys(value).length === 
 export function zoneError(value) {
   if (!object(value)) return 'Enter zone details.';
   for (const [key, max] of [['code', 64], ['name', 100]]) {
-    if (typeof value[key] !== 'string' || !value[key].trim() || Array.from(value[key].trim()).length > max || /[\u0000-\u001f\u007f-\u009f]/u.test(value[key])) return `Use a readable zone ${key === 'code' ? 'Code' : 'Name'} of at most ${max} characters.`;
+    if (typeof value[key] !== 'string' || !value[key].trim() || Array.from(value[key].trim()).length > max || /[\u0000-\u001f\u007f-\u009f]/u.test(value[key])) return `Please enter a zone ${key === 'code' ? 'code' : 'name'} with up to ${max} characters.`;
   }
   if (!integer(value.total_capacity) || !integer(value.unavailable_capacity)) return 'Capacities must be whole numbers from 0 to 2147483647.';
   if (value.unavailable_capacity > value.total_capacity) return 'Unavailable capacity cannot exceed total capacity.';

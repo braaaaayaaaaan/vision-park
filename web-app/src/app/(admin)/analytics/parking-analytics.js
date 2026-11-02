@@ -10,7 +10,6 @@ import styles from '../overview/overview.module.css';
 import filtersStyle from './analytics.module.css';
 import FinancialSummary from '../payments/financial-summary';
 import MetricIcon from '../../../components/metric-icon';
-import OverviewNotice from '../overview/overview-notice';
 
 const movementsSeries = [{ key: 'entries', label: 'Entries', colour: '#16A34A' }, { key: 'exits', label: 'Exits', colour: '#DC2626' }];
 const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: 'var(--chart-supporting)' }];
@@ -60,7 +59,7 @@ export default function ParkingAnalytics() {
         <Kpi icon="entry" title="Total Entries" value={number(data.summary.total_entries)} detail="Entry timestamps in range" />
         <Kpi icon="exit" title="Total Exits" value={number(data.summary.total_exits)} detail="Exit timestamps in range" />
         <Kpi icon="sessions" title="Average Parking Duration" value={duration(data.summary.average_duration_seconds)} detail={`${number(data.durations.valid_completed_sessions)} valid completed sessions`} />
-        <Kpi icon="vehicles" title="Peak Entry Hour" value={hour(data.summary.peak_entry_hour)} detail={data.summary.peak_entry_hour ? `${number(data.summary.peak_entry_hour.count)} entries · Hourly Total` : 'No entries in range'} emptyDetail={!data.summary.peak_entry_hour} />
+        <Kpi icon="vehicles" title="Peak Entry Hour" value={hour(data.summary.peak_entry_hour)} detail={data.summary.peak_entry_hour ? `${number(data.summary.peak_entry_hour.count)} entries · Hourly Total` : 'No entries in range'} />
       </div>
       <AnalyticsChart id="entry-exit-trends" title="Vehicle Entry and Exit Trends" description={data.granularity === 'hour' ? 'Hourly totals for the selected Malaysia calendar day.' : 'Daily totals by following the Malaysia calendar date.'} rows={data.movements.map(row => ({ ...row, period: data.granularity === 'hour' ? row.period : formatMalaysiaDate(row.period) }))} series={movementsSeries} unit="Vehicles" axis={data.granularity === 'hour' ? 'Hour of Day (MYT)' : 'Calendar Date (DD-MM-YYYY)'} />
       <HourlyChart hours={data.hourly_pattern} title="Hourly Traffic Pattern" description="Totals for each Malaysia-local hour across the selected period, not hourly averages." emptyMessage="No entries or exits in this selection" />
@@ -70,10 +69,10 @@ export default function ParkingAnalytics() {
     <FinancialSummary query={request.query} revision={request.version} chart />
   </div>;
 }
-function Kpi({ icon, title, value, detail, emptyDetail = false }) {
+function Kpi({ icon, title, value, detail }) {
   return <section className={`${styles.kpi} ${styles.overviewStat}`}>
     <div className={styles.statHeader}><MetricIcon name={icon} large solid /><h2>{title}</h2></div>
     <strong>{value}</strong>
-    {emptyDetail ? <OverviewNotice><p>{detail}</p></OverviewNotice> : <p>{detail}</p>}
+    <p>{detail}</p>
   </section>;
 }

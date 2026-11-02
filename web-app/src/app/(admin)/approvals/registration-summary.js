@@ -3,6 +3,7 @@ import styles from './registration-approvals.module.css';
 import vehicles from '../vehicles/vehicles.module.css';
 import MetricIcon from '../../../components/metric-icon';
 import overview from '../overview/overview.module.css';
+import OverviewNotice from '../overview/overview-notice';
 
 const number = value => new Intl.NumberFormat('en').format(value);
 export default function RegistrationSummary({ resource, locked, onRetry }) {
@@ -28,7 +29,7 @@ export default function RegistrationSummary({ resource, locked, onRetry }) {
       <summary>Company Breakdown <span className={vehicles.muted}>{number(data.total_registrations)} Driver Registrations</span></summary>
       <div className={styles.breakdownContent}>
         <p className={vehicles.muted}>Approved drivers use their assigned company.</p>
-        {!data.total_registrations ? <p>No driver registrations yet.</p> : <div className={styles.breakdownScroll} tabIndex={0} aria-label="Scrollable Company Registration Breakdown">
+        {!data.total_registrations ? <OverviewNotice><p>No driver registrations yet.</p></OverviewNotice> : <div className={styles.breakdownScroll} tabIndex={0} aria-label="Scrollable Company Registration Breakdown">
           <table className={`${shared.table} ${styles.breakdownTable}`}>
             <caption className={shared.srOnly}>Full Driver Registration Counts by Company</caption>
             <thead><tr><th scope="col">Company</th><th scope="col">Drivers</th><th scope="col">Pending</th><th scope="col">Approved</th></tr></thead>

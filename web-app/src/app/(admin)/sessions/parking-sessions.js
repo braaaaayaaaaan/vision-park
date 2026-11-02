@@ -40,7 +40,7 @@ export default function ParkingSessions() {
   const filtered = Object.values(applied).some(value => value.trim());
   const unavailable = loading || Boolean(selection);
   return <div className={styles.page}>
-    <div className={styles.heading}><div><h1>Parking Sessions</h1><p>Inspect active, completed and cancelled parking sessions across the building.</p></div>
+    <div className={styles.heading}><div><h1>Parking Sessions</h1><p>Inspect active, completed, and cancelled parking sessions across the building.</p></div>
       <RefreshButton loading={loading} disabled={unavailable} onClick={() => reload()} /></div>
     <SessionSummary resource={summary} onRetry={() => setRevision(value => value + 1)} />
     <OvernightAlerts revision={revision} onViewSession={(row, overnight) => setSelection({ ...row, overnight })} />

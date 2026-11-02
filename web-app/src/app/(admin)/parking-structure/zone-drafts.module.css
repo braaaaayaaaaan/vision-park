@@ -3,6 +3,17 @@
 .summary span, .summary p { font-size: 13px; color: var(--text-muted); }
 .summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .exampleInput::placeholder { color: var(--text-muted); font-weight: 400; opacity: 1; }
+.validation { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
+.validation > svg { flex: 0 0 20px; margin-top: 2px; }
+.validation > span { min-width: 0; overflow-wrap: anywhere; }
 .formActions { align-items: stretch; }
 .formActions > button { display: inline-flex; align-items: center; justify-content: center; min-width: 128px; min-height: 50px; padding: 12px 20px; border-radius: 10px; }
 @media (max-width: 540px) { .summary > div { flex: 1; min-width: 0; } }
+.heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.heading h2 { margin: 0; font-size: 20px; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.actions > button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; height: 44px; }
+.controls { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.levelField { width: min(100%, 480px); min-width: 0; }
+.levelField select { width: 100%; min-width: 0; max-width: none; }
+@media (max-width: 540px) { .actions { width: 100%; } .actions > button { flex: 1 1 auto; } }

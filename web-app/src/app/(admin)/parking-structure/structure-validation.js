@@ -6,6 +6,8 @@ import map from './calibration.module.css';
 import styles from './structure-validation.module.css';
 import checkboxStyles from '../../../components/selection-checkbox.module.css';
 import PublicationPreview from './publication-preview';
+import OverviewNotice from '../overview/overview-notice';
+import { groupConfigurationIssues } from './configuration-issues.mjs';
 import { formatMalaysiaDateTime } from '../../../lib/date-format.mjs';
 
 const checkDescriptions = {
@@ -42,7 +44,7 @@ export default function StructureValidation({ levels, disabled, publishing=false
   const levelName = id => levels.find(level => level.id === id)?.name ?? id;
   const issuesByZone = new Map((report?.zones ?? []).map(zone => [zone.zone_id, []]));
   const otherIssues = [];
-  for (const issue of report?.issues ?? []) {
+  for (const issue of groupConfigurationIssues(report?.issues ?? [])) {
     const zoneIssues = issuesByZone.get(issue.zone_id);
     if (zoneIssues) zoneIssues.push(issue);
     else otherIssues.push(issue);
@@ -68,9 +70,9 @@ export default function StructureValidation({ levels, disabled, publishing=false
     <div className={map.heading}><h2>Configuration Validation</h2><button className={shared.button} disabled={disabled || publishing || loading || !chosen.length} onClick={validate}>{loading ? 'Validating…' : 'Validate Configuration'}</button></div>
     <p className={shared.note}>Configure the parking structure first before selecting the relevant parking levels.</p>
     <fieldset className={styles.scope} disabled={disabled || publishing || loading}><legend>Included Levels</legend>
-      <div className={styles.choices}>{levels.map(level => <label key={level.id}><input className={checkboxStyles.checkbox} type="checkbox" checked={chosen.includes(level.id)} disabled={!chosen.includes(level.id) && chosen.length >= 64}
-        onChange={event => selection(event.target.checked ? [...chosen, level.id] : chosen.filter(id => id !== level.id))} />{level.name}{!level.floor_plan ? ' (no floor plan)' : ''}</label>)}</div>
-      {!levels.length && <p>No parking levels available.</p>}
+      {levels.length > 0 && <div className={styles.choices}>{levels.map(level => <label key={level.id}><input className={checkboxStyles.checkbox} type="checkbox" checked={chosen.includes(level.id)} disabled={!chosen.includes(level.id) && chosen.length >= 64}
+        onChange={event => selection(event.target.checked ? [...chosen, level.id] : chosen.filter(id => id !== level.id))} />{level.name}{!level.floor_plan ? ' (No Floor Plan)' : ''}</label>)}</div>}
+      {!levels.length && <OverviewNotice className={styles.emptyNotice}><p>No parking levels available</p></OverviewNotice>}
       <div className={map.toolbar}><button type="button" className={shared.button} disabled={levels.filter(level => level.floor_plan).length > 64} onClick={() => selection(levels.filter(level => level.floor_plan).map(level => level.id))}>Select Configured Levels</button>
         <button type="button" className={shared.button} onClick={() => selection([])}>Clear Selection</button></div>
       <p className={shared.note}>{chosen.length} Selected</p>
@@ -108,15 +110,15 @@ export default function StructureValidation({ levels, disabled, publishing=false
                 <span className={styles.reachability} data-status={zone.reachability}>{{ reachable: 'Reachable', unreachable: 'Unreachable', not_checked: 'Needs setup', not_applicable: 'Excluded' }[zone.reachability]}</span>
               </div>
               {zone.distance_meters !== null && <p className={styles.distance}>Shortest Route <strong>{zone.distance_meters.toLocaleString('en-MY', { maximumFractionDigits: 2 })} m</strong></p>}
-              {issues.length > 0 ? <ul className={styles.zoneActions}>{issues.map((issue, index) => <li key={index} data-severity={issue.severity}>
-                <span className={styles.severity}>{issue.severity === 'error' ? 'Action needed' : 'Note'}</span><p>{issue.message}</p>
+              {issues.length > 0 ? <ul className={styles.zoneActions}>{issues.map(issue => <li key={issue.key} data-severity={issue.severity}>
+                <span className={styles.severity}>{issue.severity === 'error' ? 'Action needed' : 'Note'}{issue.checks.length > 1 ? ` · ${issue.checks.length} checks` : ''}</span><p>{issue.message}</p>
               </li>)}</ul> : zone.reachability === 'not_checked' ? <p className={styles.zoneHint}>Complete the configuration checks below, then validate again.</p> : zone.reachability !== 'reachable' ? <p className={styles.zoneHint}>{zone.message}</p> : null}
             </article>;
           })}</div> : <p className={styles.zoneEmpty}>{checkedLevel.zone_revisions.length ? 'No valid draft zones could be checked. Review the configuration issues below.' : 'No saved draft zones on this level.'}</p>}
         </section>;
       })}</div>
-      {otherIssues.length > 0 && <><h3>Configuration Checks</h3><ul className={styles.issues}>{otherIssues.map((issue, index) =>
-        <li key={index} data-severity={issue.severity}><strong>{issue.severity === 'error' ? 'Action needed' : 'Note'}{issue.level_id ? ` · ${levelName(issue.level_id)}` : ''}{issue.zone_id ? ' · Unlisted zone' : ''}</strong>
+      {otherIssues.length > 0 && <><h3>Configuration Checks</h3><ul className={styles.issues}>{otherIssues.map(issue =>
+        <li key={issue.key} data-severity={issue.severity}><strong>{issue.severity === 'error' ? 'Action needed' : 'Note'}{issue.level_id ? ` · ${levelName(issue.level_id)}` : ''}{issue.zone_id ? ' · Unlisted zone' : ''}{issue.checks.length > 1 ? ` · ${issue.checks.length} checks` : ''}</strong>
           <p>{issue.message}</p></li>)}</ul></>}
       <section className={styles.coverage} aria-label="Validation Coverage">
         <div className={styles.coverageHeader}><h3>What Was Checked</h3><p className={styles.coverageNote}>Configuration areas included in this validation are as such:</p></div>
@@ -133,7 +135,10 @@ export default function StructureValidation({ levels, disabled, publishing=false
         <div className={styles.revisionCards}>{report.levels.map(level => <div key={level.id}><h4>{level.name}</h4><dl>
           {[['Floor Plan', level.floor_plan_revision], ['Calibration', level.calibration_revision], ['Node Draft', level.draft_revision], ['Validated Distances', level.distances_validated_revision]].map(([label, revision]) => <div key={label}><dt>{label}</dt><dd>{revision ?? 'Missing'}</dd></div>)}
         </dl></div>)}</div>
-        {report.issues.filter(issue => issue.edge_id).map((issue, index) => <p className={styles.route} key={index}>Edge: {issue.edge_id} · {issue.message}</p>)}
+        {groupConfigurationIssues(report.issues.filter(issue => issue.edge_id)).map(issue => <div className={styles.route} key={issue.key}>
+          <p>{issue.level_id ? `${levelName(issue.level_id)} · ` : ''}{issue.message}</p>
+          <ul>{[...new Set(issue.checks.map(check => check.edge_id))].map(id => <li key={id}>Edge: {id}</li>)}</ul>
+        </div>)}
       </details>
       </section>
     </div>}

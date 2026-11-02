@@ -6,6 +6,7 @@ import { AUTH_GENERATION, logoutAdministrator } from '../lib/auth-client.mjs';
 import { formatMalaysiaDateTime } from '../lib/date-format.mjs';
 import useSidebarWidth from './use-sidebar-width';
 import usePendingApprovals from './use-pending-approvals';
+import useApprovalSounds from './use-approval-sounds';
 import useConfirmation from './use-confirmation';
 import styles from "./admin-shell.module.css";
 
@@ -45,7 +46,8 @@ function MalaysiaClock() {
 export default function AdminShell({ children, administrator }) {
   const pathname = usePathname();
   const sidebar = useSidebarWidth();
-  const pending = usePendingApprovals();
+  const sounds = useApprovalSounds();
+  const pending = usePendingApprovals(sounds.notify);
   const account = useRef(null);
   const accountName = administrator?.name || 'Administrator';
   const [menuOpen, setMenuOpen] = useState(false);
@@ -139,6 +141,17 @@ export default function AdminShell({ children, administrator }) {
       <div className={styles.workspace}>
         <header className={styles.header}>
           <MalaysiaClock />
+          <div className={styles.headerActions}>
+          <button type="button" className={styles.soundToggle} data-notification-sound-toggle aria-pressed={sounds.enabled}
+            aria-label={sounds.enabled ? 'Mute registration notification sounds' : 'Enable registration notification sounds'}
+            title={sounds.error || 'Sound for new driver and vehicle registrations. Checks every 30 seconds while this tab is visible.'} onClick={sounds.toggle}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+              {sounds.enabled ? <path d="M15 8a6 6 0 0 1 0 8 M18 5a10 10 0 0 1 0 14" /> : <path d="m16 9 5 6 m0-6-5 6" />}
+            </svg>
+            <span>{sounds.enabled ? 'Sounds on' : 'Enable sounds'}</span>
+          </button>
+          {sounds.error && <span className={styles.soundError} role="status">{sounds.error}</span>}
           <details className={styles.account} ref={account}>
             <summary className={styles.accountTrigger} aria-label="Administrator account">
               <span className={styles.avatar} aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg></span>
@@ -151,6 +164,7 @@ export default function AdminShell({ children, administrator }) {
               <button className={styles.signOut} type="button" aria-haspopup="dialog" onClick={requestSignOut} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
             </div>
           </details>
+          </div>
         </header>
         <main id="main-content" tabIndex={-1} className={styles.main}>
           {children}

@@ -1,5 +1,6 @@
 'use client';
 import RefreshButton from '../../../components/refresh-button';
+import SuccessNotice from '../../../components/success-notice';
 import { useCallback, useState } from 'react';
 import { driversQuery, vehiclesQuery, fetchDrivers, fetchVehicles, fetchVehicleSummary } from './vehicles-client.mjs';
 import useVehicleResource from './use-vehicle-resource';
@@ -68,17 +69,18 @@ export default function RegisteredVehicles() {
   function chooseView(next) { resetChecked(); setView(next); setInputError(''); setOffsets(old => ({ ...old, [next]: 0 })); }
   function decide(vehicle, action) { setNotice(''); setBulkResults(null); setSelection({ vehicle, action }); }
   return <div className={styles.page}>
-    <header className={styles.heading}><div><h1>Registered Vehicles</h1><p>Review driver registration usage and manage individual vehicles.</p></div>
+    <header className={styles.heading}><div><h1>Registered Vehicles</h1><p>Review driver registration usage, and manage individual vehicles.</p></div>
       <RefreshButton loading={records.loading} disabled={locked} onClick={() => { setNotice(''); reload(); setCompanyRevision(value => value + 1); }} /></header>
     <VehicleSummaryCards resource={summary} tenantName={applied.tenant_id ? companies.find(company => company.id === applied.tenant_id)?.name || 'Selected Company' : null} onRetry={reload} />
-    {notice && <p className={shared.success} role="status">{notice}</p>}
-    {bulkResults && <div className={styles.bulkFeedback} data-partial={bulkResults.some(result => result.outcome !== 'approved')}
-      role={bulkResults.some(result => result.outcome !== 'approved') ? 'alert' : 'status'}>
+    {notice && <SuccessNotice>{notice}</SuccessNotice>}
+    {bulkResults && (bulkResults.every(result => result.outcome === 'approved') ?
+      <SuccessNotice>{bulkResults.length} of {bulkResults.length} selected vehicles approved.</SuccessNotice> :
+      <div className={styles.bulkFeedback} data-partial="true" role="alert">
       <p><strong>{bulkResults.filter(result => result.outcome === 'approved').length} of {bulkResults.length} selected vehicles approved.</strong></p>
       {bulkResults.some(result => result.outcome !== 'approved') && <ul aria-label="Vehicles Requiring Review">
         {bulkResults.filter(result => result.outcome !== 'approved').map(result => <li key={result.id}><strong>{result.plate_number}</strong>: {result.message}</li>)}
       </ul>}
-    </div>}
+    </div>)}
     <section className={styles.workspace} aria-label="Registration Management">
       <div className={styles.toolbar}>
         <div className={styles.viewControl} role="group" aria-label="Registration View">

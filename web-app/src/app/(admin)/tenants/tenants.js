@@ -10,6 +10,7 @@ import common from '../vehicles/vehicles.module.css';
 import shared from '../approvals/approvals.module.css';
 import styles from './tenants.module.css';
 import RefreshButton from '../../../components/refresh-button';
+import SuccessNotice from '../../../components/success-notice';
 
 const initial = { search: '', status: 'all', sort: 'name_asc' };
 export default function Tenants() {
@@ -32,7 +33,7 @@ export default function Tenants() {
   return <div className={common.page}>
     <header className={`${common.heading} ${styles.heading}`}><div><h1>Tenants</h1><p>Manage the companies in your building, their drivers, and shared parking access.</p></div>
       <RefreshButton loading={resource.loading} onClick={refresh} /></header>
-    {message && <p className={shared.success} role="status">{message}</p>}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     <div className={shared.actions}><button className={shared.primary} onClick={() => setCreating(true)}>Register Company</button></div>
     <TenantSummary data={data?.summary} loading={resource.loading} />
     <section className={common.workspace} aria-label="Company Listing" aria-busy={resource.loading}>

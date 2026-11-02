@@ -15,6 +15,7 @@
 .select { cursor: crosshair; }
 .image { cursor: default; }
 .measurement { display: grid; justify-items: start; gap: 12px; background: var(--primary-soft); padding: 16px; border-radius: 12px; }
+.measurement .guidance { margin-top: 0; justify-self: stretch; }
 .measurement label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
 .measurement input { padding: 10px 12px; font: inherit; width: min(100%, 260px); min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
 .note { font-size: 13px; color: var(--text-muted); }
@@ -24,4 +25,3 @@
 .summaryCard dd { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .summaryCard dd span { font-size: 13px; font-weight: 400; color: var(--text-muted); }
 .error { color: #a52a2a; }
-.success { color: #235c39; }

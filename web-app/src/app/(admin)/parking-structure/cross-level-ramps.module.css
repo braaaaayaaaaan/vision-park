@@ -34,7 +34,28 @@
 .review { color: #755114; background: #fff8e8; border-color: #ead7ab; }
 .reasons { margin: 0; padding-left: 20px; font-size: 13px; color: #755114; }
 
-.trace { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; min-width: 0; }
-.zoom { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.zoom output { min-width: 52px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
-.trace h4 { color: var(--text); }
+.trace { container: ramp-trace / inline-size; display: grid; gap: 20px; padding: 20px; border: 1px solid var(--border); background: var(--surface); border-radius: 14px; min-width: 0; }
+.trace h4 { margin: 0; color: var(--text); font-size: 16px; line-height: 1.4; }
+.referenceField { width: min(100%, 640px); gap: 8px; }
+.referenceField select { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.trace .traceNotice { margin-top: 0; }
+.traceToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.traceModes { display: flex; align-items: stretch; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
+.traceModes > button { min-height: 40px; padding: 8px 14px; border-color: transparent; background: transparent; font-size: 13px; white-space: nowrap; }
+.traceModes > button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.zoom { display: inline-flex; align-items: center; gap: 8px; }
+.zoom > button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; padding: 8px 12px; font-size: 13px; }
+.zoom output { min-width: 56px; color: var(--text); text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.traceActions { display: flex; align-items: stretch; flex-wrap: wrap; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+.traceActions > button { min-height: 44px; padding: 10px 14px; font-size: 13px; line-height: 1.5; }
+.trace .traceSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 16px; }
+.traceSummary > div { display: grid; align-content: start; gap: 8px; }
+.traceSummary dt { margin: 0; line-height: 1.5; }
+.trace .direction { margin: 0; padding: 14px 16px; border: 1px solid #dbeafe; font-size: 13px; line-height: 1.6; }
+@container ramp-trace (max-width: 540px) {
+  .traceModes { width: 100%; }
+  .traceModes > button { flex: 1; padding-inline: 8px; }
+  .traceActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .traceActions > button { min-width: 0; min-height: 60px; }
+  .trace .traceSummary { grid-template-columns: minmax(0, 1fr); }
+}
