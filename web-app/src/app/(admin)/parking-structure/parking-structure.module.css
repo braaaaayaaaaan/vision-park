@@ -26,8 +26,7 @@
 .primary svg { flex-shrink: 0; }
 .primary:not(:disabled):hover { background: var(--primary-hover); box-shadow: 0 4px 12px rgb(0 0 0 / 18%); }
 .primary:disabled { background: var(--primary-soft); color: var(--text-muted); border-color: var(--border); box-shadow: none; opacity: 1; }
-.error, .success { border-radius: 10px; padding: 16px; }
+.error { border-radius: 10px; padding: 16px; }
 .error { color: #a52a2a; background: #fff4f4; }
 .error > button { margin-top: 12px; }
-.success { color: #235c39; background: #edf7f0; }
 @media (max-width: 650px) { .panel { padding: 16px; } .preview { padding: 8px; } }

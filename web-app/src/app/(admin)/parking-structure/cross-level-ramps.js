@@ -1,4 +1,5 @@
 'use client';
+import SuccessNotice from '../../../components/success-notice';
 import RefreshButton from '../../../components/refresh-button';
 import useConfirmation from '../../../components/use-confirmation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -101,7 +102,7 @@ export default function CrossLevelRamps({ levels: initialLevels, disabled, onDir
     try {
       await floorPlanRequest(basePath, { method: 'PUT', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(batch) });
       if (controller.signal.aborted) return;
-      reset(); setMessage(batch.upserts.length ? 'Successfully saved and revalidated traced ramp connections!' : 'Ramp connection has been deleted!');
+      reset(); setMessage(batch.upserts.length ? 'Successfully saved and revalidated the traced ramp connections!' : 'Ramp connection has been deleted!');
       setLoading(true); setOffset(0); setRefreshKey(value => value + 1);
     } catch (failure) {
       if (!controller.signal.aborted) { setError(failure.message); setLocked(failure.status === 409 || !failure.status || failure.status >= 500); }
@@ -132,7 +133,7 @@ export default function CrossLevelRamps({ levels: initialLevels, disabled, onDir
     <div className={map.heading}><h2>Configure Multi-Level Ramps</h2><RefreshButton label="Refresh Ramps" loading={loading} disabled={busy} onClick={() => refresh()} /></div>
     <p className={map.note}>Connect the saved ramp nodes on different levels using calibrated path traces.</p>
     {error && <p className={map.error} role="alert">{error}{locked ? ' Refresh before retrying. Local edits are retained until you confirm discarding them.' : ''}</p>}
-    {message && <p className={map.success} role="status">{message}</p>}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     <form className={styles.form} onSubmit={save}>
       <h3>{editing ? editing.requires_review || editing.reverse_edge?.requires_review ? 'Review and Reconfirm Ramp' : 'Edit Ramp Connection' : 'New Ramp Connection'}</h3>
       {editing && <p className={map.note}>Saved: {rampLabel(editing.from_node_code, editing.from_level_name)} to {rampLabel(editing.to_node_code, editing.to_level_name)}</p>}
@@ -158,7 +159,7 @@ export default function CrossLevelRamps({ levels: initialLevels, disabled, onDir
         <button className={`${map.button} ${map.primary}`} disabled={busy || locked || !start || !end || !form.confirmed}>{saving ? 'Saving…' : editing?.requires_review || editing?.reverse_edge?.requires_review ? 'Reconfirm Traced Ramp' : 'Save Traced Ramp'}</button>
         <button type="button" className={map.button} disabled={busy} onClick={cancelChanges}>Cancel</button>
         {editing?.reverse_edge && <button type="button" className={styles.deleteAction} disabled={busy || locked} onClick={() => remove(editing, true)}>Delete Both Directions</button>}
-        {touched && <span className={map.note} role="status">Unsaved ramp changes</span>}
+        {touched && <span className={map.note} role="status">Unsaved Ramp Changes</span>}
       </div>
     </form>
     <h3>Saved Ramp Directions</h3>

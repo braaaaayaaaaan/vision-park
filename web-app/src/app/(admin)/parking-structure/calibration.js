@@ -1,4 +1,6 @@
 'use client';
+import SuccessNotice from '../../../components/success-notice';
+import OverviewNotice from '../overview/overview-notice';
 import { useEffect, useRef, useState } from 'react';
 import { floorPlanRequest } from './floor-plans-client.mjs';
 import { floorPlanWidth, imagePoint, panPosition, previewScale } from './calibration-utils.mjs';
@@ -78,7 +80,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
         body: JSON.stringify({ floor_plan_revision: plan.revision, expected_revision: saved?.revision ?? 0,
           start_x: points[0].x, start_y: points[0].y, end_x: points[1].x, end_y: points[1].y, known_distance_m: Number(metres) }),
       });
-      if (!controller.signal.aborted) { setSaved(result.calibration); setMessage('Calibration has been successfully saved!'); setActive(false); }
+      if (!controller.signal.aborted) { setSaved(result.calibration); setMessage('Successfully saved the level calibration!'); setActive(false); }
     } catch (failure) {
       if (!controller.signal.aborted) {
         setError(failure.message);
@@ -105,7 +107,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
         </dd></div>
       </dl> : <p className={styles.note}>This image revision has not yet been calibrated.</p>}
     {error && <p className={styles.error} role="alert">{error}{conflict ? ' Use refresh at the top of the page to load the latest configuration.' : ''}</p>}
-    {message && <p className={styles.success} role="status">{message}</p>}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     {active && <div className={styles.toolbar}>
       <button className={styles.button} aria-pressed={tool === 'select'} disabled={busy} onClick={() => setTool('select')}>Select Points</button>
       <button className={styles.button} aria-pressed={tool === 'pan'} disabled={busy} onClick={() => setTool('pan')}>Pan</button>
@@ -115,7 +117,7 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
       <button className={styles.button} disabled={busy} onClick={() => { setZoom(1); viewport.current.scrollTo(0, 0); }}>Fit Image</button>
       <button className={styles.button} disabled={busy} onClick={() => { setPoints([]); setMessage(''); setTool('select'); }}>Reset Points</button>
     </div>}
-    {active && <p className={styles.note} aria-live="polite">{tool === 'pan' ? 'Drag the image to pan, or use the scrollbars.' : points.length < 2 ? `Select endpoint ${points.length + 1} on the image.` : 'Reference line selected. Enter the known distance or reset points.'}</p>}
+    {active && <p className={styles.note} aria-live="polite">{tool === 'pan' ? 'Drag the image to pan, or use the scrollbars.' : points.length < 2 ? `Select endpoint ${points.length + 1} on the image.` : 'Reference line has been selected. Enter the known distance or reset points.'}</p>}
     <div ref={viewport} className={styles.viewport} tabIndex={0} aria-label="Scrollable Floor Plan">
       <svg ref={drawing} className={active ? tool === 'pan' ? styles.pan : styles.select : styles.image}
         style={{ width: floorPlanWidth(plan.width_px, plan.height_px, active ? zoom : 1) }} viewBox={`0 0 ${plan.width_px} ${plan.height_px}`}
@@ -136,7 +138,8 @@ export default function Calibration({ level, plan, disabled, refreshKey, onEditi
     </div>
     {active && <div className={styles.measurement}>
       <label>Known Distance (Metres)<input type="number" step="any" min="0" value={metres} disabled={busy || conflict} onChange={event => setMetres(event.target.value)} /></label>
-      <p aria-live="polite">{preview ? `Reference: ${preview.pixels.toFixed(2)} px · Preview Scale: ${preview.scale.toPrecision(6)} m/px` : 'Choose two distinct points and enter a positive distance based on the reference.'}</p>
+      {preview ? <p aria-live="polite">{`Reference: ${preview.pixels.toFixed(2)} px · Preview Scale: ${preview.scale.toPrecision(6)} m/px`}</p> :
+        <OverviewNotice className={styles.guidance}><p>Choose two distinct points and enter a positive distance based on the reference</p></OverviewNotice>}
       <button className={`${styles.button} ${styles.primary}`} disabled={busy || !preview || conflict || !ready} onClick={save}>{saving ? 'Saving…' : 'Save Calibration'}</button>
     </div>}
   </section>;

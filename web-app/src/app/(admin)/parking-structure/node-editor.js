@@ -1,4 +1,6 @@
 'use client';
+import SuccessNotice from '../../../components/success-notice';
+import OverviewNotice from '../overview/overview-notice';
 import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
@@ -154,12 +156,12 @@ export default function NodeEditor({ level, plan, disabled, refreshKey, onDirtyC
       <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All Changes Saved'}</dd></div>
       <div className={map.summaryCard}><dt>Revisions</dt><dd><span>Image</span> {plan.revision} <span>· Draft</span> {loading || !data ? '—' : data.draft?.revision ?? 0}</dd></div>
     </dl>
-    {data?.needs_distance_revalidation && <p className={styles.warning} role="status">{data.current_calibration_revision === 0 ?
+    {data?.needs_distance_revalidation && <OverviewNotice className={styles.warning}><p>{data.current_calibration_revision === 0 ?
       'Gentle Reminder: No calibration is saved for this image. Distances will require validation' :
-      'Gentle Reminder: Editing nodes or calibrations require revalidating the distance'}</p>}
+      'Gentle Reminder: Editing nodes or calibrations require revalidating the distance'}</p></OverviewNotice>}
     {error && <p className={map.error} role="alert">{error}{locked ? ' Reload draft, or use the page refresh if the image changed. Unsaved edits are retained until you confirm discarding them.' : ''}</p>}
     {validation && <p className={map.error} role="alert">{validation}</p>}
-    {message && <p className={map.success} role="status">{message}</p>}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     <div className={styles.nodeLayout}>
     <div className={styles.canvas}>
     <div className={`${map.toolbar} ${styles.mapTools}`}>

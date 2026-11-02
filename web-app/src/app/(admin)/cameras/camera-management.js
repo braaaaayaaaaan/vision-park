@@ -97,7 +97,7 @@ export function CameraCard({ camera, active, onChanged }) {
     </div>
     <div className={styles.cameraBody}>
       <section className={styles.operationPanel} aria-label={`${camera.name} processing information`} tabIndex={0}>
-      <div className={styles.operationHeading}><h3>Processing Overview</h3><span>{busy || activeNow?.role === camera.role ? 'In progress' : result ? 'Latest run' : run ? 'Saved run' : camera.available && camera.start_context && !camera.start_problem ? 'Ready when you are' : 'Setup needed'}</span></div>
+      <div className={styles.operationHeading}><h3>Processing Overview</h3><span>{busy || activeNow?.role === camera.role ? 'In Progress' : result ? 'Latest Run' : run ? 'Saved Run' : camera.available && camera.start_context && !camera.start_problem ? 'Ready when you are' : 'Setup Needed'}</span></div>
       {mediaFailed && <div><p className={styles.error} role="alert">Preview could not load. Check your connection and retry.</p><button className={styles.textButton} onClick={async () => {
         try { await fetchCameras(); video.current?.load(); } catch (failure) { setError(failure.message); }
       }}>Reload Preview</button></div>}

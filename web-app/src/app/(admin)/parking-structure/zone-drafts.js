@@ -7,6 +7,8 @@ import { MAX_CAPACITY, ZONE_STATUSES, zoneError } from './zone-draft-utils.mjs';
 import shared from './parking-structure.module.css';
 import layout from './level-management.module.css';
 import styles from './zone-drafts.module.css';
+import OverviewNotice from '../overview/overview-notice';
+import SuccessNotice from '../../../components/success-notice';
 
 const emptyForm = { code: '', name: '', total_capacity: '0', unavailable_capacity: '0', operational_status: 'open' };
 const label = status => ({ open: 'Open', closed: 'Closed', maintenance: 'Maintenance' })[status];
@@ -69,18 +71,20 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
     return mutate('DELETE', zone, { expected_revision: zone.revision });
   }
   return <section id="parking-zones" className={`${shared.panel} ${layout.section}`} aria-label="Parking Zones" aria-busy={saving || loading}>
-    <div className={layout.heading}><div><h2>Parking Zones</h2></div>
-      <div className={layout.actions}>
+    <div className={styles.heading}><h2>Parking Zones</h2>
+      <div className={styles.actions}>
         <button type="button" className={shared.button} disabled={busy || locked || !levelId || Boolean(form) || !data || data.zones.length >= 1000} onClick={() => begin()}>Add Zone</button>
         <RefreshButton label="Refresh Zones" disabled={disabled || saving || !levelId} onClick={reload} />
       </div>
     </div>
-    <label className={shared.field}>Parking Level<select value={levelId} disabled={disabled || saving || Boolean(form)} onChange={event => onLevelChange(event.target.value)}>
-      {levels.length === 0 && <option value="">No parking levels available</option>}
+    <div className={styles.controls}>
+    <label className={`${shared.field} ${styles.levelField}`}><span>Parking Level</span><select value={levelId} disabled={disabled || saving || Boolean(form) || !levels.length} onChange={event => onLevelChange(event.target.value)}>
+      {levels.length === 0 && <option value="">No Parking Levels Available</option>}
       {levels.map(level => <option value={level.id} key={level.id}>{level.name}{level.is_active ? '' : ' (Inactive)'}</option>)}
     </select></label>
-    {!levelId ? <p className={shared.note}>Add a parking level to configure zones.</p> : loading ? <p role="status">Loading draft zones…</p> : null}
-    {message && <p className={shared.success} role="status">{message}</p>}
+    </div>
+    {!levelId ? <OverviewNotice className={layout.emptyNotice}><p>{levels.length ? 'Select a parking level to configure zones.' : 'No parking levels available Add a parking level to configure zones'}</p></OverviewNotice> : loading ? <p role="status">Loading draft zones…</p> : null}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     {error && <p className={shared.error} role="alert">{error}{locked ? ' Refresh zones to load current data before retrying.' : ''}</p>}
     {data && <>
       <div className={styles.summary} aria-label="Draft Level Capacity">
@@ -88,7 +92,7 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
         <div><span>Unavailable Capacity</span><strong>{data.unavailable_capacity.toLocaleString('en-MY')}</strong></div>
         <div><span>Draft {data.zones.length === 1 ? 'Zone' : 'Zones'}</span><strong>{data.zones.length.toLocaleString('en-MY')}</strong></div>
       </div>
-      {data.zones.length === 0 ? <p className={shared.note}>There are no zones for this level yet.</p> :
+      {data.zones.length === 0 ? <OverviewNotice className={layout.emptyNotice}><p>There are no zones for this level yet</p></OverviewNotice> :
         <div className={layout.tableScroll}><table className={layout.table}><caption className={layout.srOnly}>Draft Parking Zones</caption>
           <thead><tr><th>Code</th><th>Zone Name</th><th>Total Capacity</th><th>Unavailable</th><th>Intended Status</th><th>Actions</th></tr></thead>
           <tbody>{data.zones.map(zone => <tr key={zone.id}><td>{zone.code}</td><td>{zone.name}</td><td>{zone.total_capacity.toLocaleString('en-MY')}</td>
@@ -109,7 +113,12 @@ export default function ZoneDrafts({ levels, levelId, onLevelChange, disabled, o
       <label className={shared.field}>Intended Status<select value={form.operational_status} disabled={busy || locked} onChange={event => setForm(current => ({ ...current, operational_status: event.target.value }))}>
         {ZONE_STATUSES.map(status => <option key={status} value={status}>{label(status)}</option>)}
       </select></label>
-      {validation && <p className={shared.error} role="status">{validation}</p>}
+      {validation && <p className={`${shared.error} ${styles.validation}`} role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" /><path d="M12 7v6 M12 17h.01" />
+        </svg>
+        <span>{validation}</span>
+      </p>}
       <div className={`${layout.actions} ${styles.formActions}`}>
         <button className={`${shared.button} ${shared.primary}`} disabled={busy || locked || Boolean(validation)}>{saving ? 'Saving…' : 'Save Zone'}</button>
         <button type="button" className={shared.button} disabled={saving} onClick={() => { setForm(null); setEditing(null); if (!locked) setError(''); }}>Cancel</button>

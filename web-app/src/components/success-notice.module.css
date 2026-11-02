@@ -1,0 +1,4 @@
+.notice { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid #c6e5d2; border-left: 3px solid #2d8a57; border-radius: 12px; background: linear-gradient(110deg, #effaf3, #f8fcf9); box-shadow: 0 2px 6px rgb(22 101 52 / 4%); }
+.icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border: 1px solid #c6e5d2; border-radius: 50%; background: #dff3e7; color: #237246; }
+.notice .message { min-width: 0; align-self: center; margin: 0; padding: 0; color: #225b3a; font-size: 14px; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; }
+@media (max-width: 540px) { .notice { gap: 10px; padding: 14px; } }

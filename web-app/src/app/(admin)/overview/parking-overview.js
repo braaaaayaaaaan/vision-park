@@ -12,6 +12,7 @@ import FinancialSummary from '../payments/financial-summary';
 import { todayPaymentQuery } from '../../../lib/payment-contracts.mjs';
 import MetricIcon from '../../../components/metric-icon';
 import OvernightAlerts from '../sessions/overnight-alerts';
+import OverviewNotice from './overview-notice';
 
 const number = (value) => value.toLocaleString('en-MY');
 const percent = (value) => value === null ? 'N/A' : `${value.toLocaleString('en-MY', { maximumFractionDigits: 1 })}%`;
@@ -27,7 +28,7 @@ export default function ParkingOverview() {
 
   return <div className={styles.page}>
     <div className={styles.heading}>
-      <div><h1>Today's Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last Refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
+      <div><h1>Today&apos;s Parking Overview</h1><p className={styles.muted}>{data ? formatMalaysiaDate(data.reporting_date) : 'Malaysia reporting day'}</p><p className={styles.muted}>Last Refreshed: {data ? `${localTime(data.generated_at)} MYT` : '—'}</p></div>
       <RefreshButton onClick={refresh} loading={loading} />
     </div>
     {loading ? <div className={styles.panel} role="status" aria-live="polite">Loading parking overview…</div> : error ? <div className={styles.panel}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={refresh}>Try Again</button></div> : data &&
@@ -49,7 +50,7 @@ export default function ParkingOverview() {
             <div><strong className={styles.occupancyLegendLabel}>{band.label}</strong><span className={styles.occupancyLegendRange}>{band.threshold}</span></div>
           </li>)}
         </ul>
-        {data.levels.length === 0 ? <p className={styles.empty}>No active parking levels</p> : <div className={styles.levels}>{data.levels.map((level) => {
+        {data.levels.length === 0 ? <OverviewNotice><p>No active parking levels</p></OverviewNotice> : <div className={styles.levels}>{data.levels.map((level) => {
           const percentage = occupancyPercentage(level);
           const { colour, label } = occupancyBand(percentage);
           return <div className={styles.level} key={level.id}>

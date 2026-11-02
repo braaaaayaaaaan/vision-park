@@ -39,7 +39,7 @@ export default function Payments() {
     <header className={common.heading}><h1>Payments</h1><RefreshButton loading={resource.loading} onClick={refresh} /></header>
     <section className={styles.summarySection} aria-labelledby="payment-summary-title" aria-busy={summary.loading}>
       <div className={styles.summaryHeading}><h2 id="payment-summary-title">Payment Summary</h2><span>{applied.start_date ? `${applied.start_date} to ${applied.end_date} · MYT` : 'Last 7 Days · MYT'}</span></div>
-      <p className={styles.muted}>Updates every minute; Refresh checks immediately.{summary.data ? ` Last checked: ${paymentTime(summary.data.server_time)}` : ''}</p>
+      <p className={styles.muted}>Updates every minute, refresh checks immediately.{summary.data ? ` Last checked: ${paymentTime(summary.data.server_time)}` : ''}</p>
       {summary.loading ? <p className={styles.muted} role="status">Loading payment summary…</p> : summary.error ? <div className={styles.summaryError}><p role="alert">Payment summary is unavailable.</p><button className={shared.secondary} onClick={refresh}>Retry Summary</button></div> : <PaymentSummaryCards data={summary.data} />}
     </section>
     <PaymentMode data={data ?? summary.data} disclosure={!selected} />

@@ -1,4 +1,6 @@
 'use client';
+import SuccessNotice from '../../../components/success-notice';
+import OverviewNotice from '../overview/overview-notice';
 import RefreshButton from '../../../components/refresh-button';
 import { useEffect, useId, useRef, useState } from 'react';
 import useConfirmation from '../../../components/use-confirmation';
@@ -58,7 +60,7 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
     if (!editable || preview === null) return;
     try {
       const updated = connectionEdges(edges, source, destination, twoWay, () => crypto.randomUUID());
-      setEdges(updated); setSelected(updated[edges.length].id); setDestination(''); setSource(''); setError(''); setMessage('Connection added. Save draft to persist it.');
+      setEdges(updated); setSelected(updated[edges.length].id); setDestination(''); setSource(''); setError(''); setMessage('Connection has been added. Save draft to persist it.');
     } catch (failure) { setError(failure.message); }
   }
   function remove(confirmed = false) {
@@ -133,9 +135,11 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
       <div className={map.summaryCard}><dt>Save Status</dt><dd role="status">{loading ? 'Loading…' : saving ? 'Saving…' : dirty ? 'Unsaved changes' : !data ? 'Not loaded' : 'All Changes Saved'}</dd></div>
       <div className={map.summaryCard}><dt>Revisions</dt><dd><span>Draft</span> {data?.draft?.revision ?? '—'} <span>· Calibration</span> {data?.current_calibration_revision ?? '—'}</dd></div>
     </dl>
-    {!loading && data && (!data.draft ? <p className={styles.warning}>Gentle Reminder: Add and save nodes before connecting them</p> : !data.calibration ? <p className={styles.warning}>Calibrate this image before connecting nodes.</p> : data.needs_distance_revalidation && <p className={styles.warning}>Gentle Reminder: Node positions and calibration require revalidating the distance</p>)}
+    {!loading && data && (!data.draft || !data.calibration || data.needs_distance_revalidation) &&
+      <OverviewNotice className={styles.warning}><p>{!data.draft ? 'Gentle Reminder: Add and save nodes before connecting them' :
+        !data.calibration ? 'Calibrate this image before connecting nodes.' : 'Gentle Reminder: Node positions and calibration require revalidating the distance'}</p></OverviewNotice>}
     {error && <p className={map.error} role="alert">{error}{locked ? ' Reload draft, or refresh the page if the image changed. Local edits are retained until you confirm discarding them.' : ''}</p>}
-    {message && <p className={map.success} role="status">{message}</p>}
+    {message && <SuccessNotice>{message}</SuccessNotice>}
     <div className={styles.nodeLayout}>
     <div className={styles.canvas}>
     <div className={`${map.toolbar} ${styles.mapTools}`}>
@@ -188,7 +192,7 @@ export default function EdgeEditor({ level, plan, disabled, refreshKey, onDirtyC
         <button type="button" className={local.deleteAction} disabled={!editable} onClick={remove}>Delete Directed Edge</button></>}
       {!edge && <p className={styles.help}>Choose an edge from the list or select an arrow on the map to inspect its distances.</p>}
     </section>
-    <div className={styles.inspectorActions}>
+    <div className={`${styles.inspectorActions} ${local.draftActions}`}>
       <button type="button" className={`${map.button} ${map.primary}`} disabled={!editable || (!dirty && !data?.needs_distance_revalidation)} onClick={save}>{saving ? 'Saving…' : data?.needs_distance_revalidation ? 'Recalculate and Save' : 'Save Draft'}</button>
       <RefreshButton label="Reload Draft" loading={loading} disabled={busy} onClick={reload} />
     </div>

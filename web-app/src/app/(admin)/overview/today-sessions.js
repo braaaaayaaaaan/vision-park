@@ -18,7 +18,7 @@ export default function TodaySessions() {
     <div className={styles.sectionHeading}><h2 id="today-sessions-title">Today's Parking Sessions</h2><a href="/sessions">View Sessions</a></div>
     {loading ? <p className={styles.empty} role="status">Loading today's sessions…</p> : error ?
       <div className={styles.empty}><p className={styles.error} role="alert">{error}</p><button className={styles.refresh} onClick={() => reload()}>Try Again</button></div> :
-      data?.sessions.length === 0 ? <OverviewNotice><p>{offset ? 'No sessions on this page. The list may have changed.' : 'No parking sessions recorded today.'}</p>{offset > 0 && <button className={styles.refresh} onClick={() => reload(0)}>First Page</button>}</OverviewNotice> :
+      data?.sessions.length === 0 ? <OverviewNotice><p>{offset ? 'No sessions on this page. The list may have changed.' : 'No parking sessions recorded today'}</p>{offset > 0 && <button className={styles.refresh} onClick={() => reload(0)}>First Page</button>}</OverviewNotice> :
       <div className={styles.tableScroll} tabIndex={0} aria-label="Scrollable Today's Parking Sessions"><table className={styles.table}>
         <thead><tr>{['Entry Time (MYT)', 'Vehicle Plate', 'Level', 'Zone', 'Current Status'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{data?.sessions.map(row => <tr key={row.id}>

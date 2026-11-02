@@ -6,6 +6,7 @@ import { fetchParkingReminders, sendParkingReminder } from './parking-reminder-c
 import useResource from '../vehicles/use-vehicle-resource';
 import RefreshButton from '../../../components/refresh-button';
 import OverviewNotice from '../overview/overview-notice';
+import SuccessNotice from '../../../components/success-notice';
 import { analyticsQuery, malaysiaToday } from '../analytics/analytics-client.mjs';
 import { fetchOvernightAlerts } from './overnight-client.mjs';
 import { formatAssignedZone, formatDuration, formatTimestamp } from './sessions-client.mjs';
@@ -67,7 +68,7 @@ function useDriverReminders(data, enabled) {
     </div>;
   }
   return { actions, detailContext, content: <>
-    {notice && <p className={styles.reminderNotice} role="status">{notice}</p>}
+    {notice && <SuccessNotice>{notice}</SuccessNotice>}
     {resource.loading && <p className={styles.checked} role="status">Checking driver reminders…</p>}
     {resource.error && <div className={styles.retryRow}><p className={shared.error} role="alert">{resource.error}</p><RefreshButton label="Retry Driver Reminders" onClick={() => setRevision(value => value + 1)} /></div>}
     {confirmationDialog}
@@ -100,7 +101,7 @@ function AlertPage({ resource, offset, onPage, onRetry, onViewSession, reminderA
   return <>
     {loading ? <p className={styles.message} role="status">Checking overnight parking stays…</p> : error ?
       <div className={styles.message}><p className={shared.error} role="alert">{error}</p><button type="button" className={shared.secondary} onClick={onRetry}>Retry Overnight Alerts</button></div> : data && <>
-        {!data.alerts.length ? <OverviewNotice><p>{offset ? 'No overnight stays on this page. Return to the first page.' : data.kind === 'current' ? 'Currently, there are no active overnight stays.' : 'No completed overnight stays were recorded for these exit dates.'}</p></OverviewNotice> : <AlertTable data={data} onViewSession={onViewSession} reminderActions={reminderActions} reminderContext={reminderContext} />}
+        {!data.alerts.length ? <OverviewNotice><p>{offset ? 'No overnight stays on this page. Return to the first page.' : data.kind === 'current' ? 'Currently, there are no active overnight stays' : 'No completed overnight stays were recorded for these exit dates.'}</p></OverviewNotice> : <AlertTable data={data} onViewSession={onViewSession} reminderActions={reminderActions} reminderContext={reminderContext} />}
         <nav className={styles.pagination} aria-label={`${data.kind === 'current' ? 'Current' : 'Past'} Overnight Stays Pagination`}>
           <span>Page {Math.floor(offset / data.limit) + 1} · {data.total} Overnight {data.total === 1 ? 'Stay' : 'Stays'}</span>
           <div className={shared.actions}><button type="button" className={shared.secondary} disabled={!offset} onClick={() => onPage(Math.max(0, offset - data.limit))}>Previous Alerts</button>
@@ -159,7 +160,7 @@ export default function OvernightAlerts({ compact = false, revision = 0, onViewS
         <div><h2 id={`${id}-title`}>Overnight Parking Alerts</h2><p>Representing building-wide alerts.</p></div></div>
       <RefreshButton label="Refresh Overnight Alerts" loading={resource.loading} onClick={() => { setOffset(0); setRetry(value => value + 1); }} />
     </header>
-    {data && <p className={styles.lead} role="status">{active ? `${data.total} active ${data.total === 1 ? 'session has' : 'sessions have'} stayed past midnight.` : 'Currently, there are no active overnight stays.'}</p>}
+    {data && <OverviewNotice><p>{active ? `${data.total} active ${data.total === 1 ? 'session has' : 'sessions have'} stayed past midnight.` : 'Currently, there are no active overnight stays'}</p></OverviewNotice>}
     {!compact && <div className={styles.tabs} role="group" aria-label="Overnight Alert View">
       <button type="button" aria-label="Current Overnight Stays" aria-pressed={tab === 'current'} onClick={() => setTab('current')}>Current Stays{data ? ` (${data.total})` : ''}</button>
       <button type="button" aria-label="Past Overnight Stays" aria-pressed={tab === 'past'} onClick={() => setTab('past')}>Past Stays</button>

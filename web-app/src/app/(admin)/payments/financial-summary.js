@@ -31,7 +31,7 @@ export function FinancialSummaryView({ data, chart = false }) {
     </div>
     {chart && <section className={styles.panel} aria-labelledby="payment-method-revenue-title"><h3 id="payment-method-revenue-title">Revenue by Payment Method</h3>
       <p className={styles.muted}>Successful payments only, excluding wallet top-ups.</p>
-      {!t.parking_revenue_sen && <OverviewNotice><p>No parking revenue for this period.</p></OverviewNotice>}
+      {!t.parking_revenue_sen && <OverviewNotice><p>No parking revenue for this period</p></OverviewNotice>}
       <div className={styles.distribution}>{methods.map(row => <div key={row.label} className={styles.distributionRow}>
         <div className={styles.row}><span>{row.label}</span><strong>{myr(row.value)}</strong></div>
         <div className={styles.track} role="img" aria-label={`${row.label}: ${myr(row.value)}`}><span style={{ width: `${row.value / maximum * 100}%`, background: row.colour }} /></div>
@@ -48,7 +48,7 @@ export default function FinancialSummary({ query = '', revision = 0, chart = fal
   const load = useCallback(signal => fetchPaymentSummary(dateQuery, signal), [dateQuery]);
   const resource = useResource(`finance:${dateQuery}:${revision}:${retry}`, load, live ? 60000 : 0);
   return <section className={styles.stack} aria-labelledby="financial-summary-title" aria-busy={resource.loading}>
-    <div><h2 id="financial-summary-title">Payment Summary</h2><p className={styles.muted}>Applicable for all parking levels.{live ? ' Updates every minute; Refresh checks immediately.' : ''}</p></div>
+    <div><h2 id="financial-summary-title">Payment Summary</h2><p className={styles.muted}>Applicable for all parking levels.{live ? ' Updates every minute, refresh checks immediately.' : ''}</p></div>
     {resource.loading ? <p className={styles.panel} role="status">Loading financial summary…</p> : resource.error ? <div className={styles.panel}>
       <p className={shared.error} role="alert">Unable to load payment summary. Parking reports are still available.</p><button className={shared.secondary} onClick={() => setRetry(value => value + 1)}>Retry Payment Summary</button>
     </div> : <FinancialSummaryView data={resource.data} chart={chart} />}

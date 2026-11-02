@@ -6,6 +6,7 @@ import { floorPlanRequest } from './floor-plans-client.mjs';
 import { levelRowsError, levelSnapshot, MAX_LEVEL_BATCH, MAX_LEVEL_NUMBER, MIN_LEVEL_NUMBER, previewLevels, validLevelSnapshot } from './level-management-utils.mjs';
 import shared from './parking-structure.module.css';
 import styles from './level-management.module.css';
+import OverviewNotice from '../overview/overview-notice';
 
 export default function LevelManagement({ levels, disabled, onSaved, onDirtyChange, onSavingChange }) {
   const [mode, setMode] = useState(null), [editing, setEditing] = useState(null), [rows, setRows] = useState([]), [count, setCount] = useState('3');
@@ -47,7 +48,7 @@ export default function LevelManagement({ levels, disabled, onSaved, onDirtyChan
     setSaving(true); setError('');
     try {
       await floorPlanRequest(path, { method: editing ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: pending.signal });
-      if (!pending.signal.aborted) onSaved(editing ? 'Level details saved.' : `${parsed.length === 1 ? 'Level' : `${parsed.length} Levels`} has been successfully created!`);
+      if (!pending.signal.aborted) onSaved(editing ? 'The level details have been saved!' : `${parsed.length === 1 ? 'The level' : `${parsed.length} The levels`} has been successfully created!`);
     } catch (failure) {
       if (!pending.signal.aborted) { setError(failure.message); setLocked(failure.status === 409 || !failure.status || failure.status >= 500); }
       return false;
@@ -80,13 +81,13 @@ export default function LevelManagement({ levels, disabled, onSaved, onDirtyChan
     }
   }
   return <section className={`${shared.panel} ${styles.section}`} aria-label="Parking Levels" aria-busy={saving}>
-    <div className={styles.heading}><div><h2>Parking Levels</h2><p className={shared.note}></p></div>
+    <div className={styles.heading}><div><h2>Parking Levels</h2></div>
       <div className={styles.actions}>
         <button type="button" className={shared.button} disabled={busy || locked} onClick={() => begin('create')}>Add Level</button>
         <button type="button" className={shared.button} disabled={busy || locked} onClick={() => begin('bulk')}>Add Multiple Levels</button>
       </div>
     </div>
-    {levels.length === 0 ? <p className={shared.note}>No parking levels yet. To get started, add one level or multiple levels.</p> :
+    {levels.length === 0 ? <OverviewNotice className={styles.emptyNotice}><p>No parking levels yet. To get started, add one level or multiple levels</p></OverviewNotice> :
       <div className={styles.tableScroll}><table className={styles.table}><caption className={styles.srOnly}>Configured Parking Levels</caption>
         <thead><tr><th>Level Number</th><th>Level Name</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>{levels.map(level => <tr key={level.id}><td>{level.level_number}</td><td>{level.name}</td><td>{level.is_active ? 'Active' : 'Inactive'}</td>
