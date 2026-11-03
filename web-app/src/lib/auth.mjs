@@ -9,6 +9,18 @@ export const messages = {
   input: 'Enter a valid email address and password.',
   rate: 'Too many attempts. Please wait and try again.',
   origin: 'This request could not be verified. Reload the page and try again.',
+  mfa: 'Complete authenticator verification to continue.',
+  mfa_code: 'That code was not accepted or has expired. Enter the current six-digit code and try again.',
+  mfa_setup: 'Authenticator setup changed. Check the current setup before trying again.',
+  mfa_input: 'Select your authenticator and enter its six-digit code.',
+  reset_link: 'This reset link is invalid, expired or already used. Request a new link in this browser.',
+  reset_pending: 'Check your inbox and spam first. Start over to request a new link; earlier links will stop working in this browser.',
+  password_input: 'Use 8 to 72 bytes with an uppercase letter, a lowercase letter, a number and a special character.',
+  password_current: 'Current password is incorrect.',
+  password_same: 'Choose a different new password.',
+  password_update: 'The update could not be confirmed. Try signing in with your new password, or request a fresh reset link.',
+  password_reauth: 'Sign in again before changing your password.',
+  reset_signedin: 'Sign out of your current account before opening a password reset link.',
 };
 
 export class AuthError extends Error {
@@ -68,7 +80,7 @@ export function isAdministrator(profile) {
     profile.role === 'admin' && profile.approval_status === 'approved' && profile.is_active === true);
 }
 
-export async function verifyAdministrator(accessToken) {
+export async function verifyAdministratorIdentity(accessToken) {
   if (!accessToken) throw new AuthError('expired', 401);
   const response = await request(`${baseUrl(process.env.BACKEND_BASE_URL)}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
@@ -82,6 +94,19 @@ export async function verifyAdministrator(accessToken) {
   return profile;
 }
 
+export async function verifyAdministrator(accessToken) {
+  const profile = await verifyAdministratorIdentity(accessToken);
+  if (profile.mfa_verified !== true || profile.aal !== 'aal2') throw new AuthError('mfa', 403);
+  return profile;
+}
+
+export function validatedSession(session) {
+  if (typeof session?.access_token !== 'string' || !session.access_token ||
+      typeof session.refresh_token !== 'string' || !session.refresh_token ||
+      !Number.isFinite(session.expires_in) || session.expires_in <= 0) throw new AuthError('unavailable');
+  return session;
+}
+
 export async function exchangeToken(grant, body) {
   const { url, key } = supabaseConfig();
   const response = await request(`${url}/auth/v1/token?grant_type=${grant}`, {
@@ -92,10 +117,61 @@ export async function exchangeToken(grant, body) {
   if (!response.ok) throw new AuthError('unavailable');
   let session;
   try { session = await response.json(); } catch { throw new AuthError('unavailable'); }
-  if (typeof session.access_token !== 'string' || !session.access_token ||
-      typeof session.refresh_token !== 'string' || !session.refresh_token ||
-      !Number.isFinite(session.expires_in) || session.expires_in <= 0) throw new AuthError('unavailable');
-  return session;
+  return validatedSession(session);
+}
+
+// Native user-scoped Auth only: never admin APIs, shared SDK sessions, or raw
+// upstream messages. Returned credentials are handled only in server routes.
+export async function mfaAuthRequest(path, token, method = 'POST', body) {
+  if (!/^factors(?:\/[0-9a-f-]{36}(?:\/(?:challenge|verify))?)?$/.test(path)) throw new AuthError('mfa_input', 400);
+  const { url, key } = supabaseConfig();
+  const response = await request(`${url}/auth/v1/${path}`, {
+    method, headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  let data;
+  try { data = await response.json(); } catch { throw new AuthError('unavailable'); }
+  if (response.status === 429) throw new AuthError('rate', 429);
+  if (response.status === 401) throw new AuthError('expired', 401);
+  if (!response.ok) {
+    if ([400, 403, 404, 409, 422].includes(response.status)) {
+      throw new AuthError(path.endsWith('/verify') ? 'mfa_code' : 'mfa_setup', path.endsWith('/verify') ? 400 : 409);
+    }
+    throw new AuthError('unavailable');
+  }
+  return data;
+}
+
+// Existing native, user-scoped password endpoints only. Recovery never uses a
+// service key or changes application profiles, roles, approval or MFA factors.
+export async function passwordAuthRequest(path, token, method, body, redirectTo) {
+  if (!['recover', 'user'].includes(path)) throw new AuthError('input', 400);
+  const { url, key } = supabaseConfig();
+  const destination = new URL(`${url}/auth/v1/${path}`);
+  if (path === 'recover') destination.searchParams.set('redirect_to', redirectTo);
+  let response;
+  try {
+    response = await request(destination.href, {
+      method, headers: { apikey: key, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch (error) {
+    if (method === 'PUT') throw new AuthError('password_update');
+    throw error;
+  }
+  // Account existence, SMTP restrictions and mail limits have the same result.
+  // Keep the verifier even after a rejected/uncertain request; never auto-retry.
+  if (path === 'recover') return {};
+  const data = await response.json().catch(() => null);
+  if (response.status === 429) throw new AuthError('rate', 429);
+  if (response.status === 401) throw new AuthError('expired', 401);
+  if (!response.ok) {
+    const code = { current_password_mismatch: 'password_current', same_password: 'password_same', weak_password: 'password_input',
+      reauthentication_needed: 'password_reauth', reauthentication_not_valid: 'password_reauth', insufficient_aal: 'mfa' }[data?.code];
+    throw new AuthError(code || (method === 'PUT' ? 'password_update' : 'expired'), code ? 400 : method === 'PUT' ? 503 : 401);
+  }
+  if (!data) throw new AuthError(method === 'PUT' ? 'password_update' : 'unavailable');
+  return data;
 }
 
 // Page/data requests must never rotate tokens or mutate browser cookies.
@@ -114,14 +190,14 @@ export async function forwardSession(accessToken) {
 
 export async function refreshSession(accessToken, refreshToken) {
   try {
-    const profile = await verifyAdministrator(accessToken);
+    const profile = await verifyAdministratorIdentity(accessToken);
     return { profile, session: null };
   } catch (error) {
     if (error.status !== 401 || !refreshToken) throw error;
   }
   const session = await exchangeToken('refresh_token', { refresh_token: refreshToken });
   try {
-    return { profile: await verifyAdministrator(session.access_token), session };
+    return { profile: await verifyAdministratorIdentity(session.access_token), session };
   } catch (error) {
     // Preserve rotated tokens during a temporary backend outage, never grant access.
     if (error.status === 503) error.session = session;

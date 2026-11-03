@@ -7,6 +7,8 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/mfa.dart';
+
 class AuthFailure implements Exception {
   const AuthFailure(
     this.message, {
@@ -38,6 +40,7 @@ class AuthProfile {
     this.fullName,
     this.companyName,
     this.email,
+    this.mfaVerified = false,
   });
   final String id;
   final String role;
@@ -47,6 +50,7 @@ class AuthProfile {
   final String? fullName;
   final String? companyName;
   final String? email;
+  final bool mfaVerified;
 
   bool get canEnter =>
       role == 'driver' &&
@@ -73,6 +77,7 @@ class AuthProfile {
 
 abstract interface class AuthRepository {
   bool get hasSession;
+  MfaService? get mfa;
   Stream<void> get changes;
   Future<void> signIn(String email, String password);
   Future<void> signOut();
@@ -188,19 +193,29 @@ class RemoteAuthRepository
     required this.identity,
     required this.baseUrl,
     required this.httpClient,
+    this.mfa,
   }) {
     _owner = identity.userId;
     WidgetsBinding.instance.addObserver(this);
-    _identityChanges = identity.changes.listen((_) {
-      if (_owner != identity.userId || identity.userId == null) {
-        _owner = identity.userId;
-        _cancelReads();
-      }
-    });
+    _identityChanges = identity.changes.listen(
+      (_) {
+        if (_owner != identity.userId || identity.userId == null) {
+          _owner = identity.userId;
+          _cancelReads();
+        }
+        if (!_disposed) _authChanges.add(null);
+      },
+      onError: (Object error) {
+        if (!_disposed) _authChanges.addError(error);
+      },
+    );
   }
   final AuthIdentity identity;
   final Uri baseUrl;
   final http.Client httpClient;
+  @override
+  final MfaService? mfa;
+  final _authChanges = StreamController<void>.broadcast();
   final _reads = <String, Future<dynamic>>{};
   final _cancellations = <Completer<void>>{};
   late final StreamSubscription<void> _identityChanges;
@@ -229,6 +244,7 @@ class RemoteAuthRepository
     _disposed = true;
     _cancelReads();
     _identityChanges.cancel();
+    unawaited(_authChanges.close());
     WidgetsBinding.instance.removeObserver(this);
     httpClient.close();
   }
@@ -306,7 +322,7 @@ class RemoteAuthRepository
   @override
   bool get hasSession => identity.userId != null;
   @override
-  Stream<void> get changes => identity.changes;
+  Stream<void> get changes => _authChanges.stream;
   @override
   Future<void> signIn(String email, String password) =>
       identity.signIn(email.trim(), password);
@@ -410,6 +426,15 @@ class RemoteAuthRepository
         }
         if (response.statusCode == 403) {
           final data = jsonDecode(response.body);
+          if (data is Map &&
+              data['detail'] is Map &&
+              data['detail']['code'] == 'mfa_required') {
+            if (!_disposed) _authChanges.add(null);
+            throw const AuthFailure(
+              'Complete authenticator verification to continue.',
+              code: 'mfa_required',
+            );
+          }
           if (data is Map &&
               data['detail'] == 'Confirm your email before continuing.') {
             throw const AuthFailure('Confirm your email before continuing.');
@@ -598,6 +623,7 @@ class RemoteAuthRepository
       email: identity is SupabaseIdentity
           ? (identity as SupabaseIdentity).client.auth.currentUser?.email
           : null,
+      mfaVerified: data['aal'] == 'aal2' && data['mfa_verified'] == true,
       role: data['role'] as String,
       approvalStatus: data['approval_status'] as String,
       isActive: data['is_active'] as bool,

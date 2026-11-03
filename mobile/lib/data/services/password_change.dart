@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/form_validators.dart';
 import '../repositories/auth_repository.dart';
+import 'mfa.dart';
 
 abstract interface class PasswordChangeService {
   Future<void> change(String currentPassword, String newPassword);
@@ -55,8 +56,17 @@ class SupabasePasswordChangeService implements PasswordChangeService {
           client.auth.currentSession?.user.id != id) {
         throw const AuthFailure('Your session changed. Sign in again.');
       }
+      if (!(await SupabaseMfaService(client).inspect()).ready ||
+          client.auth.currentSession?.user.id != id) {
+        throw const AuthFailure(
+          'Complete authenticator verification before changing your password.',
+          code: 'mfa_required',
+        );
+      }
       updating = true;
-      final result = await temporary.auth.updateUser(
+      // The temporary password login is aal1. Keep it only as the existing
+      // current-password check; the main verified session performs the update.
+      final result = await client.auth.updateUser(
         UserAttributes(password: newPassword, currentPassword: currentPassword),
       );
       if (result.user?.id != id) {
@@ -75,8 +85,8 @@ class SupabasePasswordChangeService implements PasswordChangeService {
         );
       }
       throw AuthFailure(switch (error.code) {
-        'invalid_credentials' || 'current_password_mismatch' =>
-          'Current password is incorrect.',
+        'invalid_credentials' ||
+        'current_password_mismatch' => 'Current password is incorrect.',
         'same_password' => 'Choose a different new password.',
         'weak_password' =>
           'Choose a stronger password that meets the requirements.',

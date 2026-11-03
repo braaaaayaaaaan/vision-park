@@ -12,6 +12,7 @@ enum RecoveryStage {
   sending,
   checkEmail,
   checking,
+  mfa,
   ready,
   updating,
   updated,
@@ -205,7 +206,8 @@ class PasswordRecoveryController extends ChangeNotifier {
     }
     if (_disposed ||
         busy ||
-        (_activeLink == link && stage == RecoveryStage.ready)) {
+        (_activeLink == link &&
+            (stage == RecoveryStage.ready || stage == RecoveryStage.mfa))) {
       return;
     }
     stage = RecoveryStage.checking;
@@ -227,7 +229,11 @@ class PasswordRecoveryController extends ChangeNotifier {
       await _restoreRequestState();
       if (_disposed) return;
       _activeLink = link;
-      stage = RecoveryStage.ready;
+      final assurance = await service!.mfa.inspect();
+      if (_disposed) return;
+      stage = assurance.verified.isNotEmpty && !assurance.ready
+          ? RecoveryStage.mfa
+          : RecoveryStage.ready;
       _cooldownTimer?.cancel();
     } on AuthFailure catch (error) {
       if (_disposed) return;
@@ -237,6 +243,28 @@ class PasswordRecoveryController extends ChangeNotifier {
       if (_disposed) return;
       message = SupabasePasswordRecoveryService.invalidLink;
       stage = RecoveryStage.failure;
+    }
+    _notify();
+  }
+
+  Future<void> completeMfa() async {
+    if (stage != RecoveryStage.mfa || service == null || busy) return;
+    stage = RecoveryStage.checking;
+    message = null;
+    _notify();
+    try {
+      await service!.confirmMfa();
+      if (!_disposed) stage = RecoveryStage.ready;
+    } on AuthFailure catch (error) {
+      if (!_disposed) {
+        stage = RecoveryStage.failure;
+        message = error.message;
+      }
+    } catch (_) {
+      if (!_disposed) {
+        stage = RecoveryStage.failure;
+        message = SupabasePasswordRecoveryService.invalidLink;
+      }
     }
     _notify();
   }

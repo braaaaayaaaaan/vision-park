@@ -40,7 +40,7 @@ export function ZoneList({ zones, zoneIds, inactive = false }) {
   const allowed = zones.filter(zone => zoneIds.includes(zone.id));
   const levels = [...new Set(allowed.map(zone => zone.level_id))];
   return <section className={styles.zoneSection}><h3>Authorised Parking Levels and Zones</h3>
-    <p className={common.muted}>Operates based on a "First Come, First Serve (FCFS)" basis. Authorised companies share each zone's capacity.</p>
+    <p className={common.muted}>Operates based on a &quot;First Come, First Serve (FCFS)&quot; basis. Authorised companies share each zone&apos;s capacity.</p>
     {inactive && <p className={styles.notice}>This company is inactive. Saved permissions take effect after reactivation.</p>}
     {!allowed.length ? <p className={styles.notice}>No parking zones are authorised. Drivers cannot receive a parking allocation until access is granted.</p> :
       levels.map(level => <div key={level} className={styles.level}><h4>{allowed.find(zone => zone.level_id === level).level_name}</h4>

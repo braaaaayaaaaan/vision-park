@@ -79,7 +79,7 @@ def jwks_client(issuer: str) -> jwt.PyJWKClient:
                            timeout=10, cache_keys=False)
 
 
-def verify_access_token(token: str) -> UUID:
+def verify_access_claims(token: str) -> dict:
     started_at = perf_counter()
     issuer = auth_issuer()
     stage = "jwt_header"
@@ -106,9 +106,9 @@ def verify_access_token(token: str) -> UUID:
                                      "strict_aud": True})
         stage = "jwt_subject"
         stage_started_at = perf_counter()
-        user_id = UUID(claims["sub"])
+        UUID(claims["sub"])
         auth_diagnostic("jwt_validation", "succeeded", started_at=started_at)
-        return user_id
+        return claims
     except jwt.PyJWKClientConnectionError:
         auth_diagnostic(stage, "key_service_unavailable", "PyJWKClientConnectionError", started_at=stage_started_at)
         raise HTTPException(503, "Authentication service is unavailable.") from None
@@ -117,16 +117,49 @@ def verify_access_token(token: str) -> UUID:
         raise unauthorized() from None
 
 
-def authenticated_auth_user(
+def verify_access_token(token: str) -> UUID:
+    """Bootstrap/registration compatibility; never interprets a decoded hint."""
+    return UUID(verify_access_claims(token)["sub"])
+
+
+def authenticated_claims(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> User:
+) -> dict:
     if credentials is None or credentials.scheme.lower() != "bearer":
         auth_diagnostic("bearer", "missing_or_invalid_credentials")
         raise unauthorized()
-    user_id = verify_access_token(credentials.credentials)
+    return verify_access_claims(credentials.credentials)
+
+
+def authenticated_auth_user(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)],
+    claims: Annotated[dict, Depends(authenticated_claims)],
+) -> User:
     # Import here because the public client shares auth_issuer with this module.
     from backend.public_auth import get_verified_auth_user
-    return get_verified_auth_user(credentials.credentials, user_id)
+    return get_verified_auth_user(credentials.credentials, UUID(claims["sub"]))
+
+
+def has_verified_totp(user: User) -> bool:
+    return any(factor.factor_type == "totp" and factor.status == "verified"
+               for factor in (user.factors or []))
+
+
+def is_mfa_verified(claims: dict, user: User) -> bool:
+    # Both sources are verified server-side. A stored UI flag or editable user
+    # metadata is never evidence of MFA. Removing the last TOTP closes access.
+    return claims.get("aal") == "aal2" and has_verified_totp(user)
+
+
+def require_mfa(
+    claims: Annotated[dict, Depends(authenticated_claims)],
+    user: Annotated[User, Depends(authenticated_auth_user)],
+) -> None:
+    if not is_mfa_verified(claims, user):
+        raise HTTPException(403, detail={"code": "mfa_required",
+                            "message": "Complete authenticator verification to continue."},
+                            headers={"Cache-Control": "private, no-store",
+                                     "X-VisionPark-Auth": "mfa-required"})
 
 
 def authenticated_user_id(
@@ -171,6 +204,7 @@ def require_application_user(
 
 def require_approved_active_user(
     user: Annotated[ApplicationUser, Depends(require_application_user)],
+    _mfa: Annotated[None, Depends(require_mfa)],
 ) -> ApplicationUser:
     if user.approval_status != "approved" or not user.is_active:
         raise HTTPException(403, "An approved, active account is required.")

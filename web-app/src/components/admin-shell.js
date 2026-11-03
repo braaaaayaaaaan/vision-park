@@ -161,6 +161,7 @@ export default function AdminShell({ children, administrator }) {
             <div className={styles.accountPanel}>
               <p className={styles.accountLabel}>Signed In As</p><p className={styles.accountIdentity}>{accountName}</p>
               <p className={styles.accountRole}>Administrator</p>
+              <a className={styles.changePassword} href="/change-password">Change Password</a>
               <button className={styles.signOut} type="button" aria-haspopup="dialog" onClick={requestSignOut} disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
             </div>
           </details>

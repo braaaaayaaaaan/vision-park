@@ -50,6 +50,8 @@
 .signOut { width: 100%; padding: 8px 16px; border: 1px solid #f1ceca; border-radius: 10px; color: #b42318; background: var(--surface); cursor: pointer; font-weight: 600; }
 .signOut:not(:disabled):hover { background: #fff4f3; }
 .signOut:disabled { opacity: 0.6; cursor: wait; }
+.changePassword { display: block; width: 100%; margin-bottom: 10px; padding: 8px 16px; border: 1px solid var(--primary); border-radius: 10px; color: var(--primary); background: var(--surface); text-align: center; text-decoration: none; font-weight: 600; }
+.changePassword:hover { background: var(--primary-soft); }
 .signOutError { margin-top: 12px; color: #a52a2a; font-size: 13px; overflow-wrap: anywhere; }
 .main { max-width: 1440px; margin: 0 auto; padding: 48px 40px; }
 .menuButton { display: none; }

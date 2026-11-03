@@ -26,6 +26,8 @@ import 'password_recovery_screen.dart';
 import 'registration_screen.dart';
 import 'widgets/auth_layout.dart';
 import '../../data/services/password_change.dart';
+import 'mfa_controller.dart';
+import 'mfa_screen.dart';
 
 /// Only this gate opens the driver shell. Named routes cannot bypass it.
 class AuthGate extends StatefulWidget {
@@ -72,6 +74,20 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   PaymentsController? _payments;
   AllocationNotifications? _allocations;
   String? _allocationOwner;
+  MfaController? _mfa;
+  String? _mfaOwner;
+
+  MfaController? _driverMfa() {
+    final service = widget.repository.mfa;
+    final owner = _controller.profile?.id;
+    if (service == null || owner == null) return null;
+    if (_mfaOwner != owner || _mfa == null) {
+      _mfa?.dispose();
+      _mfaOwner = owner;
+      _mfa = MfaController(service)..load();
+    }
+    return _mfa;
+  }
 
   AllocationNotifications _driverAllocations() {
     final owner = _controller.profile!.id;
@@ -83,11 +99,30 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   }
 
   void _allocationAuthChanged() {
+    if (_controller.status == AuthStatus.mfa ||
+        _controller.status == AuthStatus.signedOut) {
+      // Close a pushed settlement screen as well as the shell underneath it.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            (_controller.status == AuthStatus.mfa ||
+                _controller.status == AuthStatus.signedOut)) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      });
+    }
     if (!widget.repository.hasSession ||
         _controller.status == AuthStatus.signedOut ||
+        _controller.status == AuthStatus.mfa ||
         _controller.status == AuthStatus.blocked) {
       _allocations = null;
       _allocationOwner = null;
+    }
+    if (!widget.repository.hasSession ||
+        _controller.status == AuthStatus.signedOut ||
+        _controller.status == AuthStatus.approved) {
+      _mfa?.dispose();
+      _mfa = null;
+      _mfaOwner = null;
     }
   }
 
@@ -97,6 +132,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     if (repository == null ||
         profile?.role != 'driver' ||
         profile?.approvalStatus != 'approved' ||
+        profile?.mfaVerified != true ||
         repository.ownerId != profile?.id) {
       return null;
     }
@@ -210,6 +246,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     _controller.removeListener(_allocationAuthChanged);
     _controller.dispose();
     _payments?.dispose();
+    _mfa?.dispose();
     super.dispose();
   }
 
@@ -220,6 +257,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       if (_recovery.stage != RecoveryStage.idle) {
         return PasswordRecoveryScreen(
           controller: _recovery,
+          hasApplicationSession: widget.repository.hasSession,
           onReturnToSignIn: _leaveRecovery,
         );
       }
@@ -233,6 +271,24 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         );
       }
       switch (_controller.status) {
+        case AuthStatus.mfa:
+          final mfa = _driverMfa();
+          if (mfa != null) {
+            return MfaScreen(
+              controller: mfa,
+              onComplete: _controller.refresh,
+              onSignOut: _controller.signOut,
+            );
+          }
+          return AuthLayout(
+            title: 'Authenticator Unavailable',
+            description:
+                'Restart the application to check authenticator configuration.',
+            child: OutlinedButton(
+              onPressed: _controller.signOut,
+              child: const Text('Sign Out'),
+            ),
+          );
         case AuthStatus.loading:
           return const AuthLayout(
             title: 'Checking Account',
@@ -314,6 +370,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
                 if (_controller.status == AuthStatus.blocked &&
                     _controller.profile?.role == 'driver' &&
                     _controller.profile?.approvalStatus == 'approved' &&
+                    _controller.profile?.mfaVerified == true &&
                     widget.paymentRepository != null)
                   OutlinedButton.icon(
                     icon: const Icon(Icons.account_balance_wallet_outlined),

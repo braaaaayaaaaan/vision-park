@@ -29,6 +29,8 @@
 .submit:not(:disabled):active { box-shadow: none; }
 .error { color: #a52a2a; background: #fff6f6; border: 1px solid #f0dada; border-radius: 10px; padding: 10px 12px; font-size: 14px; overflow-wrap: anywhere; }
 .status { min-height: 21px; color: var(--text-muted); font-size: 13px; text-align: center; margin-top: -8px; }
+.forgot { justify-self: end; margin-top: -8px; color: var(--primary); font-size: 14px; font-weight: 600; text-decoration: none; }
+.forgot:hover { text-decoration: underline; }
 @media (max-width: 380px) {
   .main { padding-inline: 16px; }
   .panel { padding: 24px 20px; }
