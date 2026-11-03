@@ -18,6 +18,7 @@ import 'features/auth/email_verification_controller.dart';
 import 'data/services/password_recovery.dart';
 import 'features/auth/password_recovery_controller.dart';
 import 'data/services/password_change.dart';
+import 'data/services/mfa.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,7 @@ Future<void> main() async {
       identity: SupabaseIdentity(Supabase.instance.client),
       baseUrl: config.apiBase,
       httpClient: http.Client(),
+      mfa: SupabaseMfaService(Supabase.instance.client),
     );
     runApp(
       _RepositoryLifetime(

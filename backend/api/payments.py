@@ -9,11 +9,12 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from backend import database
-from backend.auth import ApplicationUser, authenticated_user_id, require_administrator
+from backend.auth import ApplicationUser, authenticated_user_id, require_administrator, require_mfa
 from backend.payments import models, service
 
 
-def require_payment_driver(user_id: Annotated[UUID, Depends(authenticated_user_id)]) -> ApplicationUser:
+def require_payment_driver(user_id: Annotated[UUID, Depends(authenticated_user_id)],
+                           _mfa: Annotated[None, Depends(require_mfa)]) -> ApplicationUser:
     try:
         row = database.get_auth_profile(str(user_id))
         if row is None:

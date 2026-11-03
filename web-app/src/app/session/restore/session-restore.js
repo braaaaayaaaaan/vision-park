@@ -8,7 +8,7 @@ export default function SessionRestore({ destination }) {
     let active = true;
     refreshAdministrator().then(response => {
       if (!active) return;
-      if (response.ok) window.location.replace(destination);
+      if (response.ok) response.json().then(result => { if (active) window.location.replace(result.mfa_required ? '/mfa' : destination); }).catch(() => { if (active) setError('Unable to restore your session. Please sign in again.'); });
       else window.location.replace(`/login?reason=${response.status === 403 ? 'denied' : response.status === 401 ? 'expired' : 'unavailable'}`);
     }).catch(failure => { if (active) setError(failure.message || 'Unable to restore your session. Please sign in again.'); });
     return () => { active = false; };

@@ -1,14 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/form_validators.dart';
 import '../repositories/auth_repository.dart';
+import 'mfa.dart';
 
 const passwordRecoveryRedirect = 'visionpark://auth/reset-password';
 
 abstract interface class PasswordRecoveryService {
+  MfaService get mfa;
+  Future<void> confirmMfa();
   Future<RecoveryRequestState> requestState();
   Future<void> startOver();
   Future<void> request(String email);
@@ -74,9 +78,12 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
   SupabasePasswordRecoveryService(
     this.client, {
     required this.requestStore,
+    this.emailLinkEndpoint,
+    http.Client? linkClient,
     DateTime Function()? now,
     void Function(String)? diagnostic,
-  }) : _now = now ?? DateTime.now,
+  }) : _linkClient = linkClient ?? http.Client(),
+       _now = now ?? DateTime.now,
        _diagnostic = diagnostic ?? debugPrint;
   factory SupabasePasswordRecoveryService.create({
     required String url,
@@ -98,13 +105,18 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
         storage,
         'visionpark-recovery-$namespace-request-state',
       ),
+      emailLinkEndpoint: Uri.parse(url).replace(path: '/auth/v1/verify'),
     );
   }
 
   // A standard SDK client without the Flutter session-persistence integration.
   // Recovery auth changes never reach the application's identity/repositories.
   final SupabaseClient client;
+  @override
+  late final MfaService mfa = SupabaseMfaService(client);
   final RecoveryRequestStore requestStore;
+  final Uri? emailLinkEndpoint;
+  final http.Client _linkClient;
   final DateTime Function() _now;
   final void Function(String) _diagnostic;
   bool _requestBusy = false;
@@ -112,6 +124,7 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
       'Check your inbox and spam folder before trying again. Email limits may require a longer wait.';
   String? _authorizedToken;
   String? _authorizedUser;
+  String? _authorizedSessionId;
   String? _usedCode;
   bool _updating = false;
   static const invalidLink =
@@ -133,6 +146,7 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
       // reading, copying, restoring or naming any SDK-private verifier keys.
       _authorizedToken = null;
       _authorizedUser = null;
+      _authorizedSessionId = null;
       await client.auth.signOut(scope: SignOutScope.local);
       await requestStore.write(
         RecoveryRequestState(availableAt: state.availableAt),
@@ -230,7 +244,11 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
     if (_requestBusy) throw const AuthFailure(requestWait);
     _authorizedToken = null;
     _authorizedUser = null;
+    _authorizedSessionId = null;
     try {
+      if (callback.scheme == 'https' || callback.scheme == 'http') {
+        callback = await _resolveEmailLink(callback);
+      }
       final values = <String, String>{};
       if (callback.scheme != 'visionpark' ||
           callback.host != 'auth' ||
@@ -285,6 +303,8 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
       }
       _authorizedToken = session.accessToken;
       _authorizedUser = user.id;
+      _authorizedSessionId = _sessionId(session);
+      if (_authorizedSessionId == null) throw const AuthFailure(invalidLink);
       _usedCode = code;
       try {
         final state = await requestState();
@@ -299,6 +319,80 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
     } catch (_) {
       await end();
       throw const AuthFailure(invalidLink);
+    }
+  }
+
+  // Copying the email's original link into the requesting app also works on an
+  // emulator. Fetch only our own Auth verification endpoint, never arbitrary
+  // URLs or redirect chains. The resulting code still needs this app's PKCE
+  // verifier; no recovery credentials enter the application session.
+  Future<Uri> _resolveEmailLink(Uri link) async {
+    final endpoint = emailLinkEndpoint;
+    final values = link.queryParametersAll;
+    if (endpoint == null ||
+        link.origin != endpoint.origin ||
+        link.path != endpoint.path ||
+        link.userInfo.isNotEmpty ||
+        link.fragment.isNotEmpty ||
+        values.keys.any(
+          (key) => !{'token', 'type', 'redirect_to'}.contains(key),
+        ) ||
+        values.values.any((value) => value.length != 1) ||
+        values['type']?.single != 'recovery' ||
+        (values['token']?.single.isEmpty ?? true) ||
+        link.toString().length > 4096 ||
+        (values['redirect_to'] != null &&
+            values['redirect_to']!.single != passwordRecoveryRedirect)) {
+      throw const AuthFailure(invalidLink);
+    }
+    final response = await _linkClient
+        .send(http.Request('GET', link)..followRedirects = false)
+        .timeout(const Duration(seconds: 15));
+    await response.stream.listen((_) {}).cancel();
+    final location = response.headers['location'];
+    if (!{301, 302, 303, 307, 308}.contains(response.statusCode) ||
+        location == null) {
+      throw const AuthFailure(invalidLink);
+    }
+    return Uri.parse(location);
+  }
+
+  @override
+  Future<void> confirmMfa() async {
+    // Native MFA replaces the access token on this SAME PKCE recovery session.
+    // Never import it into the application client or accept an unrelated aal2.
+    if (_authorizedUser == null ||
+        _authorizedSessionId == null ||
+        !(await mfa.inspect()).ready) {
+      throw const AuthFailure(invalidLink);
+    }
+    final session = client.auth.currentSession;
+    if (session == null ||
+        session.isExpired ||
+        session.user.id != _authorizedUser ||
+        _sessionId(session) != _authorizedSessionId) {
+      throw const AuthFailure(invalidLink);
+    }
+    _authorizedToken = session.accessToken;
+  }
+
+  // Correlation only, after SDK getUser() validation; never authorization from
+  // an unverified JWT claim. The original purpose was proven by PKCE exchange.
+  String? _sessionId(Session session) {
+    try {
+      final payload = jsonDecode(
+        utf8.decode(
+          base64Url.decode(
+            base64Url.normalize(session.accessToken.split('.')[1]),
+          ),
+        ),
+      );
+      final id = payload is Map ? payload['session_id'] : null;
+      return id is String && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id)
+          ? id
+          : null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -317,6 +411,13 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
     }
     _updating = true;
     try {
+      final assurance = await mfa.inspect();
+      if (assurance.verified.isNotEmpty && !assurance.ready) {
+        throw const AuthFailure(
+          'Verify your authenticator before updating your password.',
+          code: 'mfa_required',
+        );
+      }
       final user = (await client.auth.getUser(session.accessToken)).user;
       if (user == null ||
           user.isAnonymous ||
@@ -352,6 +453,7 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
   Future<void> end() async {
     _authorizedToken = null;
     _authorizedUser = null;
+    _authorizedSessionId = null;
     if (client.auth.currentSession != null) {
       try {
         await client.auth.signOut(scope: SignOutScope.local);
@@ -362,5 +464,8 @@ class SupabasePasswordRecoveryService implements PasswordRecoveryService {
   }
 
   @override
-  Future<void> dispose() => client.dispose();
+  Future<void> dispose() async {
+    _linkClient.close();
+    await client.dispose();
+  }
 }

@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
-import { ACCESS_COOKIE, REFRESH_COOKIE, verifyAdministrator } from './lib/auth.mjs';
+import { ACCESS_COOKIE, REFRESH_COOKIE, verifyAdministratorIdentity } from './lib/auth.mjs';
 
 export async function proxy(request) {
   const login = request.nextUrl.pathname === '/login';
+  const mfa = request.nextUrl.pathname === '/mfa';
   let response;
   try {
-    await verifyAdministrator(request.cookies.get(ACCESS_COOKIE)?.value);
-    response = login && !request.nextUrl.searchParams.has('reason')
-      ? NextResponse.redirect(new URL('/overview', request.url))
+    const profile = await verifyAdministratorIdentity(request.cookies.get(ACCESS_COOKIE)?.value);
+    const complete = profile.mfa_verified === true && profile.aal === 'aal2';
+    const destination = !complete && !login && !mfa ? '/mfa'
+      : (login && !request.nextUrl.searchParams.has('reason')) || (mfa && complete) ? (complete ? '/overview' : '/mfa') : null;
+    response = destination
+      ? NextResponse.redirect(new URL(destination, request.url))
       : NextResponse.next({ request: { headers: request.headers } });
   } catch (error) {
     const reason = ['expired', 'denied'].includes(error.code) ? error.code : 'unavailable';
@@ -24,5 +28,5 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/login', '/overview/:path*', '/analytics/:path*', '/approvals/:path*', '/vehicles/:path*', '/tenants/:path*', '/sessions/:path*', '/cameras/:path*', '/parking-structure/:path*', '/parking-rates/:path*', '/payments/:path*'],
+  matcher: ['/login', '/mfa', '/change-password', '/overview/:path*', '/analytics/:path*', '/approvals/:path*', '/vehicles/:path*', '/tenants/:path*', '/sessions/:path*', '/cameras/:path*', '/parking-structure/:path*', '/parking-rates/:path*', '/payments/:path*'],
 };

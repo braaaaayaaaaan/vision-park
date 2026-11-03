@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AuthError, authDiagnostic, exchangeToken, verifyAdministrator, revokeSession, requireSameOrigin, setSessionCookies } from '../../../../lib/auth.mjs';
+import { AuthError, authDiagnostic, exchangeToken, verifyAdministratorIdentity, revokeSession, requireSameOrigin, setSessionCookies } from '../../../../lib/auth.mjs';
 
 export async function POST(request) {
   let session;
@@ -19,9 +19,9 @@ export async function POST(request) {
     stage = 'administrator_verification';
     startedAt = performance.now();
     authDiagnostic(stage, 'reached');
-    await verifyAdministrator(session.access_token);
+    const profile = await verifyAdministratorIdentity(session.access_token);
     authDiagnostic(stage, 'succeeded', { startedAt });
-    const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    const response = NextResponse.json({ ok: true, next: profile.mfa_verified === true && profile.aal === 'aal2' ? '/overview' : '/mfa' }, { headers: { 'Cache-Control': 'no-store' } });
     setSessionCookies(response, session);
     return response;
   } catch (error) {

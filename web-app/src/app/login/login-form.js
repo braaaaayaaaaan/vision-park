@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import Link from 'next/link';
 import { loginAdministrator } from '../../lib/auth-client.mjs';
 import styles from './page.module.css';
 
@@ -26,7 +27,8 @@ export default function LoginForm({ message }) {
         return;
       }
       // A full navigation discards any previously cached administrator UI.
-      window.location.replace('/overview');
+      const result = await response.json();
+      window.location.replace(result.next === '/mfa' ? '/mfa' : '/overview');
     } catch (failure) {
       form.elements.password.value = '';
       setError(failure.message || 'Unable to connect. Check your connection and try again.');
@@ -51,6 +53,7 @@ export default function LoginForm({ message }) {
           </button>
         </div>
       </div>
+      <Link className={styles.forgot} href="/forgot-password">Forgot Password?</Link>
       {error && <p id="login-error" className={styles.error} role="alert">{error}</p>}
       <button className={styles.submit} type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Sign In'}</button>
       <p className={styles.status} role="status">{pending ? 'Verifying administrator access…' : ''}</p>

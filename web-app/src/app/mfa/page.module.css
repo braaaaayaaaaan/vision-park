@@ -1,0 +1,12 @@
+.subtitle { text-wrap: balance; }
+.accessLabel { white-space: nowrap; }
+.footer { display: grid; gap: 16px; padding-top: 24px; }
+.signOut { min-height: 48px; }
+.enrollment { display: grid; gap: 16px; min-width: 0; padding-bottom: 24px; }
+.qrFrame { justify-self: center; width: min(100%, 246px); padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+.qrImage { display: block; width: 100%; height: auto; }
+.setupDetails { display: grid; gap: 10px; min-width: 0; }
+.setupInstructions { color: var(--text-muted); font-size: 14px; text-align: center; text-wrap: balance; }
+.setupKey { display: block; min-width: 0; padding: 16px; border: 1px solid #bfdbfe; border-radius: 12px; background: var(--primary-soft); color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; font-weight: 500; line-height: 1.7; letter-spacing: 0.04em; text-align: center; overflow-wrap: anywhere; user-select: all; }
+.setupNote { color: var(--text-muted); font-size: 13px; text-align: center; text-wrap: balance; }
+.guidance { color: var(--text); font-size: 14px; line-height: 1.7; text-align: center; text-wrap: balance; }

@@ -4,15 +4,19 @@ import 'form_validators.dart';
 import 'password_recovery_controller.dart';
 import 'widgets/auth_layout.dart';
 import 'widgets/password_field.dart';
+import 'mfa_controller.dart';
+import 'mfa_screen.dart';
 
 class PasswordRecoveryScreen extends StatefulWidget {
   const PasswordRecoveryScreen({
     required this.controller,
     required this.onReturnToSignIn,
+    this.hasApplicationSession = false,
     super.key,
   });
   final PasswordRecoveryController controller;
   final Future<void> Function() onReturnToSignIn;
+  final bool hasApplicationSession;
   @override
   State<PasswordRecoveryScreen> createState() => _PasswordRecoveryScreenState();
 }
@@ -23,6 +27,8 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   late final TextEditingController _email;
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
+  final _resetLink = TextEditingController();
+  MfaController? _mfa;
   @override
   void initState() {
     super.initState();
@@ -34,6 +40,8 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
     _email.dispose();
     _password.dispose();
     _confirmation.dispose();
+    _resetLink.dispose();
+    _mfa?.dispose();
     super.dispose();
   }
 
@@ -61,6 +69,16 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final stage = controller.stage;
+    if (stage == RecoveryStage.mfa) {
+      _mfa ??= MfaController(controller.service!.mfa, allowEnrollment: false)
+        ..load();
+      return MfaScreen(
+        controller: _mfa!,
+        recovery: true,
+        onComplete: controller.completeMfa,
+        onSignOut: widget.onReturnToSignIn,
+      );
+    }
     final request =
         stage == RecoveryStage.request || stage == RecoveryStage.sending;
     final create =
@@ -118,13 +136,45 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Check inbox and spam. Open the link on this device.',
+                      "Open the email on this device. Reading email elsewhere? Copy the reset button's link address and paste it below without opening it first.",
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
+            ],
+            if (!controller.busy &&
+                (stage == RecoveryStage.checkEmail ||
+                    (request && controller.pendingRequest) ||
+                    stage == RecoveryStage.failure)) ...[
+              TextField(
+                controller: _resetLink,
+                autocorrect: false,
+                enableSuggestions: false,
+                keyboardType: TextInputType.url,
+                maxLength: 4096,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Reset Link',
+                  hintText: 'Paste the link from your reset email',
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.link_rounded),
+                label: const Text('Continue with Reset Link'),
+                onPressed: () {
+                  final link = _resetLink.text.trim();
+                  _resetLink.clear();
+                  controller.handleLink(
+                    link,
+                    hasApplicationSession: widget.hasApplicationSession,
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
             ],
             if ((request ||
                     stage == RecoveryStage.checkEmail ||

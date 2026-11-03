@@ -5,8 +5,9 @@ import { ACCESS_COOKIE, REFRESH_COOKIE, AuthError, refreshSession, requireSameOr
 export async function POST(request) {
   try {
     requireSameOrigin(request);
-    const { session } = await refreshSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
-    const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const { profile, session } = await refreshSession(request.cookies.get(ACCESS_COOKIE)?.value, request.cookies.get(REFRESH_COOKIE)?.value);
+    const mfaRequired = profile.mfa_verified !== true || profile.aal !== 'aal2';
+    const response = NextResponse.json({ ok: true, mfa_required: mfaRequired, next: mfaRequired ? '/mfa' : '/overview' }, { headers: { 'Cache-Control': 'private, no-store' } });
     if (session) setSessionCookies(response, session);
     return response;
   } catch (error) {

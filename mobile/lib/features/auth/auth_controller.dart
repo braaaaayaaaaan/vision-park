@@ -4,7 +4,15 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/auth_repository.dart';
 
-enum AuthStatus { loading, signedOut, completion, blocked, approved, error }
+enum AuthStatus {
+  loading,
+  signedOut,
+  completion,
+  blocked,
+  mfa,
+  approved,
+  error,
+}
 
 class AuthController extends ChangeNotifier {
   AuthController(this.repository) {
@@ -61,6 +69,10 @@ class AuthController extends ChangeNotifier {
         // A sign-out event during a request must not restore dashboard access.
         status = !repository.hasSession
             ? AuthStatus.signedOut
+            : profile.role == 'driver' &&
+                  profile.approvalStatus == 'approved' &&
+                  !profile.mfaVerified
+            ? AuthStatus.mfa
             : profile.canEnter
             ? AuthStatus.approved
             : AuthStatus.blocked;
@@ -68,6 +80,7 @@ class AuthController extends ChangeNotifier {
         // Retain driver identity for account-status feedback. The gate limits
         // payment-only access to approved profiles without opening the shell.
         if (status == AuthStatus.approved ||
+            status == AuthStatus.mfa ||
             (status == AuthStatus.blocked && profile.role == 'driver')) {
           this.profile = profile;
         }
