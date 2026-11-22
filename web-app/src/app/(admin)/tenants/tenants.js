@@ -48,7 +48,7 @@ export default function Tenants() {
         !data?.companies.length ? <RecordsState title={offset ? 'No Companies on This Page' : applied.search || applied.status !== 'all' ? 'No Matching Companies' : 'No Companies Yet'}
           message={offset ? 'The list may have changed. Return to the first page.' : 'Register a company or adjust your filters.'} onFirstPage={offset ? () => setOffset(0) : null} /> :
           <TenantTable companies={data.companies} onDetails={(id, trigger) => setSelection({ id, trigger })} />}
-      <nav className={common.pagination} aria-label="Company Pagination"><span>{data ? `${data.total} companies · Page ${Math.floor(offset / 25) + 1}` : 'Loading companies…'}</span>
+      <nav className={common.pagination} aria-label="Company Pagination"><span>{data ? `${data.total} Companies · Page ${Math.floor(offset / 25) + 1}` : 'Loading companies…'}</span>
         <div className={shared.actions}><button className={shared.secondary} disabled={resource.loading || !offset} onClick={() => setOffset(value => Math.max(0, value - 25))}>Previous</button>
           <button className={shared.secondary} disabled={resource.loading || !data || offset + 25 >= data.total} onClick={() => setOffset(value => value + 25)}>Next</button></div></nav>
     </section>

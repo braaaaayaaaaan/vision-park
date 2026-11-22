@@ -20,7 +20,7 @@ class PlateDetector:
     PLATE_CLASS_ID = 0
     PLATE_CLASS_NAME = "plate"
 
-    def __init__(self, model_path: str = "models/plate/best.pt", confidence_threshold: float = 0.5):
+    def __init__(self, model_path: str = "models/plate/yolo26n_np_finetuned.pt", confidence_threshold: float = 0.5):
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
 

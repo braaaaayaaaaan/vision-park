@@ -13,7 +13,6 @@ export function SessionSummary({ resource, onRetry }) {
     ['cancelled', 'cancelled', 'Cancelled parking sessions'],
   ];
   return <section className={local.summary} aria-label="Parking Session Summary" aria-busy={resource.loading}>
-    <p className={local.note}>Session counts across all pages. Plate, level and date filters apply; all statuses are included.</p>
     <div className={`${overview.kpis} ${overview.alignedKpis}`}>
       {metrics.map(([status, icon, description]) => <article key={status} className={`${overview.kpi} ${overview.overviewStat}`}>
         <div className={overview.statHeader}><MetricIcon name={icon} large solid /><h2>{sessionLabels[status]}</h2></div>

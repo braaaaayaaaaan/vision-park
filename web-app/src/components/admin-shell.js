@@ -149,7 +149,7 @@ export default function AdminShell({ children, administrator }) {
               <path d="M11 5 6 9H3v6h3l5 4V5Z" />
               {sounds.enabled ? <path d="M15 8a6 6 0 0 1 0 8 M18 5a10 10 0 0 1 0 14" /> : <path d="m16 9 5 6 m0-6-5 6" />}
             </svg>
-            <span>{sounds.enabled ? 'Sounds on' : 'Enable sounds'}</span>
+            <span>{sounds.enabled ? 'Sounds On' : 'Enable Sounds'}</span>
           </button>
           {sounds.error && <span className={styles.soundError} role="status">{sounds.error}</span>}
           <details className={styles.account} ref={account}>

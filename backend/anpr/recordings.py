@@ -14,7 +14,7 @@ from fastapi import HTTPException
 
 RECORDINGS = Path(__file__).resolve().parents[2] / 'data' / 'videos'
 ENTRANCE_RECORDING = RECORDINGS / 'inti_entrance.mp4'
-EXIT_RECORDING = RECORDINGS / 'inti_exit.mp4'
+EXIT_RECORDING = RECORDINGS / 'inti_entrance_heavy_rain_h264.mp4'
 SOURCES = {'entrance': ENTRANCE_RECORDING, 'exit': EXIT_RECORDING}
 _lock = Lock()
 _state_lock = Lock()

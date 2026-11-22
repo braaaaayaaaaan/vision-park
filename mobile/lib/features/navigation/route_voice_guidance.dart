@@ -32,6 +32,7 @@ class RouteVoiceGuidance extends ChangeNotifier {
   static const _sentenceGap = Duration(milliseconds: 350);
 
   bool get enabled => _enabled;
+  bool get isSpeakingOrPlaying => _draining || (_enabled && _playing);
   bool get canEnable =>
       !_disposed && !_failed && (_plan?.canSynchronizePreview ?? false);
   bool get canRetry =>

@@ -19,7 +19,7 @@ export default function VehicleRecordsTable({ vehicles, selectedIds, locked, onS
   const all = eligible.length > 0 && selected.length === eligible.length;
   return <>
     <div className={styles.bulkToolbar}>
-      <p role="status" aria-live="polite">{selected.length} {selected.length === 1 ? 'vehicle' : 'vehicles'} selected <span className={styles.muted}>· Current page only</span></p>
+      <p role="status" aria-live="polite">{selected.length} {selected.length === 1 ? 'Vehicle' : 'Vehicles'} Selected <span className={styles.muted}>· Current Page Only</span></p>
       <button className={shared.primary} disabled={locked || !selected.length} onClick={onApproveSelected}>Approve Selected</button>
     </div>
     <div className={shared.tableScroll} tabIndex={0} aria-label="Scrollable Vehicle Records Table">

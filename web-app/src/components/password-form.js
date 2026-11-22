@@ -5,7 +5,7 @@ import { mutateAdministratorPassword } from '../lib/auth-client.mjs';
 import styles from '../app/login/page.module.css';
 import extra from './password-form.module.css';
 
-const policy = 'Use at least 8 characters, including an uppercase letter, a lowercase letter, a number and a special character. Maximum 72 bytes.';
+const policy = 'Use at least 8 characters, including an uppercase letter, a lowercase letter, a number and a special character.';
 function PasswordField({ name, label, pending, current = false }) {
   const [visible, setVisible] = useState(false);
   return <div className={styles.field}>

@@ -323,16 +323,44 @@ class NavigationController extends ChangeNotifier {
         data!.parking!.session.id != sessionId) {
       return false;
     }
-    final previous = data!;
-    final parking = previous.parking!;
+    return await _confirm(data!.parking!) == null;
+  }
+
+  /// Confirm a verified active session without changing the selected route.
+  Future<String?> confirmAllocation(
+    ActiveParking? Function() currentAllocation,
+  ) async {
+    await _assignedRead;
+    final parking = !_disposed && !confirming && hasConfirmationService
+        ? currentAllocation()
+        : null;
+    if (parking == null) {
+      return 'Unable to verify this parking session. Refresh and try again.';
+    }
+    return _confirm(parking);
+  }
+
+  Future<String?> _confirm(ActiveParking parking) async {
+    final isSelected = data?.parking?.session.id == parking.session.id;
     confirming = true;
-    confirmationMessage = null;
-    confirmationSucceeded = false;
+    if (isSelected) {
+      confirmationMessage = null;
+      confirmationSucceeded = false;
+    }
     notifyListeners();
     try {
       final session = await (routeRepository as ParkingConfirmationRepository)
           .confirmParking(parking);
-      if (_disposed) return false;
+      if (_disposed) return 'Refresh your parking session to check its status.';
+      final current = data;
+      final selected = current?.parking;
+      final previous =
+          isSelected &&
+              selected?.zone.id == parking.zone.id &&
+              selected?.vehicle.id == parking.vehicle.id
+          ? current
+          : null;
+      final source = previous?.parking ?? parking;
       final updated = ActiveParking(
         session: session,
         vehicle: DriverVehicle(
@@ -344,30 +372,32 @@ class NavigationController extends ChangeNotifier {
           sessionInformationAvailable: true,
           removalPermitted: parking.vehicle.removalPermitted,
         ),
-        zone: parking.zone,
-        route: parking.route,
-        anprInformation: parking.anprInformation,
-        anprVerifiedAt: parking.anprVerifiedAt,
+        zone: source.zone,
+        route: source.route,
+        anprInformation: source.anprInformation,
+        anprVerifiedAt: source.anprVerifiedAt,
       );
-      data = NavigationData(
-        parking: updated,
-        graph: previous.graph,
-        destinationNodeId: previous.destinationNodeId,
-        instructions: previous.instructions,
-      );
+      if (isSelected) {
+        data = NavigationData(
+          parking: updated,
+          graph: previous?.graph,
+          destinationNodeId: previous?.destinationNodeId,
+          instructions: previous?.instructions ?? const [],
+        );
+        confirmationMessage = 'Your parking has been confirmed. Your session is now marked as occupied.';
+        confirmationSucceeded = true;
+      }
       sessions = [
         for (final item in sessions)
           item.session.id == session.id ? updated : item,
       ];
-      confirmationMessage = 'Your parking has been confirmed. Your session is now marked as occupied.';
-      confirmationSucceeded = true;
-      return true;
-    } on AuthFailure catch (error) {
-      if (!_disposed) confirmationMessage = error.message;
-      return false;
-    } catch (_) {
-      if (!_disposed) confirmationMessage = 'Unable to confirm parking. Refresh the session to check its status before retrying.';
-      return false;
+      return null;
+    } catch (error) {
+      final message = error is AuthFailure
+          ? error.message
+          : 'Unable to confirm parking. Refresh the session to check its status before retrying.';
+      if (!_disposed && isSelected) confirmationMessage = message;
+      return message;
     } finally {
       confirming = false;
       if (!_disposed) notifyListeners();

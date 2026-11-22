@@ -78,7 +78,6 @@ export default function SessionDetails({ session: snapshot, overnight, isListed 
         <section className={`${local.detailCard} ${local.activityCard}`} aria-labelledby="session-activity-title">
           <SessionCardHeading id="session-activity-title" icon="sessions">Activity</SessionCardHeading>
           <DetailFields fields={activity} />
-          {session.duration_seconds !== null && <p className={local.note}>Duration from entry to exit.</p>}
         </section>
         {overnight && <OvernightDetails alert={overnight} />}
       </div>

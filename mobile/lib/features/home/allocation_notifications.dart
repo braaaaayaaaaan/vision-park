@@ -6,6 +6,9 @@ class AllocationNotifications {
   bool _hasBaseline = false;
   final _seen = <String>{};
   final _pending = <String, ActiveParking>{};
+  ActiveParking? _pendingNavigation;
+
+  bool get hasPendingNavigation => _pendingNavigation != null;
 
   static bool isAllocated(ActiveParking parking) =>
       parking.session.status == ParkingSessionStatus.allocated &&
@@ -21,15 +24,26 @@ class AllocationNotifications {
         if (isAllocated(parking)) parking.session.id: parking,
     };
     _pending.removeWhere((id, _) => !allocated.containsKey(id));
+    ActiveParking? newAllocation;
     for (final parking in sessions) {
       final id = parking.session.id;
       if (_seen.add(id) && _hasBaseline && allocated.containsKey(id)) {
         _pending[id] = parking;
+        // The active-session feed lists the newest allocation first.
+        newAllocation ??= parking;
       } else if (_pending.containsKey(id)) {
         _pending[id] = parking;
       }
     }
+    _pendingNavigation =
+        newAllocation ?? allocated[_pendingNavigation?.session.id];
     _hasBaseline = true;
+  }
+
+  ActiveParking? takeNavigationAllocation() {
+    final parking = _pendingNavigation;
+    _pendingNavigation = null;
+    return parking;
   }
 
   /// Taking a notice consumes it, even if its banner is later hidden/disposed.
