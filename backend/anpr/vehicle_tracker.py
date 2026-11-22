@@ -21,19 +21,12 @@ class VehicleTracker:
     yolo26 model and ByteTrack tracking algorithm
     """
 
-    #note: for now, let's keep it this way huh 
-    VEHICLE_CLASSES = {
-        2: "car",
-        3: "motorcycle",
-        5: "bus",
-        7: "truck"
-    }
+    VEHICLE_CLASS_NAMES = frozenset({"car", "motorcycle", "bus", "truck"})
 
-    def __init__(self, model_path: str = "models/vehicle/yolo26s.pt", confidence_threshold: float = 0.5):
+    def __init__(self, model_path: str = "models/vehicle/yolo26s_vehicle_finetuned.pt", confidence_threshold: float = 0.5):
         self.model_path = model_path
-        self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
-        self.vehicle_classes = self.VEHICLE_CLASSES
+        self.reset()
 
     def update(self, frame):
         results = self.model.track(
@@ -92,4 +85,21 @@ class VehicleTracker:
         }
 
     def reset(self) -> None:
-        self.model = YOLO(self.model_path)
+        model = YOLO(self.model_path)
+        vehicle_classes = {}
+        matched_names = set()
+        for class_id, label in model.names.items():
+            name = label.strip().casefold()
+            if name not in self.VEHICLE_CLASS_NAMES:
+                continue
+            if name in matched_names:
+                raise ValueError(f"{self.model_path}: ambiguous vehicle class {name!r}")
+            vehicle_classes[class_id] = name
+            matched_names.add(name)
+        missing_names = self.VEHICLE_CLASS_NAMES - matched_names
+        if missing_names:
+            raise ValueError(
+                f"{self.model_path}: missing vehicle classes: {', '.join(sorted(missing_names))}"
+            )
+        self.model = model
+        self.vehicle_classes = vehicle_classes

@@ -39,12 +39,14 @@ Map<String, String> emailConfirmationParameters(Uri uri) {
     'error',
     'error_code',
     'error_description',
+    'sb', // Supabase Auth's empty redirect marker.
   };
   final values = <String, String>{};
   for (final source in [uri.query, uri.fragment]) {
     for (final entry in Uri(query: source).queryParametersAll.entries) {
       if (!allowed.contains(entry.key) ||
           entry.value.length != 1 ||
+          (entry.key == 'sb' && entry.value.single.isNotEmpty) ||
           values.containsKey(entry.key)) {
         throw const AuthFailure(
           'This confirmation link has invalid or ambiguous parameters.',

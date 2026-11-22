@@ -16,8 +16,8 @@ from backend.anpr.events import RecognitionEvent
 class ANPRPipeline:
     """One source run; construct a fresh pipeline to replay/reset tracking."""
 
-    def __init__(self, source, vehicle_model_path: str = "models/vehicle/yolo26s.pt",
-                 plate_model_path: str = "models/plate/best.pt",
+    def __init__(self, source, vehicle_model_path: str = "models/vehicle/yolo26s_vehicle_finetuned.pt",
+                 plate_model_path: str = "models/plate/yolo26n_np_finetuned.pt",
                  vehicle_confidence: float = 0.5, plate_confidence: float = 0.5, *,
                  camera_id: str, camera_role: str,
                  minimum_observations: int = 5, confirmation_ratio: float = 0.6,

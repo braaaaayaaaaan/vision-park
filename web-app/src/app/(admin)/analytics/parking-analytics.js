@@ -15,7 +15,7 @@ const movementsSeries = [{ key: 'entries', label: 'Entries', colour: '#16A34A' }
 const durationSeries = [{ key: 'count', label: 'Completed Sessions', colour: 'var(--chart-supporting)' }];
 const number = (value) => value.toLocaleString('en-MY');
 const hour = (value) => value === null ? 'N/A' : `${String(value.hour).padStart(2, '0')}:00–${String((value.hour + 1) % 24).padStart(2, '0')}:00`;
-const duration = (seconds) => seconds === null ? 'N/A' : seconds < 60 ? `${Math.round(seconds)} sec` : `${(seconds / 60).toLocaleString('en-MY', { maximumFractionDigits: 1 })} min`;
+const durationHours = (seconds) => seconds === null ? 'N/A' : `${(seconds / 3600).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} hours`;
 
 export default function ParkingAnalytics() {
   const [draft, setDraft] = useState({ preset: '7', start_date: '', end_date: '', level_id: '' });
@@ -58,7 +58,7 @@ export default function ParkingAnalytics() {
       <div className={`${styles.kpis} ${styles.alignedKpis}`}>
         <Kpi icon="entry" title="Total Entries" value={number(data.summary.total_entries)} detail="Entry timestamps in range" />
         <Kpi icon="exit" title="Total Exits" value={number(data.summary.total_exits)} detail="Exit timestamps in range" />
-        <Kpi icon="sessions" title="Average Parking Duration" value={duration(data.summary.average_duration_seconds)} detail={`${number(data.durations.valid_completed_sessions)} valid completed sessions`} />
+        <Kpi icon="sessions" title="Average Parking Duration" value={durationHours(data.summary.average_duration_seconds)} detail={`${number(data.durations.valid_completed_sessions)} valid completed sessions`} />
         <Kpi icon="vehicles" title="Peak Entry Hour" value={hour(data.summary.peak_entry_hour)} detail={data.summary.peak_entry_hour ? `${number(data.summary.peak_entry_hour.count)} entries · Hourly Total` : 'No entries in range'} />
       </div>
       <AnalyticsChart id="entry-exit-trends" title="Vehicle Entry and Exit Trends" description={data.granularity === 'hour' ? 'Hourly totals for the selected Malaysia calendar day.' : 'Daily totals by following the Malaysia calendar date.'} rows={data.movements.map(row => ({ ...row, period: data.granularity === 'hour' ? row.period : formatMalaysiaDate(row.period) }))} series={movementsSeries} unit="Vehicles" axis={data.granularity === 'hour' ? 'Hour of Day (MYT)' : 'Calendar Date (DD-MM-YYYY)'} />

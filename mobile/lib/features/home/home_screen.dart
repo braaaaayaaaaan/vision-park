@@ -42,6 +42,7 @@ class HomeScreen extends StatefulWidget {
     this.allocationNotifications,
     this.onAllocationSelected,
     this.onSessionSelected,
+    this.pollSessionsOffHome,
     super.key,
   });
 
@@ -63,6 +64,7 @@ class HomeScreen extends StatefulWidget {
   final AllocationNotifications? allocationNotifications;
   final ValueChanged<ActiveParking>? onAllocationSelected;
   final ValueChanged<ActiveParking>? onSessionSelected;
+  final bool Function()? pollSessionsOffHome;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -87,19 +89,23 @@ class _HomeScreenState extends State<HomeScreen> {
     _controller.refreshParking();
     _controller.addListener(_parkingChanged);
     _poller = VisiblePoller(
-      refresh: () => _controller.refreshParking(background: true),
+      refresh: () => _homeIsCurrent
+          ? _controller.refreshParking(background: true)
+          : _controller.loadSessions(background: true),
       hasError: () =>
           _controller.sessionError != null ||
-          _controller.availabilityError != null,
+          (_homeIsCurrent && _controller.availabilityError != null),
       isVisible: () =>
           mounted &&
-          widget.isVisible &&
-          ModalRoute.of(context)?.isCurrent != false,
+          (_homeIsCurrent || widget.pollSessionsOffHome?.call() == true),
     );
     _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
   }
+
+  bool get _homeIsCurrent =>
+      widget.isVisible && ModalRoute.of(context)?.isCurrent != false;
 
   void _parkingChanged() => widget.onActiveParkingChanged?.call(
     _controller.activeSessions.isNotEmpty,

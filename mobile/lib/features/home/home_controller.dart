@@ -40,10 +40,7 @@ class HomeController extends ChangeNotifier {
       // Each section waits only for its own older read. Concurrent change
       // notifications then coalesce into one fresh read per section.
       await Future.wait([
-        () async {
-          await _sessionRead;
-          await loadSessions(background: background);
-        }(),
+        refreshSessionsAfterChange(background: background),
         () async {
           await _availabilityRead;
           await loadAvailability(background: background);
@@ -55,6 +52,11 @@ class HomeController extends ChangeNotifier {
       loadSessions(background: background),
       loadAvailability(background: background),
     ]);
+  }
+
+  Future<void> refreshSessionsAfterChange({bool background = false}) async {
+    await _sessionRead;
+    await loadSessions(background: background);
   }
 
   bool _availabilityLoading = false;

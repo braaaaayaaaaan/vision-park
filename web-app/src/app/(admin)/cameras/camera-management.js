@@ -16,7 +16,7 @@ function Badge({ value, children }) {
 export function Results({ result }) {
   if (!result) return null;
   return <section className={styles.results} aria-label="Latest Processing Results">
-    <div className={styles.sectionHeading}><h3>Latest Results</h3><span>{result.results.length} vehicle{result.results.length === 1 ? '' : 's'}</span></div>
+    <div className={styles.sectionHeading}><h3>Latest Results</h3><span>{result.results.length} Vehicle{result.results.length === 1 ? '' : 's'}</span></div>
     {result.status === 'no_recognition' && <p>No confirmed plates were recognised. No parking allocation or exit was created.</p>}
     {result.status && result.status !== 'no_recognition' && <p>{label(result.status)}</p>}
     <ul className={styles.resultList}>{result.results.map((row, index) => <li key={`${row.event.plate_number}:${index}`}>
